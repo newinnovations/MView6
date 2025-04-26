@@ -273,7 +273,7 @@ impl ObjectImpl for MViewWindowImp {
 
         self.show_info_widget(false);
         window.set_child(Some(&w.hbox));
-        window.show();
+        // window.show();
 
         self.set_backend(<dyn Backend>::current_dir(), Selection::None, false);
 

@@ -22,7 +22,7 @@ use std::cell::OnceCell;
 use gio::File;
 use gtk4::{
     glib,
-    prelude::{GtkWindowExt, WidgetExt},
+    prelude::GtkWindowExt,
     subclass::prelude::*,
     Application,
 };
@@ -48,31 +48,21 @@ impl ObjectImpl for MviewApplicationImp {}
 /// related to showing a new window. After this, depending on how
 /// the application is started, either `activate` or `open` will be called next.
 impl ApplicationImpl for MviewApplicationImp {
-    /// `gio::Application::activate` is what gets called when the
-    /// application is launched by the desktop environment and
-    /// aksed to present itself.
-    fn activate(&self) {
-        let window = self.window.get().expect("failed to get window");
-        println!("window:activate");
-        window.show(); //show_all();
-        window.present();
-    }
-
     fn startup(&self) {
         self.parent_startup();
         let window = MViewWindow::new(&self.obj());
+        window.present();
         self.window
             .set(window)
             .expect("Failed to initialize application window");
     }
 
     fn open(&self, files: &[File], hint: &str) {
-        println!("OPEN");
+        println!("window:open");
         dbg!(files, hint);
         if !files.is_empty() {
             let file = &files[0];
             let window = self.window.get().expect("failed to get window");
-            // window.load(file);
             window.navigate_to(file, false);
         }
     }
