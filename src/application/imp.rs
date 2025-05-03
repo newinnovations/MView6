@@ -20,12 +20,7 @@
 use std::cell::OnceCell;
 
 use gio::File;
-use gtk4::{
-    glib,
-    prelude::GtkWindowExt,
-    subclass::prelude::*,
-    Application,
-};
+use gtk4::{glib, prelude::GtkWindowExt, subclass::prelude::*, Application};
 
 use crate::window::MViewWindow;
 

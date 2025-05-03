@@ -17,10 +17,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::Path;
+use glib::clone;
+use gtk4::prelude::{TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
 
-use glib::{clone, subclass::types::ObjectSubclassExt};
-use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
@@ -73,13 +72,14 @@ impl MViewWindowImp {
             }
         ));
 
-        let path = Path::new(new_backend.path());
-        let filename = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
-        self.obj().set_title(Some(&format!("MView6 - {filename}")));
+        // TODO: think about title management
+        // let path = Path::new(new_backend.path());
+        // let filename = path
+        //     .file_name()
+        //     .unwrap_or_default()
+        //     .to_str()
+        //     .unwrap_or_default();
+        // self.obj().set_title(Some(&format!("MView6 - {filename}")));
 
         w.file_view.set_model(Some(&new_store));
         self.skip_loading.set(skip_loading);

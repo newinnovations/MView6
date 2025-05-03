@@ -21,7 +21,7 @@ pub mod gdk;
 pub mod image_rs;
 pub mod webp;
 
-use crate::{category::Category, image::Image, performance::Performance};
+use crate::{category::Category, image::Image, profile::performance::Performance};
 use exif::Exif;
 use gdk::GdkImageLoader;
 use image::DynamicImage;

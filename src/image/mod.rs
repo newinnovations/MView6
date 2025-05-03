@@ -31,6 +31,7 @@ use glib::translate::from_glib_full;
 use gtk4::gdk::ffi::gdk_pixbuf_get_from_surface;
 use rsvg::{prelude::HandleExt, Handle};
 use std::{
+    cmp::max,
     cmp::min,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -48,15 +49,27 @@ fn get_image_id() -> u32 {
 pub enum ImageData {
     #[default]
     None,
-    Pixbuf(Pixbuf),
+    Single(Pixbuf),
+    Dual(Pixbuf, Pixbuf),
     Svg(Handle),
 }
 
 impl From<Option<Pixbuf>> for ImageData {
     fn from(value: Option<Pixbuf>) -> Self {
         match value {
-            Some(pixbuf) => ImageData::Pixbuf(pixbuf),
+            Some(pixbuf) => ImageData::Single(pixbuf),
             None => ImageData::None,
+        }
+    }
+}
+
+impl From<(Option<Pixbuf>, Option<Pixbuf>)> for ImageData {
+    fn from(value: (Option<Pixbuf>, Option<Pixbuf>)) -> Self {
+        match value {
+            (Some(pixbuf), None) => ImageData::Single(pixbuf),
+            (None, Some(pixbuf)) => ImageData::Single(pixbuf),
+            (Some(pixbuf1), Some(pixbuf2)) => ImageData::Dual(pixbuf1, pixbuf2),
+            (None, None) => ImageData::None,
         }
     }
 }
@@ -103,6 +116,21 @@ impl Image {
         }
     }
 
+    pub fn new_dual_pixbuf(
+        pixbuf1: Option<Pixbuf>,
+        pixbuf2: Option<Pixbuf>,
+        exif: Option<Exif>,
+    ) -> Self {
+        Image {
+            id: get_image_id(),
+            image_data: (pixbuf1, pixbuf2).into(),
+            animation: Animation::None,
+            exif,
+            zoom_mode: ZoomMode::NotSpecified,
+            tag: None,
+        }
+    }
+
     pub fn new_animation(animation: Animation) -> Self {
         let pixbuf = match &animation {
             Animation::None => None,
@@ -138,7 +166,11 @@ impl Image {
     pub fn size(&self) -> (f64, f64) {
         match &self.image_data {
             ImageData::None => (0.0, 0.0),
-            ImageData::Pixbuf(pixbuf) => (pixbuf.width() as f64, pixbuf.height() as f64),
+            ImageData::Single(pixbuf) => (pixbuf.width() as f64, pixbuf.height() as f64),
+            ImageData::Dual(pixbuf1, pixbuf2) => (
+                (pixbuf1.width() + pixbuf2.width()) as f64,
+                max(pixbuf1.height(), pixbuf2.height()) as f64,
+            ),
             ImageData::Svg(handle) => handle.intrinsic_size_in_pixels().unwrap_or((64.0, 64.0)),
         }
     }
@@ -146,7 +178,8 @@ impl Image {
     pub fn has_alpha(&self) -> bool {
         match &self.image_data {
             ImageData::None => false,
-            ImageData::Pixbuf(pixbuf) => pixbuf.has_alpha(),
+            ImageData::Single(pixbuf) => pixbuf.has_alpha(),
+            ImageData::Dual(pixbuf1, pixbuf2) => pixbuf1.has_alpha() || pixbuf2.has_alpha(),
             ImageData::Svg(_handle) => true,
         }
     }
@@ -170,8 +203,11 @@ impl Image {
 
         match &self.image_data {
             ImageData::None => (),
-            ImageData::Pixbuf(pixbuf) => {
+            ImageData::Single(pixbuf) => {
                 self.image_data = pixbuf.rotate_simple(rotation).into();
+            }
+            ImageData::Dual(_, _) => {
+                println!("TODO: implement rotation for Dual")
             }
             ImageData::Svg(_) => {
                 println!("TODO: implement rotation for SVG")
@@ -192,13 +228,13 @@ impl Image {
     }
 
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
-        if let ImageData::Pixbuf(my_pixpuf) = &self.image_data {
+        if let ImageData::Single(my_pixbuf) = &self.image_data {
             pixbuf.copy_area(
                 0,
                 0,
                 pixbuf.width(),
                 pixbuf.height(),
-                my_pixpuf,
+                my_pixbuf,
                 dest_x,
                 dest_y,
             );
@@ -206,7 +242,7 @@ impl Image {
     }
 
     pub fn crop_to_max_size(&mut self) {
-        if let ImageData::Pixbuf(pixbuf) = &self.image_data {
+        if let ImageData::Single(pixbuf) = &self.image_data {
             if pixbuf.width() > MAX_IMAGE_SIZE || pixbuf.height() > MAX_IMAGE_SIZE {
                 let new_width = min(pixbuf.width(), MAX_IMAGE_SIZE);
                 let new_height = min(pixbuf.height(), MAX_IMAGE_SIZE);

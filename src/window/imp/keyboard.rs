@@ -24,7 +24,7 @@ use gtk4::{gdk::Key, prelude::*, subclass::prelude::*, SortColumn};
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
     file_view::{Direction, Filter, Selection, Sort},
-    image::{provider::ImageLoader, view::ZoomMode},
+    image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
 };
 
 impl MViewWindowImp {
@@ -48,6 +48,19 @@ impl MViewWindowImp {
                 };
                 if let Some(image) = image {
                     w.image_view.set_image(image);
+                }
+            }
+            Key::y => {
+                let image =
+                    ImageLoader::image_from_file("/home/martin/workspace/rust/test/test-19.jpg");
+                let image2 =
+                    ImageLoader::image_from_file("/home/martin/workspace/rust/test/test-20.jpg");
+                if let (ImageData::Single(pixbuf), ImageData::Single(pixbuf2)) =
+                    (image.image_data, image2.image_data)
+                {
+                    let i2 = Image::new_dual_pixbuf(Some(pixbuf), Some(pixbuf2), None);
+                    w.info_view.update(&i2);
+                    w.image_view.set_image(i2);
                 }
             }
             Key::d => {

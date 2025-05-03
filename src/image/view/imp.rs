@@ -42,7 +42,7 @@ use gtk4::{
 use rsvg::prelude::HandleExt;
 
 use super::{
-    data::{ImageViewData, ZoomState, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
+    data::{ImageViewData, Surfaces, ZoomState, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
     ImageView, ViewCursor,
 };
 
@@ -213,12 +213,16 @@ impl ImageViewImp {
             handle.render_document(context, &viewport).unwrap();
         } else {
             context.scale(p.zoom, p.zoom);
-            if let Some(surface) = p.surface.as_ref() {
-                let _ = context.set_source_surface(surface, xofs / p.zoom, yofs / p.zoom);
-            }
-            context.source().set_extend(cairo::Extend::Pad);
             if p.zoom_state() != ZoomState::NoZoom {
                 context.source().set_filter(p.quality);
+            }
+            if let Surfaces::Single(surface) = &p.surface {
+                let _ = context.set_source_surface(surface, xofs / p.zoom, yofs / p.zoom);
+            } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
+                let _ = context.set_source_surface(surface1, xofs / p.zoom, yofs / p.zoom + y1);
+                let _ = context.paint();
+                let _ =
+                    context.set_source_surface(surface2, w1 + xofs / p.zoom, yofs / p.zoom + y2);
             }
             let _ = context.paint();
         }
@@ -345,7 +349,7 @@ impl WidgetImpl for ImageViewImp {
 
 impl DrawingAreaImpl for ImageViewImp {
     fn resize(&self, _width: i32, _height: i32) {
-        println!("resize {_width} {_height}");
+        // println!("resize {_width} {_height}");
         self.cancel_resize_notify();
         let mut p = self.data.borrow_mut();
         p.apply_zoom();

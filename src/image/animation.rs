@@ -70,7 +70,7 @@ impl Image {
             Animation::None => false,
             Animation::Gdk(animation) => {
                 if animation.advance(current_time) {
-                    self.image_data = ImageData::Pixbuf(animation.pixbuf());
+                    self.image_data = ImageData::Single(animation.pixbuf());
                     true
                 } else {
                     false
@@ -78,14 +78,14 @@ impl Image {
             }
             Animation::WebPFile(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Pixbuf(pixbuf);
+                    self.image_data = ImageData::Single(pixbuf);
                     true
                 }
                 None => false,
             },
             Animation::WebPMemory(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Pixbuf(pixbuf);
+                    self.image_data = ImageData::Single(pixbuf);
                     true
                 }
                 None => false,

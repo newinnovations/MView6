@@ -38,7 +38,7 @@ use crate::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
     },
-    performance::Performance,
+    profile::performance::Performance,
     window::MViewWidgets,
 };
 

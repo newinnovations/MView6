@@ -184,8 +184,8 @@ impl ObjectImpl for MViewWindowImp {
             closure_local!(
                 #[weak(rename_to = this)]
                 self,
-                move |_view: ImageView, width: i32, height: i32| {
-                    println!("view was resized to {width} {height}");
+                move |_view: ImageView, _width: i32, _height: i32| {
+                    // println!("view was resized to {_width} {_height}");
                     this.update_thumbnail_backend();
                 }
             ),
