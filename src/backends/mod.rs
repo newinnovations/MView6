@@ -25,6 +25,7 @@ use bookmarks::Bookmarks;
 use filesystem::FileSystem;
 use gtk4::ListStore;
 use none::NoneBackend;
+use pdf::Pdf;
 use thumbnail::{TEntry, Thumbnail};
 
 use crate::{
@@ -38,6 +39,7 @@ mod archive_zip;
 mod bookmarks;
 pub mod filesystem;
 mod none;
+mod pdf;
 pub mod thumbnail;
 
 #[allow(unused_variables)]
@@ -94,6 +96,8 @@ impl dyn Backend {
             Box::new(ZipArchive::new(filename))
         } else if filename.ends_with(".rar") {
             Box::new(RarArchive::new(filename))
+        } else if filename.ends_with(".pdf") {
+            Box::new(Pdf::new(filename))
         } else {
             Box::new(FileSystem::new(filename))
         }

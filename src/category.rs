@@ -26,8 +26,9 @@ pub enum Category {
     Favorite = 1,
     Image = 2,
     Archive = 3,
-    Trash = 4,
-    Unsupported = 5,
+    Pdf = 4,
+    Trash = 5,
+    Unsupported = 6,
 }
 
 impl Category {
@@ -45,6 +46,10 @@ impl Category {
 
         if archive {
             return Self::Archive;
+        }
+
+        if filename_lower.ends_with(".pdf") {
+            return Self::Pdf;
         }
 
         let supported = filename_lower.ends_with(".jpg")
@@ -101,6 +106,7 @@ impl Category {
             Self::Favorite => "mv6-favorite",
             Self::Image => "mv6-image",
             Self::Archive => "mv6-box",
+            Self::Pdf => "mv6-pdf",
             Self::Trash => "mv6-garbage",
             Self::Unsupported => "mv6-unknown",
         }
@@ -125,6 +131,7 @@ impl Category {
             Category::Favorite => "favorite",
             Category::Image => "image",
             Category::Archive => "archive",
+            Category::Pdf => "pdf",
             Category::Trash => "trash",
             Category::Unsupported => "not supported",
         }
@@ -139,7 +146,8 @@ impl From<u32> for Category {
             1 => Self::Favorite,
             2 => Self::Image,
             3 => Self::Archive,
-            4 => Self::Trash,
+            4 => Self::Pdf,
+            5 => Self::Trash,
             _ => Self::Unsupported,
         }
     }

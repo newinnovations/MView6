@@ -71,6 +71,8 @@ pub enum MviewError {
     Rar(UnrarError),
 
     Glib(glib::Error),
+
+    MuPdf(mupdf::Error),
 }
 
 impl MviewError {
@@ -146,6 +148,12 @@ impl From<glib::Error> for MviewError {
     }
 }
 
+impl From<mupdf::Error> for MviewError {
+    fn from(err: mupdf::Error) -> MviewError {
+        MviewError::MuPdf(err)
+    }
+}
+
 impl fmt::Display for MviewError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
@@ -158,6 +166,7 @@ impl fmt::Display for MviewError {
             MviewError::Exif(err) => err.fmt(fmt),
             MviewError::WebP(err) => err.fmt(fmt),
             MviewError::Glib(err) => err.fmt(fmt),
+            MviewError::MuPdf(err) => err.fmt(fmt),
         }
     }
 }

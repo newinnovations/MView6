@@ -23,7 +23,9 @@ use async_channel::Sender;
 use image::DynamicImage;
 
 use crate::{
-    backends::{archive_rar::RarArchive, archive_zip::ZipArchive, filesystem::FileSystem},
+    backends::{
+        archive_rar::RarArchive, archive_zip::ZipArchive, filesystem::FileSystem, pdf::Pdf,
+    },
     category::Category,
     error::MviewResult,
     image::{draw::text_thumb, provider::image_rs::RsImageLoader, view::ImageView},
@@ -88,6 +90,7 @@ pub fn start_thumbnail_task(
                     TReference::RarReference(src) => {
                         thumb_result(RarArchive::get_thumbnail(src), &task)
                     }
+                    TReference::PdfReference(src) => thumb_result(Pdf::get_thumbnail(src), &task),
                     TReference::None => {
                         TResultOption::Message(TMessage::error("none", "TEntry::None"))
                     }

@@ -126,7 +126,9 @@ impl Cursor {
                 Filter::None => false,
                 Filter::Image => cat != Category::Image && cat != Category::Favorite,
                 Filter::Favorite => cat != Category::Favorite,
-                Filter::Container => cat != Category::Folder && cat != Category::Archive,
+                Filter::Container => {
+                    cat != Category::Folder && cat != Category::Archive && cat != Category::Pdf
+                }
             };
 
             if skip {

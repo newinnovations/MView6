@@ -20,7 +20,6 @@
 use glib::clone;
 use gtk4::prelude::{TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
 
-
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
     file_view::{Selection, Sort},

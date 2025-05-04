@@ -233,6 +233,10 @@ impl Backend for Thumbnail {
                     self.parent.replace(<dyn Backend>::none()),
                     Selection::Name(src.selection()),
                 )),
+                TReference::PdfReference(src) => Some((
+                    self.parent.replace(<dyn Backend>::none()),
+                    Selection::Index(src.index()),
+                )),
                 TReference::None => None,
             }
         } else {

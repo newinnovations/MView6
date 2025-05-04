@@ -147,7 +147,10 @@ impl Backend for FileSystem {
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         let category = cursor.category();
-        if category == Category::Folder || category == Category::Archive {
+        if category == Category::Folder
+            || category == Category::Archive
+            || category == Category::Pdf
+        {
             Some(<dyn Backend>::new(&format!(
                 "{}/{}",
                 self.directory,

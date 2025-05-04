@@ -24,6 +24,8 @@ pub mod webp;
 use crate::{category::Category, image::Image, profile::performance::Performance};
 use exif::Exif;
 use gdk::GdkImageLoader;
+use gdk_pixbuf::Pixbuf;
+use glib::Bytes;
 use image::DynamicImage;
 use image_rs::RsImageLoader;
 use std::{
@@ -51,7 +53,7 @@ impl ImageLoader {
         };
 
         match cat {
-            Category::Folder | Category::Archive | Category::Unsupported => {
+            Category::Folder | Category::Archive | Category::Pdf | Category::Unsupported => {
                 let name = path
                     .file_name()
                     .unwrap_or_default()
@@ -121,6 +123,19 @@ impl ImageLoader {
         } else {
             None
         }
+    }
+
+    pub fn image_from_rgb(width: u32, height: u32, rgb: &[u8]) -> Image {
+        let pixbuf = Pixbuf::from_bytes(
+            &Bytes::from(rgb),
+            gdk_pixbuf::Colorspace::Rgb,
+            false,
+            8,
+            width as i32,
+            height as i32,
+            3 * width as i32,
+        );
+        Image::new_pixbuf(Some(pixbuf), None)
     }
 }
 

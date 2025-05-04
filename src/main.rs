@@ -27,8 +27,8 @@ mod error;
 mod file_view;
 mod image;
 mod info_view;
-mod window;
 mod profile;
+mod window;
 
 use gtk4::{
     gdk::Display, prelude::ApplicationExtManual, style_context_add_provider_for_display,
