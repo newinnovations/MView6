@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
 use mupdf::{Colorspace, Document, Matrix};
@@ -35,7 +35,6 @@ use crate::{
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
     },
     profile::performance::Performance,
-    window::MViewWidgets,
 };
 
 use super::{
@@ -43,6 +42,14 @@ use super::{
     thumbnail::{TEntry, TReference},
     Backend, Selection,
 };
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum PdfMode {
+    #[default]
+    Single,
+    DualOdd,
+    DualEven,
+}
 
 pub struct Pdf {
     filename: String,
@@ -132,7 +139,7 @@ impl Backend for Pdf {
         }
     }
 
-    fn image(&self, _w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
         match extract_pdf(&self.filename, cursor.index() as i32) {
             Ok(image) => image,
             Err(error) => draw_error(error.to_string().into()),

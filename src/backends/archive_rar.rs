@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use chrono::{Local, TimeZone};
 use gtk4::ListStore;
 use human_bytes::human_bytes;
@@ -38,7 +38,6 @@ use crate::{
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
     },
     profile::performance::Performance,
-    window::MViewWidgets,
 };
 
 use super::{
@@ -139,7 +138,7 @@ impl Backend for RarArchive {
         }
     }
 
-    fn image(&self, _w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
         let sel = cursor.name();
         match extract_rar(&self.filename, &sel) {
             Ok(bytes) => ImageLoader::image_from_memory(bytes, sel.to_lowercase().contains(".svg")),

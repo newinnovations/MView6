@@ -17,13 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use crate::{
     category::Category,
     error::MviewResult,
     file_view::{Columns, Cursor, Direction, Sort},
     image::provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
-    window::MViewWidgets,
 };
 use gtk4::ListStore;
 use image::DynamicImage;
@@ -185,7 +184,7 @@ impl Backend for FileSystem {
         }
     }
 
-    fn image(&self, _w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
         let filename = format!("{}/{}", self.directory, cursor.name());
         ImageLoader::image_from_file(&filename)
     }

@@ -23,7 +23,6 @@ use crate::application::MviewApplication;
 use gio::{prelude::ApplicationExt, File};
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk4::glib;
-pub use imp::MViewWidgets;
 
 glib::wrapper! {
     pub struct MViewWindow(ObjectSubclass<imp::MViewWindowImp>)

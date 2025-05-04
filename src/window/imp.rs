@@ -24,6 +24,7 @@ mod navigate;
 
 use crate::{
     backends::{
+        pdf::PdfMode,
         thumbnail::{
             processing::{handle_thumbnail_result, start_thumbnail_task},
             Message, TCommand,
@@ -63,6 +64,7 @@ pub struct MViewWindowImp {
     skip_loading: Cell<bool>,
     thumbnail_size: Cell<i32>,
     current_sort: Cell<Sort>,
+    pdf_mode: Cell<PdfMode>,
 }
 
 #[glib::object_subclass]

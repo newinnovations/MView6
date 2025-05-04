@@ -21,17 +21,17 @@ use std::env;
 
 use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
+use async_channel::Sender;
 use bookmarks::Bookmarks;
 use filesystem::FileSystem;
 use gtk4::ListStore;
 use none::NoneBackend;
-use pdf::Pdf;
-use thumbnail::{TEntry, Thumbnail};
+use pdf::{Pdf, PdfMode};
+use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
     file_view::{Cursor, Direction, Selection, Sort},
     image::Image,
-    window::MViewWidgets,
 };
 
 mod archive_rar;
@@ -39,8 +39,13 @@ mod archive_zip;
 mod bookmarks;
 pub mod filesystem;
 mod none;
-mod pdf;
+pub mod pdf;
 pub mod thumbnail;
+
+pub struct ImageParams<'a> {
+    pub sender: &'a Sender<Message>,
+    pub pdf_mode: &'a PdfMode,
+}
 
 #[allow(unused_variables)]
 pub trait Backend {
@@ -54,7 +59,8 @@ pub trait Backend {
         None
     }
     fn leave(&self) -> (Box<dyn Backend>, Selection);
-    fn image(&self, w: &MViewWidgets, cursor: &Cursor) -> Image;
+    // fn image(&self, cursor: &Cursor, sender: &Sender<Message>, pdf_mode: &PdfMode) -> Image;
+    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
     fn entry(&self, cursor: &Cursor) -> TEntry {
         Default::default()
     }

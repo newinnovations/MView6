@@ -22,7 +22,7 @@ use super::MViewWindowImp;
 use gtk4::{gdk::Key, prelude::*, subclass::prelude::*, SortColumn};
 
 use crate::{
-    backends::{thumbnail::Thumbnail, Backend},
+    backends::{pdf::PdfMode, thumbnail::Thumbnail, Backend},
     file_view::{Direction, Filter, Selection, Sort},
     image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
 };
@@ -242,6 +242,15 @@ impl MViewWindowImp {
                         w.file_view.goto(&Selection::None);
                     }
                 }
+            }
+            Key::p => {
+                let new_pdf_mode = match self.pdf_mode.get() {
+                    PdfMode::Single => PdfMode::DualOdd,
+                    PdfMode::DualOdd => PdfMode::DualEven,
+                    PdfMode::DualEven => PdfMode::Single,
+                };
+                dbg!(new_pdf_mode);
+                self.pdf_mode.set(new_pdf_mode);
             }
             _ => (),
         }

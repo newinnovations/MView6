@@ -17,13 +17,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use gtk4::ListStore;
 
-use crate::{
-    file_view::{Columns, Cursor, Sort},
-    window::MViewWidgets,
-};
+use crate::file_view::{Columns, Cursor, Sort};
 
 use super::{Backend, Selection};
 
@@ -63,7 +60,7 @@ impl Backend for NoneBackend {
         (Box::new(NoneBackend::new()), Selection::None)
     }
 
-    fn image(&self, _w: &MViewWidgets, _cursor: &Cursor) -> Image {
+    fn image(&self, _: &Cursor, _: &ImageParams) -> Image {
         Image::default()
     }
 

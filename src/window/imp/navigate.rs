@@ -22,7 +22,7 @@ use std::path::Path;
 use super::MViewWindowImp;
 
 use crate::{
-    backends::Backend,
+    backends::{Backend, ImageParams},
     file_view::{Direction, Filter, Selection, Sort},
 };
 use gio::File;
@@ -33,7 +33,11 @@ impl MViewWindowImp {
         let w = self.widgets();
         if !self.skip_loading.get() {
             if let Some(current) = w.file_view.current() {
-                let image = self.backend.borrow().image(w, &current);
+                let params = ImageParams {
+                    sender: &w.sender,
+                    pdf_mode: &self.pdf_mode.get(),
+                };
+                let image = self.backend.borrow().image(&current, &params);
                 w.info_view.update(&image);
                 if self.backend.borrow().is_thumbnail() {
                     w.image_view.set_image_pre(image);

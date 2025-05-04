@@ -22,12 +22,11 @@ pub mod processing;
 
 use std::cell::{Cell, RefCell};
 
-use super::{Backend, Image, Selection};
+use super::{Backend, Image, ImageParams, Selection};
 use crate::{
     category::Category,
     file_view::{Columns, Cursor, Sort},
     image::draw::thumbnail_sheet,
-    window::MViewWidgets,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
 pub use model::{Message, TCommand, TEntry, TMessage, TReference, TResult, TResultOption, TTask};
@@ -180,7 +179,7 @@ impl Backend for Thumbnail {
         (self.parent.replace(<dyn Backend>::none()), Selection::None)
     }
 
-    fn image(&self, w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
         let page = cursor.index();
         let caption = format!("{} of {}", page + 1, cursor.store_size());
         let image = match thumbnail_sheet(self.width, self.height, MARGIN, &caption) {
@@ -192,7 +191,7 @@ impl Backend for Thumbnail {
         };
 
         let command = TCommand::new(image.id(), self.sheet(page as i32));
-        let _ = w.sender.send_blocking(Message::Command(command));
+        let _ = params.sender.send_blocking(Message::Command(command));
 
         image
     }
