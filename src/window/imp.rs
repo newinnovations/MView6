@@ -115,6 +115,18 @@ impl MViewWindowImp {
         w.info_widget.set_margin_bottom(border);
         w.file_view.set_extended(!w.info_widget.is_visible());
     }
+
+    pub fn step_size(&self) -> u32 {
+        if self.backend.borrow().is_pdf() {
+            match self.pdf_mode.get() {
+                PdfMode::Single => 1,
+                PdfMode::DualOdd => 2,
+                PdfMode::DualEven => 2,
+            }
+        } else {
+            1
+        }
+    }
 }
 
 impl ObjectImpl for MViewWindowImp {

@@ -178,10 +178,12 @@ impl MViewWindowImp {
                 }
             }
             Key::z | Key::Left | Key::KP_4 | Key::KP_Left => {
-                w.file_view.navigate(Direction::Up, w.filter(), 1);
+                w.file_view
+                    .navigate(Direction::Up, w.filter(), self.step_size());
             }
             Key::x | Key::Right | Key::KP_6 | Key::KP_Right => {
-                w.file_view.navigate(Direction::Down, w.filter(), 1);
+                w.file_view
+                    .navigate(Direction::Down, w.filter(), self.step_size());
             }
             Key::a => {
                 w.file_view.navigate(Direction::Up, Filter::Favorite, 1);
@@ -251,6 +253,9 @@ impl MViewWindowImp {
                 };
                 dbg!(new_pdf_mode);
                 self.pdf_mode.set(new_pdf_mode);
+                if self.backend.borrow().is_pdf() {
+                    self.on_cursor_changed();
+                }
             }
             _ => (),
         }

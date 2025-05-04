@@ -105,7 +105,7 @@ impl Cursor {
         self.store.set_sort_column_id(new_column, new_direction);
     }
 
-    pub fn navigate(&self, direction: Direction, filter: Filter, count: i32) -> Option<TreePath> {
+    pub fn navigate(&self, direction: Direction, filter: Filter, count: u32) -> Option<TreePath> {
         let mut cnt = count;
         loop {
             let last = self.iter;

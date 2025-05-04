@@ -27,7 +27,8 @@ use crate::{
     error::MviewResult,
     image::{animation::Animation, provider::ExifReader, Image},
 };
-use gdk_pixbuf::PixbufLoader;
+use gdk_pixbuf::{Pixbuf, PixbufLoader};
+use glib::Bytes;
 use gtk4::prelude::{PixbufAnimationExt, PixbufAnimationExtManual, PixbufLoaderExt};
 
 pub struct GdkImageLoader {}
@@ -55,5 +56,17 @@ impl GdkImageLoader {
         } else {
             Err("No image data".into())
         }
+    }
+
+    pub fn pixbuf_from_rgb(width: u32, height: u32, rgb: &[u8]) -> Pixbuf {
+        Pixbuf::from_bytes(
+            &Bytes::from(rgb),
+            gdk_pixbuf::Colorspace::Rgb,
+            false,
+            8,
+            width as i32,
+            height as i32,
+            3 * width as i32,
+        )
     }
 }

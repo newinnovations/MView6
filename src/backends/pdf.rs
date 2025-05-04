@@ -30,10 +30,7 @@ use crate::{
     category::Category,
     error::{MviewError, MviewResult},
     file_view::{Columns, Cursor, Sort},
-    image::{
-        draw::draw_error,
-        provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
-    },
+    image::{draw::draw_error, provider::gdk::GdkImageLoader},
     profile::performance::Performance,
 };
 
@@ -56,6 +53,7 @@ pub struct Pdf {
     directory: String,
     archive: String,
     store: ListStore,
+    last_page: u32,
     parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
@@ -73,38 +71,33 @@ impl Pdf {
             .unwrap_or_default()
             .to_str()
             .unwrap_or_default();
+        let (store, last_page) = Self::create_store(filename);
         Pdf {
             filename: filename.to_string(),
             directory: directory.to_string(),
             archive: archive.to_string(),
-            store: Self::create_store(filename),
+            store,
+            last_page,
             parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
 
-    fn create_store(filename: &str) -> ListStore {
-        println!("create_store Pdf {}", filename);
+    fn create_store(filename: &str) -> (ListStore, u32) {
         let store = Columns::store();
         match list_pdf(filename, &store) {
-            Ok(()) => println!("OK"),
-            Err(e) => println!("ERROR {:?}", e),
-        };
-        store
+            Ok(last_page) => (store, last_page),
+            Err(e) => {
+                println!("ERROR {:?}", e);
+                (store, 0)
+            }
+        }
     }
 
     pub fn get_thumbnail(src: &TPdfReference) -> MviewResult<DynamicImage> {
-        let thumb_filename = format!("{}-{}.mthumb", src.archive, src.index);
-        let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
-
-        if Path::new(&thumb_path).exists() {
-            RsImageLoader::dynimg_from_file(&thumb_path)
-        } else {
-            let image = extract_pdf_thumb(&src.filename, src.index as i32)?;
-            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-            ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
-            Ok(image)
-        }
+        let image = extract_pdf_thumb(&src.filename, src.index as i32)?;
+        let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+        Ok(image)
     }
 }
 
@@ -114,6 +107,10 @@ impl Backend for Pdf {
     }
 
     fn is_container(&self) -> bool {
+        true
+    }
+
+    fn is_pdf(&self) -> bool {
         true
     }
 
@@ -139,8 +136,13 @@ impl Backend for Pdf {
         }
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        match extract_pdf(&self.filename, cursor.index() as i32) {
+    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
+        match extract_pdf(
+            &self.filename,
+            cursor.index(),
+            self.last_page,
+            params.pdf_mode,
+        ) {
             Ok(image) => image,
             Err(error) => draw_error(error.to_string().into()),
         }
@@ -169,23 +171,99 @@ impl Backend for Pdf {
     }
 }
 
-fn extract_pdf(filename: &str, index: i32) -> Result<Image, mupdf::Error> {
-    let zoom = 3.0;
+//   Single(len=4)  DualOdd(len=6)   DualEven(len=7)
+//         0              0                0 1
+//         1             1 2               2 3
+//         2             3 4               4 5
+//         3              5                 6
+
+fn extract_pdf(
+    filename: &str,
+    index: u32,
+    last_page: u32,
+    mode: &PdfMode,
+) -> Result<Image, mupdf::Error> {
+    match mode {
+        PdfMode::Single => extract_pdf_single(filename, index),
+        PdfMode::DualOdd => {
+            if index == 0 {
+                extract_pdf_single(filename, index)
+            } else {
+                let left = (index - 1) & !1 | 1;
+                if left == last_page {
+                    extract_pdf_single(filename, left)
+                } else {
+                    extract_pdf_dual(filename, left)
+                }
+            }
+        }
+        PdfMode::DualEven => {
+            let left = index & !1;
+            if left == last_page {
+                extract_pdf_single(filename, left)
+            } else {
+                extract_pdf_dual(filename, left)
+            }
+        }
+    }
+}
+
+fn extract_pdf_single(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
     let doc = Document::open(filename)?;
-    let page = doc.load_page(index)?;
+    let page = doc.load_page(index as i32)?;
+    let bounds = page.bounds()?;
+    let height = bounds.y1 - bounds.y0;
+    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
-    Ok(ImageLoader::image_from_rgb(
-        pixmap.width(),
-        pixmap.height(),
-        pixmap.samples(),
+    Ok(Image::new_pixbuf(
+        Some(GdkImageLoader::pixbuf_from_rgb(
+            pixmap.width(),
+            pixmap.height(),
+            pixmap.samples(),
+        )),
+        None,
+    ))
+}
+
+fn extract_pdf_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+    let doc = Document::open(filename)?;
+
+    let page = doc.load_page(index as i32)?;
+    let bounds = page.bounds()?;
+    let height = bounds.y1 - bounds.y0;
+    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
+    let matrix = Matrix::new_scale(zoom, zoom);
+    let pixmap1 = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
+
+    let page = doc.load_page(index as i32 + 1)?;
+    let bounds = page.bounds()?;
+    let height = bounds.y1 - bounds.y0;
+    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
+    let matrix = Matrix::new_scale(zoom, zoom);
+    let pixmap2 = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
+
+    Ok(Image::new_dual_pixbuf(
+        Some(GdkImageLoader::pixbuf_from_rgb(
+            pixmap1.width(),
+            pixmap1.height(),
+            pixmap1.samples(),
+        )),
+        Some(GdkImageLoader::pixbuf_from_rgb(
+            pixmap2.width(),
+            pixmap2.height(),
+            pixmap2.samples(),
+        )),
+        None,
     ))
 }
 
 fn extract_pdf_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
-    let zoom = 0.5;
     let doc = Document::open(filename)?;
     let page = doc.load_page(index)?;
+    let bounds = page.bounds()?;
+    let height = bounds.y1 - bounds.y0;
+    let zoom = if height > 10.0 { 350.0 / height } else { 1.0 };
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
 
@@ -195,105 +273,41 @@ fn extract_pdf_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
         pixmap.samples().to_vec(),
     ) {
         Some(rgb_image) => Ok(DynamicImage::ImageRgb8(rgb_image)),
-        None => {
-            // This case should ideally not be reached if the size check passes,
-            // but it's good practice to handle the Option::None case.
-            Err(MviewError::from(
-                "Could not create ImageBuffer from pdf thumb data",
-            ))
-        }
+        None => Err(MviewError::from(
+            "Could not create ImageBuffer from pdf thumb data",
+        )),
     }
 }
 
-fn list_pdf(filename: &str, store: &ListStore) -> Result<(), mupdf::Error> {
+fn list_pdf(filename: &str, store: &ListStore) -> MviewResult<u32> {
     let duration = Performance::start();
     let doc = Document::open(filename)?;
-    let page_count = doc.page_count()?;
+    let page_count = doc.page_count()? as u32;
     println!("Total pages: {}", page_count);
-    let cat = Category::Image;
-    for i in 0..page_count {
-        let page = format!("Page {0:5}", i + 1);
-        store.insert_with_values(
-            None,
-            &[
-                (Columns::Cat as u32, &cat.id()),
-                (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &page),
-                (Columns::Index as u32, &i),
-            ],
-        );
+    if page_count > 0 {
+        let cat = Category::Image;
+        for i in 0..page_count {
+            let page = format!("Page {0:5}", i + 1);
+            store.insert_with_values(
+                None,
+                &[
+                    (Columns::Cat as u32, &cat.id()),
+                    (Columns::Icon as u32, &cat.icon()),
+                    (Columns::Name as u32, &page),
+                    (Columns::Index as u32, &i),
+                ],
+            );
+        }
+        duration.elapsed("list_pdf");
+        Ok(page_count - 1)
+    } else {
+        Err(MviewError::from("No pages in pdf"))
     }
-    duration.elapsed("list_pdf");
-    Ok(())
 }
-
-// fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
-//     let fname = std::path::Path::new(filename);
-//     let file = fs::File::open(fname)?;
-//     let reader = BufReader::new(file);
-
-//     let mut archive = zip::ZipArchive::new(reader)?;
-
-//     for i in 0..archive.len() {
-//         let file = archive.by_index(i)?;
-
-//         let outpath = match file.enclosed_name() {
-//             Some(path) => path,
-//             None => {
-//                 println!("Entry {} has a suspicious path", file.name());
-//                 continue;
-//             }
-//         };
-
-//         let filename = outpath.display().to_string();
-//         let cat = Category::determine(&filename, file.is_dir());
-//         let file_size = file.size();
-//         let index = i as u32;
-
-//         if file_size == 0 {
-//             continue;
-//         }
-
-//         if cat.id() == Category::Unsupported.id() {
-//             continue;
-//         }
-
-//         let m = file.last_modified().unwrap_or_default();
-//         let modified = match Local.with_ymd_and_hms(
-//             m.year() as i32,
-//             m.month() as u32,
-//             m.day() as u32,
-//             m.hour() as u32,
-//             m.minute() as u32,
-//             m.second() as u32,
-//         ) {
-//             chrono::offset::LocalResult::Single(datetime) => datetime.timestamp() as u64,
-//             _ => {
-//                 println!("Could not create local datetime (Ambiguous or None)");
-//                 0_u64
-//             }
-//         };
-
-//         store.insert_with_values(
-//             None,
-//             &[
-//                 (Columns::Cat as u32, &cat.id()),
-//                 (Columns::Icon as u32, &cat.icon()),
-//                 (Columns::Name as u32, &filename),
-//                 (Columns::Size as u32, &file_size),
-//                 (Columns::Modified as u32, &modified),
-//                 (Columns::Index as u32, &index),
-//             ],
-//         );
-//     }
-//     Ok(())
-// }
 
 #[derive(Debug, Clone)]
 pub struct TPdfReference {
     filename: String,
-    directory: String,
-    archive: String,
     index: u32,
 }
 
@@ -301,8 +315,6 @@ impl TPdfReference {
     pub fn new(backend: &Pdf, index: u32) -> Self {
         TPdfReference {
             filename: backend.filename.clone(),
-            directory: backend.directory.clone(),
-            archive: backend.archive.clone(),
             index,
         }
     }

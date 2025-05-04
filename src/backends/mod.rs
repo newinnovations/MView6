@@ -59,7 +59,6 @@ pub trait Backend {
         None
     }
     fn leave(&self) -> (Box<dyn Backend>, Selection);
-    // fn image(&self, cursor: &Cursor, sender: &Sender<Message>, pdf_mode: &PdfMode) -> Image;
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
     fn entry(&self, cursor: &Cursor) -> TEntry {
         Default::default()
@@ -71,6 +70,9 @@ pub trait Backend {
         false
     }
     fn is_thumbnail(&self) -> bool {
+        false
+    }
+    fn is_pdf(&self) -> bool {
         false
     }
     fn is_none(&self) -> bool {
