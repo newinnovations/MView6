@@ -46,6 +46,12 @@ pub enum Surfaces {
     Dual(ImageSurface, ImageSurface, f64, f64, f64),
 }
 
+impl Surfaces {
+    pub fn is_dual(&self) -> bool {
+        matches!(self, Surfaces::Dual(_, _, _, _, _))
+    }
+}
+
 pub struct ImageViewData {
     pub image: Image,
     pub zoom_mode: ZoomMode,

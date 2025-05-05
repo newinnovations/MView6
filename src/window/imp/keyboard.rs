@@ -22,7 +22,7 @@ use super::MViewWindowImp;
 use gtk4::{gdk::Key, prelude::*, subclass::prelude::*, SortColumn};
 
 use crate::{
-    backends::{document::PageMode, thumbnail::Thumbnail, Backend},
+    backends::{document::PageMode, thumbnail::Thumbnail, Backend, ImageParams},
     file_view::{Direction, Filter, Selection, Sort},
     image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
 };
@@ -48,19 +48,6 @@ impl MViewWindowImp {
                 };
                 if let Some(image) = image {
                     w.image_view.set_image(image);
-                }
-            }
-            Key::y => {
-                let image =
-                    ImageLoader::image_from_file("/home/martin/workspace/rust/test/test-19.jpg");
-                let image2 =
-                    ImageLoader::image_from_file("/home/martin/workspace/rust/test/test-20.jpg");
-                if let (ImageData::Single(pixbuf), ImageData::Single(pixbuf2)) =
-                    (image.image_data, image2.image_data)
-                {
-                    let i2 = Image::new_dual_pixbuf(Some(pixbuf), Some(pixbuf2), None);
-                    w.info_view.update(&i2);
-                    w.image_view.set_image(i2);
                 }
             }
             Key::d => {
@@ -256,6 +243,26 @@ impl MViewWindowImp {
                 if self.backend.borrow().is_doc() {
                     self.on_cursor_changed();
                 }
+            }
+            Key::P => {
+                let w = self.widgets();
+                let params = ImageParams {
+                    sender: &w.sender,
+                    page_mode: &self.page_mode.get(),
+                };
+                if let Some(current) = w.file_view.current() {
+                    let image1 = self.backend.borrow().image(&current, &params);
+                    if current.next() {
+                        let image2 = self.backend.borrow().image(&current, &params);
+                        if let (ImageData::Single(pixbuf), ImageData::Single(pixbuf2)) =
+                            (image1.image_data, image2.image_data)
+                        {
+                            let i2 = Image::new_dual_pixbuf(Some(pixbuf), Some(pixbuf2), None);
+                            w.info_view.update(&i2);
+                            w.image_view.set_image(i2);
+                        }
+                    }
+                };
             }
             _ => (),
         }

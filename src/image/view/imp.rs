@@ -193,8 +193,8 @@ impl ImageViewImp {
         context.set_fill_rule(cairo::FillRule::EvenOdd);
         let _ = context.fill();
 
-        if let Some(transparency_background) = &p.transparency_background {
-            if p.image.has_alpha() {
+        if !p.surface.is_dual() && p.image.has_alpha() {
+            if let Some(transparency_background) = &p.transparency_background {
                 let _ = context.set_source_surface(transparency_background, xofs, yofs);
                 context.source().set_extend(cairo::Extend::Repeat);
                 context.rectangle(xofs, yofs, scaled_width, scaled_height);
