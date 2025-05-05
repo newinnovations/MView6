@@ -58,6 +58,9 @@ impl Category {
             | filename_lower.ends_with(".svg")
             | filename_lower.ends_with(".svgz")
             | filename_lower.ends_with(".webp")
+            | filename_lower.ends_with(".heic")
+            | filename_lower.ends_with(".avif")
+            // | filename_lower.ends_with(".jxl") // TODO
             | filename_lower.ends_with("-1")
             | filename_lower.ends_with(".png");
 
