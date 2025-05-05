@@ -24,7 +24,7 @@ mod navigate;
 
 use crate::{
     backends::{
-        pdf::PdfMode,
+        document::PageMode,
         thumbnail::{
             processing::{handle_thumbnail_result, start_thumbnail_task},
             Message, TCommand,
@@ -64,7 +64,7 @@ pub struct MViewWindowImp {
     skip_loading: Cell<bool>,
     thumbnail_size: Cell<i32>,
     current_sort: Cell<Sort>,
-    pdf_mode: Cell<PdfMode>,
+    page_mode: Cell<PageMode>,
 }
 
 #[glib::object_subclass]
@@ -117,11 +117,11 @@ impl MViewWindowImp {
     }
 
     pub fn step_size(&self) -> u32 {
-        if self.backend.borrow().is_pdf() {
-            match self.pdf_mode.get() {
-                PdfMode::Single => 1,
-                PdfMode::DualOdd => 2,
-                PdfMode::DualEven => 2,
+        if self.backend.borrow().is_doc() {
+            match self.page_mode.get() {
+                PageMode::Single => 1,
+                PageMode::DualOdd => 2,
+                PageMode::DualEven => 2,
             }
         } else {
             1

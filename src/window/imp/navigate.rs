@@ -23,6 +23,7 @@ use super::MViewWindowImp;
 
 use crate::{
     backends::{Backend, ImageParams},
+    category::Category,
     file_view::{Direction, Filter, Selection, Sort},
 };
 use gio::File;
@@ -35,7 +36,7 @@ impl MViewWindowImp {
             if let Some(current) = w.file_view.current() {
                 let params = ImageParams {
                     sender: &w.sender,
-                    pdf_mode: &self.pdf_mode.get(),
+                    page_mode: &self.page_mode.get(),
                 };
                 let image = self.backend.borrow().image(&current, &params);
                 w.info_view.update(&image);
@@ -77,7 +78,7 @@ impl MViewWindowImp {
         self.set_backend(new_backend, selection, false);
     }
 
-    pub fn navigate_to(&self, file: &File, set_parent: bool) {
+    pub fn navigate_to(&self, file: &File) {
         let path = file.path().unwrap_or_default().clone();
         let filename = path
             .file_name()
@@ -89,13 +90,13 @@ impl MViewWindowImp {
             .unwrap_or_else(|| Path::new("/"))
             .to_str()
             .unwrap_or("/");
-        dbg!(filename, directory);
+        let category = Category::determine(filename, path.is_dir());
+        dbg!(filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
-        self.set_backend(
-            new_backend,
-            Selection::Name(filename.to_string()),
-            set_parent,
-        );
+        self.set_backend(new_backend, Selection::Name(filename.to_string()), false);
+        if category.is_container() {
+            self.dir_enter(None);
+        }
     }
 
     pub fn hop(&self, direction: Direction) {

@@ -58,7 +58,7 @@ impl ApplicationImpl for MviewApplicationImp {
         if !files.is_empty() {
             let file = &files[0];
             let window = self.window.get().expect("failed to get window");
-            window.navigate_to(file, false);
+            window.navigate_to(file);
         }
     }
 }

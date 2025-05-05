@@ -26,7 +26,7 @@ pub enum Category {
     Favorite = 1,
     Image = 2,
     Archive = 3,
-    Pdf = 4,
+    Document = 4,
     Trash = 5,
     Unsupported = 6,
 }
@@ -48,8 +48,8 @@ impl Category {
             return Self::Archive;
         }
 
-        if filename_lower.ends_with(".pdf") {
-            return Self::Pdf;
+        if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
+            return Self::Document;
         }
 
         let supported = filename_lower.ends_with(".jpg")
@@ -106,7 +106,7 @@ impl Category {
             Self::Favorite => "mv6-favorite",
             Self::Image => "mv6-image",
             Self::Archive => "mv6-box",
-            Self::Pdf => "mv6-pdf",
+            Self::Document => "mv6-doc",
             Self::Trash => "mv6-garbage",
             Self::Unsupported => "mv6-unknown",
         }
@@ -131,11 +131,18 @@ impl Category {
             Category::Favorite => "favorite",
             Category::Image => "image",
             Category::Archive => "archive",
-            Category::Pdf => "pdf",
+            Category::Document => "document",
             Category::Trash => "trash",
             Category::Unsupported => "not supported",
         }
         .into()
+    }
+
+    pub fn is_container(&self) -> bool {
+        matches!(
+            self,
+            Category::Folder | Category::Archive | Category::Document
+        )
     }
 }
 
@@ -146,7 +153,7 @@ impl From<u32> for Category {
             1 => Self::Favorite,
             2 => Self::Image,
             3 => Self::Archive,
-            4 => Self::Pdf,
+            4 => Self::Document,
             5 => Self::Trash,
             _ => Self::Unsupported,
         }

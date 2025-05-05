@@ -24,7 +24,8 @@ use image::DynamicImage;
 
 use crate::{
     backends::{
-        archive_rar::RarArchive, archive_zip::ZipArchive, filesystem::FileSystem, pdf::Pdf,
+        archive_rar::RarArchive, archive_zip::ZipArchive, document::Document,
+        filesystem::FileSystem,
     },
     category::Category,
     error::MviewResult,
@@ -90,7 +91,9 @@ pub fn start_thumbnail_task(
                     TReference::RarReference(src) => {
                         thumb_result(RarArchive::get_thumbnail(src), &task)
                     }
-                    TReference::PdfReference(src) => thumb_result(Pdf::get_thumbnail(src), &task),
+                    TReference::DocReference(src) => {
+                        thumb_result(Document::get_thumbnail(src), &task)
+                    }
                     TReference::None => {
                         TResultOption::Message(TMessage::error("none", "TEntry::None"))
                     }

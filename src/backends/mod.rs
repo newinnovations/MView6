@@ -23,10 +23,10 @@ use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
 use async_channel::Sender;
 use bookmarks::Bookmarks;
+use document::{Document, PageMode};
 use filesystem::FileSystem;
 use gtk4::ListStore;
 use none::NoneBackend;
-use pdf::{Pdf, PdfMode};
 use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
@@ -37,14 +37,14 @@ use crate::{
 mod archive_rar;
 mod archive_zip;
 mod bookmarks;
+pub mod document;
 pub mod filesystem;
 mod none;
-pub mod pdf;
 pub mod thumbnail;
 
 pub struct ImageParams<'a> {
     pub sender: &'a Sender<Message>,
-    pub pdf_mode: &'a PdfMode,
+    pub page_mode: &'a PageMode,
 }
 
 #[allow(unused_variables)]
@@ -72,7 +72,7 @@ pub trait Backend {
     fn is_thumbnail(&self) -> bool {
         false
     }
-    fn is_pdf(&self) -> bool {
+    fn is_doc(&self) -> bool {
         false
     }
     fn is_none(&self) -> bool {
@@ -100,12 +100,13 @@ impl Default for Box<dyn Backend> {
 
 impl dyn Backend {
     pub fn new(filename: &str) -> Box<dyn Backend> {
-        if filename.ends_with(".zip") {
+        let filename_lower = filename.to_lowercase();
+        if filename_lower.ends_with(".zip") {
             Box::new(ZipArchive::new(filename))
-        } else if filename.ends_with(".rar") {
+        } else if filename_lower.ends_with(".rar") {
             Box::new(RarArchive::new(filename))
-        } else if filename.ends_with(".pdf") {
-            Box::new(Pdf::new(filename))
+        } else if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
+            Box::new(Document::new(filename))
         } else {
             Box::new(FileSystem::new(filename))
         }

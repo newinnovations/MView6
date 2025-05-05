@@ -127,7 +127,7 @@ impl Cursor {
                 Filter::Image => cat != Category::Image && cat != Category::Favorite,
                 Filter::Favorite => cat != Category::Favorite,
                 Filter::Container => {
-                    cat != Category::Folder && cat != Category::Archive && cat != Category::Pdf
+                    cat != Category::Folder && cat != Category::Archive && cat != Category::Document
                 }
             };
 

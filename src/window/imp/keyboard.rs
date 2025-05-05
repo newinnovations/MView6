@@ -22,7 +22,7 @@ use super::MViewWindowImp;
 use gtk4::{gdk::Key, prelude::*, subclass::prelude::*, SortColumn};
 
 use crate::{
-    backends::{pdf::PdfMode, thumbnail::Thumbnail, Backend},
+    backends::{document::PageMode, thumbnail::Thumbnail, Backend},
     file_view::{Direction, Filter, Selection, Sort},
     image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
 };
@@ -146,10 +146,10 @@ impl MViewWindowImp {
                 let backend = self.backend.borrow();
                 if backend.is_thumbnail() {
                     let new_size = match self.thumbnail_size.get() {
-                        175 => 140,
-                        140 => 100,
-                        100 => 80,
-                        80 => 250,
+                        80 => 100,
+                        100 => 140,
+                        175 => 250,
+                        250 => 80,
                         _ => 175,
                     };
                     self.thumbnail_size.set(new_size);
@@ -246,14 +246,14 @@ impl MViewWindowImp {
                 }
             }
             Key::p => {
-                let new_pdf_mode = match self.pdf_mode.get() {
-                    PdfMode::Single => PdfMode::DualOdd,
-                    PdfMode::DualOdd => PdfMode::DualEven,
-                    PdfMode::DualEven => PdfMode::Single,
+                let new_page_mode = match self.page_mode.get() {
+                    PageMode::Single => PageMode::DualOdd,
+                    PageMode::DualOdd => PageMode::DualEven,
+                    PageMode::DualEven => PageMode::Single,
                 };
-                dbg!(new_pdf_mode);
-                self.pdf_mode.set(new_pdf_mode);
-                if self.backend.borrow().is_pdf() {
+                dbg!(new_page_mode);
+                self.page_mode.set(new_page_mode);
+                if self.backend.borrow().is_doc() {
                     self.on_cursor_changed();
                 }
             }

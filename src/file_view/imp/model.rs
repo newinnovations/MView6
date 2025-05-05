@@ -95,7 +95,7 @@ impl From<TReference> for Selection {
             TReference::FileReference(file) => Selection::Name(file.filename()),
             TReference::ZipReference(zip) => Selection::Index(zip.index()),
             TReference::RarReference(rar) => Selection::Name(rar.selection()),
-            TReference::PdfReference(pdf) => Selection::Index(pdf.index()),
+            TReference::DocReference(doc) => Selection::Index(doc.index()),
             TReference::None => Selection::None,
         }
     }

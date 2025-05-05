@@ -51,7 +51,7 @@ impl ImageLoader {
         };
 
         match cat {
-            Category::Folder | Category::Archive | Category::Pdf | Category::Unsupported => {
+            Category::Folder | Category::Archive | Category::Document | Category::Unsupported => {
                 let name = path
                     .file_name()
                     .unwrap_or_default()

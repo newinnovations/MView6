@@ -148,7 +148,7 @@ impl Backend for FileSystem {
         let category = cursor.category();
         if category == Category::Folder
             || category == Category::Archive
-            || category == Category::Pdf
+            || category == Category::Document
         {
             Some(<dyn Backend>::new(&format!(
                 "{}/{}",

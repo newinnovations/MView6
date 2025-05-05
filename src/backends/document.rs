@@ -20,7 +20,7 @@
 use super::{Image, ImageParams};
 use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
-use mupdf::{Colorspace, Document, Matrix};
+use mupdf::{Colorspace, Matrix};
 use std::{
     cell::{Cell, RefCell},
     path::Path,
@@ -41,14 +41,14 @@ use super::{
 };
 
 #[derive(Clone, Copy, Debug, Default)]
-pub enum PdfMode {
+pub enum PageMode {
     #[default]
     Single,
     DualOdd,
     DualEven,
 }
 
-pub struct Pdf {
+pub struct Document {
     filename: String,
     directory: String,
     archive: String,
@@ -58,7 +58,7 @@ pub struct Pdf {
     sort: Cell<Sort>,
 }
 
-impl Pdf {
+impl Document {
     pub fn new(filename: &str) -> Self {
         let path = Path::new(filename);
         let directory = path
@@ -72,7 +72,7 @@ impl Pdf {
             .to_str()
             .unwrap_or_default();
         let (store, last_page) = Self::create_store(filename);
-        Pdf {
+        Document {
             filename: filename.to_string(),
             directory: directory.to_string(),
             archive: archive.to_string(),
@@ -85,7 +85,7 @@ impl Pdf {
 
     fn create_store(filename: &str) -> (ListStore, u32) {
         let store = Columns::store();
-        match list_pdf(filename, &store) {
+        match list_pages(filename, &store) {
             Ok(last_page) => (store, last_page),
             Err(e) => {
                 println!("ERROR {:?}", e);
@@ -94,23 +94,23 @@ impl Pdf {
         }
     }
 
-    pub fn get_thumbnail(src: &TPdfReference) -> MviewResult<DynamicImage> {
-        let image = extract_pdf_thumb(&src.filename, src.index as i32)?;
+    pub fn get_thumbnail(src: &TDocReference) -> MviewResult<DynamicImage> {
+        let image = extract_page_thumb(&src.filename, src.index as i32)?;
         let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
         Ok(image)
     }
 }
 
-impl Backend for Pdf {
+impl Backend for Document {
     fn class_name(&self) -> &str {
-        "Pdf"
+        "Document"
     }
 
     fn is_container(&self) -> bool {
         true
     }
 
-    fn is_pdf(&self) -> bool {
+    fn is_doc(&self) -> bool {
         true
     }
 
@@ -137,11 +137,11 @@ impl Backend for Pdf {
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
-        match extract_pdf(
+        match extract_page(
             &self.filename,
             cursor.index(),
             self.last_page,
-            params.pdf_mode,
+            params.page_mode,
         ) {
             Ok(image) => image,
             Err(error) => draw_error(error.to_string().into()),
@@ -152,7 +152,7 @@ impl Backend for Pdf {
         TEntry::new(
             cursor.category(),
             &cursor.name(),
-            TReference::PdfReference(TPdfReference::new(self, cursor.index())),
+            TReference::DocReference(TDocReference::new(self, cursor.index())),
         )
     }
 
@@ -177,39 +177,39 @@ impl Backend for Pdf {
 //         2             3 4               4 5
 //         3              5                 6
 
-fn extract_pdf(
+fn extract_page(
     filename: &str,
     index: u32,
     last_page: u32,
-    mode: &PdfMode,
+    mode: &PageMode,
 ) -> Result<Image, mupdf::Error> {
     match mode {
-        PdfMode::Single => extract_pdf_single(filename, index),
-        PdfMode::DualOdd => {
+        PageMode::Single => extract_page_single(filename, index),
+        PageMode::DualOdd => {
             if index == 0 {
-                extract_pdf_single(filename, index)
+                extract_page_single(filename, index)
             } else {
                 let left = (index - 1) & !1 | 1;
                 if left == last_page {
-                    extract_pdf_single(filename, left)
+                    extract_page_single(filename, left)
                 } else {
-                    extract_pdf_dual(filename, left)
+                    extract_page_dual(filename, left)
                 }
             }
         }
-        PdfMode::DualEven => {
+        PageMode::DualEven => {
             let left = index & !1;
             if left == last_page {
-                extract_pdf_single(filename, left)
+                extract_page_single(filename, left)
             } else {
-                extract_pdf_dual(filename, left)
+                extract_page_dual(filename, left)
             }
         }
     }
 }
 
-fn extract_pdf_single(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
-    let doc = Document::open(filename)?;
+fn extract_page_single(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+    let doc = mupdf::Document::open(filename)?;
     let page = doc.load_page(index as i32)?;
     let bounds = page.bounds()?;
     let height = bounds.y1 - bounds.y0;
@@ -226,8 +226,8 @@ fn extract_pdf_single(filename: &str, index: u32) -> Result<Image, mupdf::Error>
     ))
 }
 
-fn extract_pdf_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
-    let doc = Document::open(filename)?;
+fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+    let doc = mupdf::Document::open(filename)?;
 
     let page = doc.load_page(index as i32)?;
     let bounds = page.bounds()?;
@@ -258,8 +258,8 @@ fn extract_pdf_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
     ))
 }
 
-fn extract_pdf_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
-    let doc = Document::open(filename)?;
+fn extract_page_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
+    let doc = mupdf::Document::open(filename)?;
     let page = doc.load_page(index)?;
     let bounds = page.bounds()?;
     let height = bounds.y1 - bounds.y0;
@@ -279,9 +279,9 @@ fn extract_pdf_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
     }
 }
 
-fn list_pdf(filename: &str, store: &ListStore) -> MviewResult<u32> {
+fn list_pages(filename: &str, store: &ListStore) -> MviewResult<u32> {
     let duration = Performance::start();
-    let doc = Document::open(filename)?;
+    let doc = mupdf::Document::open(filename)?;
     let page_count = doc.page_count()? as u32;
     println!("Total pages: {}", page_count);
     if page_count > 0 {
@@ -298,22 +298,22 @@ fn list_pdf(filename: &str, store: &ListStore) -> MviewResult<u32> {
                 ],
             );
         }
-        duration.elapsed("list_pdf");
+        duration.elapsed("list_pages");
         Ok(page_count - 1)
     } else {
-        Err(MviewError::from("No pages in pdf"))
+        Err(MviewError::from("No pages in document"))
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct TPdfReference {
+pub struct TDocReference {
     filename: String,
     index: u32,
 }
 
-impl TPdfReference {
-    pub fn new(backend: &Pdf, index: u32) -> Self {
-        TPdfReference {
+impl TDocReference {
+    pub fn new(backend: &Document, index: u32) -> Self {
+        TDocReference {
             filename: backend.filename.clone(),
             index,
         }
