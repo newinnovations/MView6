@@ -7,4 +7,10 @@ fn main() {
         "resources/mview6.gresource.xml",
         "mview6.gresource",
     );
+
+    if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
+        let mut res = winresource::WindowsResource::new();
+        res.set_icon("resources/mview6.ico");
+        res.compile().unwrap();
+    }
 }

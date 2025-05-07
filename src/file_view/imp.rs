@@ -136,7 +136,11 @@ impl ObjectImpl for FileViewImp {
         col_date.pack_start(&renderer, true);
         col_date.set_title("Modified");
         col_date.set_sizing(TreeViewColumnSizing::Fixed);
-        col_date.set_fixed_width(142);
+        col_date.set_fixed_width(if cfg!(target_os = "windows") {
+            147
+        } else {
+            142
+        });
         col_date.set_sort_column_id(Columns::Modified as i32);
         col_date.set_cell_data_func(&renderer, |_col, renderer, model, iter| {
             let modified = model.modified(iter);
