@@ -1,0 +1,47 @@
+name: Windows Build
+on:
+  push:
+    branches:
+      - windows
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Windows build enviroment for MView6
+      run: |
+        $WebClient = New-Object System.Net.WebClient
+        $WebClient.DownloadFile("https://github.com/newinnovations/mview6-win-buildenv/releases/download/2025-05-07/mview6-win-buildenv.zip", "C:\mview6-win-buildenv.zip")
+        7z x C:\mview6-win-buildenv.zip -oC:\gtk-build\gtk\x64
+        echo "C:\gtk-build\gtk\x64\release\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+    - name: Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build MView6
+      run: |
+        cargo build --release
+
+    - name: Dependencies and launcher
+      shell: bash
+      run: |
+        mkdir -p dist/bin dist/lib
+        cp doc/README-WINDOWS.txt dist/.
+        cp target/release/MView6.exe dist/bin/.
+        cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* dist/lib/.
+        find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/release/deps/. \;
+        bash tools/getdlls dist/bin/MView6.exe
+        bash tools/getdlls target/release/deps/pixbufloader_svg.dll
+        bash -c "echo .\\\\bin\\\\MView6.exe > dist/mview6.cmd"
+
+    - name: Upload Windows build
+      uses: actions/upload-artifact@v4
+      with:
+        name: mview6-windows
+        path: |
+          dist
