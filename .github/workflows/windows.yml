@@ -23,13 +23,10 @@ jobs:
     - name: Rust
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Msbuild
-      uses: microsoft/setup-msbuild@v1.3.1
-
     - name: Fix broken mupdf-rs on crates.io
       shell: bash
       run: |
-        sed -i 's#mupdf = "0.5.0"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v0.5.0" }#' Cargo.toml
+        sed -i 's#mupdf = "\([^"]*\)"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v\1" }#' Cargo.toml
 
     - name: Build MView6
       run: |
