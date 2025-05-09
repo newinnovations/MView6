@@ -1,0 +1,127 @@
+name: Release builds
+on:
+  push:
+    branches:
+      - pdf
+jobs:
+  build:
+    name: Build
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2019]
+
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create version based on current date
+        id: date
+        shell: bash
+        run: |
+          today=$(TZ='Europe/Amsterdam' date +'%Y-%m-%d')
+          version=$(echo $today | sed 's/-0*/./g')
+          echo "today=${today}"
+          echo "version=${version}"
+          echo "today=${today}" >> $GITHUB_OUTPUT
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          sed -i "s/^version =.*$/version = \"${version}\"/" Cargo.toml
+
+      - name: Install Ubuntu dependencies enviroment for MView6
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev librsvg2-dev
+
+      - name: Install Windows build enviroment for MView6
+        if: runner.os == 'Windows'
+        run: |
+          $WebClient = New-Object System.Net.WebClient
+          $WebClient.DownloadFile("https://github.com/newinnovations/mview6-win-buildenv/releases/download/2025-05-07/mview6-win-buildenv.zip", "C:\mview6-win-buildenv.zip")
+          7z x C:\mview6-win-buildenv.zip -oC:\gtk-build\gtk\x64
+          echo "C:\gtk-build\gtk\x64\release\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Fix broken mupdf-rs on crates.io
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          sed -i 's#mupdf = "\([^"]*\)"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v\1" }#' Cargo.toml
+
+      - name: Build MView6
+        run: |
+          cargo build --release
+
+      - name: Package for Ubuntu
+        id: debian
+        if: runner.os == 'Linux'
+        run: |
+          deps=$(./tools/linux/deps.py target/release/MView6)
+          echo "deps=${deps}"
+          echo "deps=${deps}" >> $GITHUB_OUTPUT
+          mkdir -p dist .debpkg/usr/bin
+          cp target/release/MView6 .debpkg/usr/bin/mview6
+          cp -rv tools/linux/debian/* .debpkg/.
+          chmod +x .debpkg/DEBIAN/* .debpkg/usr/bin/*
+
+      - name: Create .deb package
+        if: runner.os == 'Linux'
+        uses: jiro4989/build-deb-action@v4
+        with:
+          package: mview6
+          package_root: .debpkg
+          maintainer: "Martin van der Werff <github@newinnovations.nl>"
+          section: "graphics"
+          version: ${{ steps.date.outputs.version }}
+          arch: amd64
+          depends: ${{ steps.debian.outputs.deps }}
+          desc: |-
+            MView6 image and pdf browser
+            MView6 is an opiniated image and pdf browser written in Rust and GTK4,
+            supporting many modern image types like avif, heim and (animated) webp
+          homepage: https://github.com/newinnovations/mview6
+
+      - name: Package for Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p mview6-windows/bin mview6-windows/lib
+          cp doc/README-WINDOWS.txt mview6-windows/.
+          cp target/release/MView6.exe mview6-windows/bin/.
+          cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
+          find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/release/deps/. \;
+          bash tools/windows/getdlls mview6-windows/bin/MView6.exe
+          bash tools/windows/getdlls target/release/deps/pixbufloader_svg.dll
+          bash -c "echo .\\\\bin\\\\MView6.exe > mview6-windows/mview6.cmd"
+          7z a mview6_${{ steps.date.outputs.version }}_windows.zip mview6-windows/
+
+      # - name: Upload artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: mview6-${{ matrix.os }}
+      #     path: |
+      #       *.zip
+      #       *.deb
+      #       *.rpm
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ steps.date.outputs.today }}
+          commit: ${{ github.sha }}
+          tag: ${{ steps.date.outputs.today }}
+          body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
+          makeLatest: true
+          allowUpdates: true
+          replacesArtifacts: true
+          artifacts: "mview6_*"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=MView6
+Comment=MView6 image viewer is the sixth iteration of the MView series
+TryExec=/home/martin/workspace/rust/mview6/target/release/MView6
+Exec=/home/martin/workspace/rust/mview6/target/release/MView6 %U
+Icon=org.vanderwerff.mview.mview6
+NoDisplay=false
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;Graphics;2DGraphics;RasterGraphics;Viewer;
+MimeType=application/epub+zip;application/pdf;application/vnd.ms-xpsdocument;image/avif;image/bmp;image/gif;image/heic;image/jpeg;image/jpg;image/jxl;image/pjpeg;image/png;image/svg+xml;image/svg+xml-compressed;image/tiff;image/vnd.microsoft.icon;image/vnd-ms.dds;image/vnd.radiance;image/vnd.wap.wbmp;image/webp;image/x-bmp;image/x-dds;image/x-exr;image/x-gray;image/x-icb;image/x-icns;image/x-ico;image/x-pcx;image/x-png;image/x-portable-anymap;image/x-portable-bitmap;image/x-portable-graymap;image/x-portable-pixmap;image/x-qoi;image/x-tga;image/x-xbitmap;image/x-xpixmap;

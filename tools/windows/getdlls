@@ -2,7 +2,7 @@
 
 executable=$1
 deps_dir="target/release/deps"
-output_dir="dist/bin"
+output_dir="mview6-windows/bin"
 
 copy_dependencies() {
     local file=$1
