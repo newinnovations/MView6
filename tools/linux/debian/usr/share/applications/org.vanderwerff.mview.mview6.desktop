@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=MView6
-Comment=MView6 image viewer is the sixth iteration of the MView series
-TryExec=/home/martin/workspace/rust/mview6/target/release/MView6
-Exec=/home/martin/workspace/rust/mview6/target/release/MView6 %U
+Comment=MView6 is an opiniated image and pdf browser written in Rust and GTK4
+TryExec=/usr/bin/mview6
+Exec=/usr/bin/mview6 %U
 Icon=org.vanderwerff.mview.mview6
 NoDisplay=false
 Terminal=false

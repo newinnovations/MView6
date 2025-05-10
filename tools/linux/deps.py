@@ -3,6 +3,8 @@
 import subprocess
 import sys
 
+error = False
+
 
 def get_shared_libraries(executable):
     """Get shared libraries required by the executable."""
@@ -20,6 +22,7 @@ IGNORE = ["i386", "lib32", "google-chrome", "microsoft-edge", "codium", "windsur
 
 def get_package_for_library(lib):
     """Find the package that provides a given shared library."""
+    global error
     try:
         output = subprocess.check_output(
             ["dpkg", "-S", lib], text=True, stderr=subprocess.DEVNULL
@@ -30,15 +33,38 @@ def get_package_for_library(lib):
         for line in output.splitlines():
             if any(word in line for word in IGNORE):
                 continue
-            if line.endswith("/" + lib):
-                packages.add(line.split(":")[0])
+            if line.endswith(f"/{lib}"):
+                package = line.split(":")[0]
+                version = get_package_version(package)
+                packages.add(f"{package} (>= {version})")
 
         if len(packages) != 1:
-            print("warning", lib, packages)
+            print("error", lib, packages)
+            error = True
 
         return packages
     except subprocess.CalledProcessError:
-        return f"{lib} -> Package not found"
+        print(f"{lib} -> Package not found")
+        error = True
+        return set()
+
+
+def get_package_version(package):
+    """Find the version of an installed package."""
+    global error
+    try:
+        result = subprocess.run(
+            f"dpkg -s {package} | grep -oP 'Version:\\s*\\K[^+-]+'",
+            shell=True,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        print(f"{package} -> Package not found")
+        error = True
+        return "0.0.0"
 
 
 def main():
@@ -47,26 +73,22 @@ def main():
         sys.exit(1)
 
     executable = sys.argv[1]
-    # print(f"Checking dependencies for: {executable}")
-    # print("=" * 40)
-
     shared_libs = get_shared_libraries(executable)
 
     if shared_libs:
-        # print("\nShared libraries required:")
-        # for lib in shared_libs:
-        #     print(lib)
-
-        # print("\nSearching for corresponding packages:")
         all = set()
         for lib in shared_libs:
             all.update(get_package_for_library(lib))
+
+        if error:
+            sys.exit(2)
 
         all = list(all)
         all.sort()
         print(", ".join(all))
     else:
         print("No dependencies found or executable is statically compiled.")
+        sys.exit(3)
 
 
 if __name__ == "__main__":

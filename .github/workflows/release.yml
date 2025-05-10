@@ -66,6 +66,7 @@ jobs:
         id: debian
         if: runner.os == 'Linux'
         run: |
+          dpkg -s libgtk-4-1 | grep -oP 'Version:\s*\K[^+-]+'
           deps=$(./tools/linux/deps.py target/release/MView6)
           echo "deps=${deps}"
           echo "deps=${deps}" >> $GITHUB_OUTPUT
@@ -88,7 +89,7 @@ jobs:
           desc: |-
             MView6 image and pdf browser
             MView6 is an opiniated image and pdf browser written in Rust and GTK4,
-            supporting many modern image types like avif, heim and (animated) webp
+            supporting many modern image types like avif, heic and (animated) webp
           homepage: https://github.com/newinnovations/mview6
 
       - name: Package for Windows
