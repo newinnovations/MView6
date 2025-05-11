@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -26,8 +26,9 @@ pub enum Category {
     Favorite = 1,
     Image = 2,
     Archive = 3,
-    Trash = 4,
-    Unsupported = 5,
+    Document = 4,
+    Trash = 5,
+    Unsupported = 6,
 }
 
 impl Category {
@@ -47,12 +48,19 @@ impl Category {
             return Self::Archive;
         }
 
+        if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
+            return Self::Document;
+        }
+
         let supported = filename_lower.ends_with(".jpg")
             | filename_lower.ends_with(".jpeg")
             | filename_lower.ends_with(".gif")
             | filename_lower.ends_with(".svg")
             | filename_lower.ends_with(".svgz")
             | filename_lower.ends_with(".webp")
+            | filename_lower.ends_with(".heic")
+            | filename_lower.ends_with(".avif")
+            // | filename_lower.ends_with(".jxl") // TODO
             | filename_lower.ends_with("-1")
             | filename_lower.ends_with(".png");
 
@@ -101,6 +109,7 @@ impl Category {
             Self::Favorite => "mv6-favorite",
             Self::Image => "mv6-image",
             Self::Archive => "mv6-box",
+            Self::Document => "mv6-doc",
             Self::Trash => "mv6-garbage",
             Self::Unsupported => "mv6-unknown",
         }
@@ -125,10 +134,18 @@ impl Category {
             Category::Favorite => "favorite",
             Category::Image => "image",
             Category::Archive => "archive",
+            Category::Document => "document",
             Category::Trash => "trash",
             Category::Unsupported => "not supported",
         }
         .into()
+    }
+
+    pub fn is_container(&self) -> bool {
+        matches!(
+            self,
+            Category::Folder | Category::Archive | Category::Document
+        )
     }
 }
 
@@ -139,7 +156,8 @@ impl From<u32> for Category {
             1 => Self::Favorite,
             2 => Self::Image,
             3 => Self::Archive,
-            4 => Self::Trash,
+            4 => Self::Document,
+            5 => Self::Trash,
             _ => Self::Unsupported,
         }
     }

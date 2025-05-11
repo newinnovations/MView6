@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -95,6 +95,7 @@ impl From<TReference> for Selection {
             TReference::FileReference(file) => Selection::Name(file.filename()),
             TReference::ZipReference(zip) => Selection::Index(zip.index()),
             TReference::RarReference(rar) => Selection::Name(rar.selection()),
+            TReference::DocReference(doc) => Selection::Index(doc.index()),
             TReference::None => Selection::None,
         }
     }

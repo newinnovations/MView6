@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -18,6 +18,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::time::SystemTime;
+
+use crate::profile::memory::memory_short;
 
 pub struct Performance {
     start: SystemTime,
@@ -33,7 +35,13 @@ impl Performance {
     pub fn elapsed_suffix(&self, msg: &str, suffix: &str) {
         if let Ok(d) = self.start.elapsed() {
             let elapsed = d.as_secs() as f64 * 1e3 + d.subsec_nanos() as f64 * 1e-6;
-            println!("{:>20} {:6.1} ms {}", msg, elapsed, suffix);
+            println!(
+                "{:>20} {:6.1} ms {} {}",
+                msg,
+                elapsed,
+                suffix,
+                memory_short()
+            );
         };
     }
 

@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -23,7 +23,10 @@ use async_channel::Sender;
 use image::DynamicImage;
 
 use crate::{
-    backends::{archive_rar::RarArchive, archive_zip::ZipArchive, filesystem::FileSystem},
+    backends::{
+        archive_rar::RarArchive, archive_zip::ZipArchive, document::Document,
+        filesystem::FileSystem,
+    },
     category::Category,
     error::MviewResult,
     image::{draw::text_thumb, provider::image_rs::RsImageLoader, view::ImageView},
@@ -87,6 +90,9 @@ pub fn start_thumbnail_task(
                     }
                     TReference::RarReference(src) => {
                         thumb_result(RarArchive::get_thumbnail(src), &task)
+                    }
+                    TReference::DocReference(src) => {
+                        thumb_result(Document::get_thumbnail(src), &task)
                     }
                     TReference::None => {
                         TResultOption::Message(TMessage::error("none", "TEntry::None"))

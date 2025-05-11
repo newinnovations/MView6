@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use chrono::{Local, TimeZone};
 use gtk4::ListStore;
 use human_bytes::human_bytes;
@@ -37,8 +37,7 @@ use crate::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
     },
-    performance::Performance,
-    window::MViewWidgets,
+    profile::performance::Performance,
 };
 
 use super::{
@@ -139,7 +138,7 @@ impl Backend for RarArchive {
         }
     }
 
-    fn image(&self, _w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
         let sel = cursor.name();
         match extract_rar(&self.filename, &sel) {
             Ok(bytes) => ImageLoader::image_from_memory(bytes, sel.to_lowercase().contains(".svg")),

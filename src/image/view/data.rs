@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -29,7 +29,7 @@ use gtk4::prelude::WidgetExt;
 
 use crate::{
     image::{Image, ImageData},
-    performance::Performance,
+    profile::performance::Performance,
 };
 
 use super::{ImageView, ZoomMode};
@@ -40,13 +40,25 @@ pub const ZOOM_MULTIPLIER: f64 = 1.05;
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
 pub const QUALITY_LOW: Filter = Filter::Nearest;
 
+pub enum Surfaces {
+    None,
+    Single(ImageSurface),
+    Dual(ImageSurface, ImageSurface, f64, f64, f64),
+}
+
+impl Surfaces {
+    pub fn is_dual(&self) -> bool {
+        matches!(self, Surfaces::Dual(_, _, _, _, _))
+    }
+}
+
 pub struct ImageViewData {
     pub image: Image,
     pub zoom_mode: ZoomMode,
     pub xofs: f64,
     pub yofs: f64,
     pub rotation: i32,
-    pub surface: Option<ImageSurface>,
+    pub surface: Surfaces,
     pub transparency_background: Option<ImageSurface>,
     pub view: Option<ImageView>,
     pub zoom: f64,
@@ -63,7 +75,7 @@ impl Default for ImageViewData {
             xofs: 0.0,
             yofs: 0.0,
             rotation: 0,
-            surface: None,
+            surface: Surfaces::None,
             transparency_background: None,
             view: None,
             zoom: 1.0,
@@ -82,7 +94,7 @@ pub enum ZoomState {
 }
 
 // https://users.rust-lang.org/t/converting-a-bgra-u8-to-rgb-u8-n-for-images/67938
-fn create_surface(p: &Pixbuf) -> Option<ImageSurface> {
+fn create_surface_single(p: &Pixbuf) -> Result<ImageSurface, cairo::Error> {
     let duration = Performance::start();
 
     let width = p.width() as usize;
@@ -125,19 +137,21 @@ fn create_surface(p: &Pixbuf) -> Option<ImageSurface> {
         }
     }
 
-    let surface = match ImageSurface::create_for_data(
+    let surface = ImageSurface::create_for_data(
         surface_data,
         cairo::Format::ARgb32,
         width as i32,
         height as i32,
         surface_stride as i32,
-    ) {
-        Ok(s) => Some(s),
-        Err(e) => {
-            dbg!(e);
-            None
-        }
-    };
+    );
+
+    //  {
+    //     Ok(s) => Some(s),
+    //     Err(e) => {
+    //         dbg!(e);
+    //         None
+    //     }
+    // };
 
     duration.elapsed("surface");
 
@@ -146,10 +160,30 @@ fn create_surface(p: &Pixbuf) -> Option<ImageSurface> {
 
 impl ImageViewData {
     pub(super) fn create_surface(&mut self) {
-        if let ImageData::Pixbuf(pixbuf) = &self.image.image_data {
-            self.surface = create_surface(pixbuf);
+        if let ImageData::Single(pixbuf) = &self.image.image_data {
+            if let Ok(surface) = create_surface_single(pixbuf) {
+                self.surface = Surfaces::Single(surface);
+            } else {
+                self.surface = Surfaces::None;
+            }
+        } else if let ImageData::Dual(pixbuf1, pixbuf2) = &self.image.image_data {
+            if let (Ok(surface1), Ok(surface2)) = (
+                create_surface_single(pixbuf1),
+                create_surface_single(pixbuf2),
+            ) {
+                let w1 = surface1.width() as f64;
+                let h1 = surface1.height() as f64;
+                let h2 = surface2.height() as f64;
+                if h1 > h2 {
+                    self.surface = Surfaces::Dual(surface1, surface2, w1, 0.0, (h1 - h2) / 2.0);
+                } else {
+                    self.surface = Surfaces::Dual(surface1, surface2, w1, (h2 - h1) / 2.0, 0.0);
+                }
+            } else {
+                self.surface = Surfaces::None;
+            }
         } else {
-            self.surface = None;
+            self.surface = Surfaces::None;
         }
     }
 

@@ -6,6 +6,7 @@
     <file>mv6-garbage.svg</file>
     <file>mv6-unknown.svg</file>
     <file>mv6-favorite.svg</file>
+    <file>mv6-doc.svg</file>
   </gresource>
   <gresource prefix="/css">
     <file>mview6.css</file>

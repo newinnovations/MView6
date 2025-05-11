@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -22,12 +22,11 @@ pub mod processing;
 
 use std::cell::{Cell, RefCell};
 
-use super::{Backend, Image, Selection};
+use super::{Backend, Image, ImageParams, Selection};
 use crate::{
     category::Category,
     file_view::{Columns, Cursor, Sort},
     image::draw::thumbnail_sheet,
-    window::MViewWidgets,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
 pub use model::{Message, TCommand, TEntry, TMessage, TReference, TResult, TResultOption, TTask};
@@ -180,7 +179,7 @@ impl Backend for Thumbnail {
         (self.parent.replace(<dyn Backend>::none()), Selection::None)
     }
 
-    fn image(&self, w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
         let page = cursor.index();
         let caption = format!("{} of {}", page + 1, cursor.store_size());
         let image = match thumbnail_sheet(self.width, self.height, MARGIN, &caption) {
@@ -192,7 +191,7 @@ impl Backend for Thumbnail {
         };
 
         let command = TCommand::new(image.id(), self.sheet(page as i32));
-        let _ = w.sender.send_blocking(Message::Command(command));
+        let _ = params.sender.send_blocking(Message::Command(command));
 
         image
     }
@@ -232,6 +231,10 @@ impl Backend for Thumbnail {
                 TReference::RarReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
                     Selection::Name(src.selection()),
+                )),
+                TReference::DocReference(src) => Some((
+                    self.parent.replace(<dyn Backend>::none()),
+                    Selection::Index(src.index()),
                 )),
                 TReference::None => None,
             }

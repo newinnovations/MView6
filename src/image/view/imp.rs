@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -42,7 +42,7 @@ use gtk4::{
 use rsvg::prelude::HandleExt;
 
 use super::{
-    data::{ImageViewData, ZoomState, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
+    data::{ImageViewData, Surfaces, ZoomState, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
     ImageView, ViewCursor,
 };
 
@@ -193,8 +193,8 @@ impl ImageViewImp {
         context.set_fill_rule(cairo::FillRule::EvenOdd);
         let _ = context.fill();
 
-        if let Some(transparency_background) = &p.transparency_background {
-            if p.image.has_alpha() {
+        if !p.surface.is_dual() && p.image.has_alpha() {
+            if let Some(transparency_background) = &p.transparency_background {
                 let _ = context.set_source_surface(transparency_background, xofs, yofs);
                 context.source().set_extend(cairo::Extend::Repeat);
                 context.rectangle(xofs, yofs, scaled_width, scaled_height);
@@ -213,12 +213,16 @@ impl ImageViewImp {
             handle.render_document(context, &viewport).unwrap();
         } else {
             context.scale(p.zoom, p.zoom);
-            if let Some(surface) = p.surface.as_ref() {
-                let _ = context.set_source_surface(surface, xofs / p.zoom, yofs / p.zoom);
-            }
-            context.source().set_extend(cairo::Extend::Pad);
             if p.zoom_state() != ZoomState::NoZoom {
                 context.source().set_filter(p.quality);
+            }
+            if let Surfaces::Single(surface) = &p.surface {
+                let _ = context.set_source_surface(surface, xofs / p.zoom, yofs / p.zoom);
+            } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
+                let _ = context.set_source_surface(surface1, xofs / p.zoom, yofs / p.zoom + y1);
+                let _ = context.paint();
+                let _ =
+                    context.set_source_surface(surface2, w1 + xofs / p.zoom, yofs / p.zoom + y2);
             }
             let _ = context.paint();
         }
@@ -345,7 +349,7 @@ impl WidgetImpl for ImageViewImp {
 
 impl DrawingAreaImpl for ImageViewImp {
     fn resize(&self, _width: i32, _height: i32) {
-        println!("resize {_width} {_height}");
+        // println!("resize {_width} {_height}");
         self.cancel_resize_notify();
         let mut p = self.data.borrow_mut();
         p.apply_zoom();

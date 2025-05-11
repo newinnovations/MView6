@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -70,7 +70,7 @@ impl Image {
             Animation::None => false,
             Animation::Gdk(animation) => {
                 if animation.advance(current_time) {
-                    self.image_data = ImageData::Pixbuf(animation.pixbuf());
+                    self.image_data = ImageData::Single(animation.pixbuf());
                     true
                 } else {
                     false
@@ -78,14 +78,14 @@ impl Image {
             }
             Animation::WebPFile(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Pixbuf(pixbuf);
+                    self.image_data = ImageData::Single(pixbuf);
                     true
                 }
                 None => false,
             },
             Animation::WebPMemory(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Pixbuf(pixbuf);
+                    self.image_data = ImageData::Single(pixbuf);
                     true
                 }
                 None => false,

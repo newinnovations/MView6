@@ -1,6 +1,6 @@
 # MView6
 
-Opiniated image browser written in Rust and GTK4
+Opiniated image and pdf browser written in Rust and GTK4
 
 ![MView6 screenshot](./doc/mview6.png)
 ![MView6 image information](./doc/mview6-info.png)

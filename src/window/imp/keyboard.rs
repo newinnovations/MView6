@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -22,9 +22,9 @@ use super::MViewWindowImp;
 use gtk4::{gdk::Key, prelude::*, subclass::prelude::*, SortColumn};
 
 use crate::{
-    backends::{thumbnail::Thumbnail, Backend},
+    backends::{document::PageMode, thumbnail::Thumbnail, Backend, ImageParams},
     file_view::{Direction, Filter, Selection, Sort},
-    image::{provider::ImageLoader, view::ZoomMode},
+    image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
 };
 
 impl MViewWindowImp {
@@ -133,10 +133,10 @@ impl MViewWindowImp {
                 let backend = self.backend.borrow();
                 if backend.is_thumbnail() {
                     let new_size = match self.thumbnail_size.get() {
-                        175 => 140,
-                        140 => 100,
-                        100 => 80,
-                        80 => 250,
+                        80 => 100,
+                        100 => 140,
+                        175 => 250,
+                        250 => 80,
                         _ => 175,
                     };
                     self.thumbnail_size.set(new_size);
@@ -165,10 +165,12 @@ impl MViewWindowImp {
                 }
             }
             Key::z | Key::Left | Key::KP_4 | Key::KP_Left => {
-                w.file_view.navigate(Direction::Up, w.filter(), 1);
+                w.file_view
+                    .navigate(Direction::Up, w.filter(), self.step_size());
             }
             Key::x | Key::Right | Key::KP_6 | Key::KP_Right => {
-                w.file_view.navigate(Direction::Down, w.filter(), 1);
+                w.file_view
+                    .navigate(Direction::Down, w.filter(), self.step_size());
             }
             Key::a => {
                 w.file_view.navigate(Direction::Up, Filter::Favorite, 1);
@@ -229,6 +231,38 @@ impl MViewWindowImp {
                         w.file_view.goto(&Selection::None);
                     }
                 }
+            }
+            Key::p => {
+                let new_page_mode = match self.page_mode.get() {
+                    PageMode::Single => PageMode::DualOdd,
+                    PageMode::DualOdd => PageMode::DualEven,
+                    PageMode::DualEven => PageMode::Single,
+                };
+                dbg!(new_page_mode);
+                self.page_mode.set(new_page_mode);
+                if self.backend.borrow().is_doc() {
+                    self.on_cursor_changed();
+                }
+            }
+            Key::P => {
+                let w = self.widgets();
+                let params = ImageParams {
+                    sender: &w.sender,
+                    page_mode: &self.page_mode.get(),
+                };
+                if let Some(current) = w.file_view.current() {
+                    let image1 = self.backend.borrow().image(&current, &params);
+                    if current.next() {
+                        let image2 = self.backend.borrow().image(&current, &params);
+                        if let (ImageData::Single(pixbuf), ImageData::Single(pixbuf2)) =
+                            (image1.image_data, image2.image_data)
+                        {
+                            let i2 = Image::new_dual_pixbuf(Some(pixbuf), Some(pixbuf2), None);
+                            w.info_view.update(&i2);
+                            w.image_view.set_image(i2);
+                        }
+                    }
+                };
             }
             _ => (),
         }

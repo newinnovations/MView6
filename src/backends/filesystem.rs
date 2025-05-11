@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -17,13 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Image;
+use super::{Image, ImageParams};
 use crate::{
     category::Category,
     error::MviewResult,
     file_view::{Columns, Cursor, Direction, Sort},
     image::provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
-    window::MViewWidgets,
 };
 use gtk4::ListStore;
 use image::DynamicImage;
@@ -147,7 +146,10 @@ impl Backend for FileSystem {
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         let category = cursor.category();
-        if category == Category::Folder || category == Category::Archive {
+        if category == Category::Folder
+            || category == Category::Archive
+            || category == Category::Document
+        {
             Some(<dyn Backend>::new(&format!(
                 "{}/{}",
                 self.directory,
@@ -182,7 +184,7 @@ impl Backend for FileSystem {
         }
     }
 
-    fn image(&self, _w: &MViewWidgets, cursor: &Cursor) -> Image {
+    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
         let filename = format!("{}/{}", self.directory, cursor.name());
         ImageLoader::image_from_file(&filename)
     }

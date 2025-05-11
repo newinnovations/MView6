@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -21,24 +21,31 @@ use std::env;
 
 use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
+use async_channel::Sender;
 use bookmarks::Bookmarks;
+use document::{Document, PageMode};
 use filesystem::FileSystem;
 use gtk4::ListStore;
 use none::NoneBackend;
-use thumbnail::{TEntry, Thumbnail};
+use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
     file_view::{Cursor, Direction, Selection, Sort},
     image::Image,
-    window::MViewWidgets,
 };
 
 mod archive_rar;
 mod archive_zip;
 mod bookmarks;
+pub mod document;
 pub mod filesystem;
 mod none;
 pub mod thumbnail;
+
+pub struct ImageParams<'a> {
+    pub sender: &'a Sender<Message>,
+    pub page_mode: &'a PageMode,
+}
 
 #[allow(unused_variables)]
 pub trait Backend {
@@ -52,7 +59,7 @@ pub trait Backend {
         None
     }
     fn leave(&self) -> (Box<dyn Backend>, Selection);
-    fn image(&self, w: &MViewWidgets, cursor: &Cursor) -> Image;
+    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
     fn entry(&self, cursor: &Cursor) -> TEntry {
         Default::default()
     }
@@ -63,6 +70,9 @@ pub trait Backend {
         false
     }
     fn is_thumbnail(&self) -> bool {
+        false
+    }
+    fn is_doc(&self) -> bool {
         false
     }
     fn is_none(&self) -> bool {
@@ -90,10 +100,13 @@ impl Default for Box<dyn Backend> {
 
 impl dyn Backend {
     pub fn new(filename: &str) -> Box<dyn Backend> {
-        if filename.ends_with(".zip") {
+        let filename_lower = filename.to_lowercase();
+        if filename_lower.ends_with(".zip") {
             Box::new(ZipArchive::new(filename))
-        } else if filename.ends_with(".rar") {
+        } else if filename_lower.ends_with(".rar") {
             Box::new(RarArchive::new(filename))
+        } else if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
+            Box::new(Document::new(filename))
         } else {
             Box::new(FileSystem::new(filename))
         }

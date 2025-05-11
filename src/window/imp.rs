@@ -1,12 +1,12 @@
-// MView6 -- Opiniated image browser written in Rust and GTK4
+// MView6 -- Opiniated image and pdf browser written in Rust and GTK4
 //
-// Copyright (c) 2024 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
 // MView6 is free software: you can redistribute it and/or modify it under the terms of
-// the GNU General Public License as published by the Free Software Foundation, either version 3
-// of the License, or (at your option) any later version.
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
 //
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 // IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
@@ -24,6 +24,7 @@ mod navigate;
 
 use crate::{
     backends::{
+        document::PageMode,
         thumbnail::{
             processing::{handle_thumbnail_result, start_thumbnail_task},
             Message, TCommand,
@@ -63,6 +64,7 @@ pub struct MViewWindowImp {
     skip_loading: Cell<bool>,
     thumbnail_size: Cell<i32>,
     current_sort: Cell<Sort>,
+    page_mode: Cell<PageMode>,
 }
 
 #[glib::object_subclass]
@@ -112,6 +114,18 @@ impl MViewWindowImp {
         w.info_widget.set_margin_top(border);
         w.info_widget.set_margin_bottom(border);
         w.file_view.set_extended(!w.info_widget.is_visible());
+    }
+
+    pub fn step_size(&self) -> u32 {
+        if self.backend.borrow().is_doc() {
+            match self.page_mode.get() {
+                PageMode::Single => 1,
+                PageMode::DualOdd => 2,
+                PageMode::DualEven => 2,
+            }
+        } else {
+            1
+        }
     }
 }
 
@@ -184,8 +198,8 @@ impl ObjectImpl for MViewWindowImp {
             closure_local!(
                 #[weak(rename_to = this)]
                 self,
-                move |_view: ImageView, width: i32, height: i32| {
-                    println!("view was resized to {width} {height}");
+                move |_view: ImageView, _width: i32, _height: i32| {
+                    // println!("view was resized to {_width} {_height}");
                     this.update_thumbnail_backend();
                 }
             ),
