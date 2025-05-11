@@ -2,7 +2,7 @@ name: Release builds
 on:
   push:
     branches:
-      - pdf
+      - main
 jobs:
   build:
     name: Build
