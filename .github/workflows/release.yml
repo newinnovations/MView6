@@ -82,11 +82,12 @@ jobs:
           package: mview6
           package_root: .debpkg
           maintainer: "Martin van der Werff <github@newinnovations.nl>"
-          section: "graphics"
+          section: graphics
+          priority: optional
           version: ${{ steps.date.outputs.version }}
           arch: amd64
           depends: ${{ steps.debian.outputs.deps }}
-          desc: |-
+          desc: |
             MView6 image and pdf browser
             MView6 is an opiniated image and pdf browser written in Rust and GTK4,
             supporting many modern image types like avif, heic and (animated) webp
