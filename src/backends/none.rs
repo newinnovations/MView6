@@ -22,7 +22,7 @@ use gtk4::ListStore;
 
 use crate::file_view::{Columns, Cursor, Sort};
 
-use super::{Backend, Selection};
+use super::{Backend, Target};
 
 #[derive(Clone)]
 pub struct NoneBackend {}
@@ -56,8 +56,8 @@ impl Backend for NoneBackend {
         Columns::store()
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
-        (Box::new(NoneBackend::new()), Selection::None)
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
+        (Box::new(NoneBackend::new()), Target::First)
     }
 
     fn image(&self, _: &Cursor, _: &ImageParams) -> Image {

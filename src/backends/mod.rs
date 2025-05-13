@@ -30,7 +30,7 @@ use none::NoneBackend;
 use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
-    file_view::{Cursor, Direction, Selection, Sort},
+    file_view::{Cursor, Direction, Sort, Target},
     image::Image,
 };
 
@@ -58,7 +58,7 @@ pub trait Backend {
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         None
     }
-    fn leave(&self) -> (Box<dyn Backend>, Selection);
+    fn leave(&self) -> (Box<dyn Backend>, Target);
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
     fn entry(&self, cursor: &Cursor) -> TEntry {
         Default::default()
@@ -78,7 +78,7 @@ pub trait Backend {
     fn is_none(&self) -> bool {
         false
     }
-    fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Selection)> {
+    fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
     fn set_parent(&self, parent: Box<dyn Backend>) {}

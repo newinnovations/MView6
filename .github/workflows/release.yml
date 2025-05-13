@@ -110,23 +110,21 @@ jobs:
           cp doc/README-WINDOWS.txt mview6-windows/.
           7z a mview6_${{ steps.date.outputs.version }}_windows.zip mview6-windows/
 
-      # - name: Upload artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: mview6-${{ matrix.os }}
-      #     path: |
-      #       *.zip
-      #       *.deb
-      #       *.rpm
-
-      - name: Release
-        uses: ncipollo/release-action@v1
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.date.outputs.today }}
-          commit: ${{ github.sha }}
-          tag: ${{ steps.date.outputs.today }}
-          body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
-          makeLatest: true
-          allowUpdates: true
-          replacesArtifacts: true
-          artifacts: "mview6_*"
+          name: mview6-${{ matrix.os }}
+          path: |
+            mview6_*
+
+      # - name: Release
+      #   uses: ncipollo/release-action@v1
+      #   with:
+      #     name: ${{ steps.date.outputs.today }}
+      #     commit: ${{ github.sha }}
+      #     tag: ${{ steps.date.outputs.today }}
+      #     body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
+      #     makeLatest: true
+      #     allowUpdates: true
+      #     replacesArtifacts: true
+      #     artifacts: "mview6_*"

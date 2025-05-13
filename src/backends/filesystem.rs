@@ -38,7 +38,7 @@ use std::{
 
 use super::{
     thumbnail::{TEntry, TReference},
-    Backend, Selection,
+    Backend, Target,
 };
 
 pub struct FileSystem {
@@ -160,7 +160,7 @@ impl Backend for FileSystem {
         }
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
         let directory_p = Path::new(&self.directory);
         let current = directory_p
             .file_name()
@@ -172,14 +172,14 @@ impl Backend for FileSystem {
             match directory_p.parent() {
                 Some(parent) => (
                     Box::new(FileSystem::new(parent.to_str().unwrap_or("/"))),
-                    Selection::Name(current),
+                    Target::Name(current),
                 ),
-                _ => (Box::new(FileSystem::new("/")), Selection::Name(current)),
+                _ => (Box::new(FileSystem::new("/")), Target::Name(current)),
             }
         } else {
             (
                 self.parent.replace(<dyn Backend>::none()),
-                Selection::Name(current),
+                Target::Name(current),
             )
         }
     }

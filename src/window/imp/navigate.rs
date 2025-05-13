@@ -24,13 +24,15 @@ use super::MViewWindowImp;
 use crate::{
     backends::{Backend, ImageParams},
     category::Category,
-    file_view::{Direction, Filter, Selection, Sort},
+    file_view::{Columns, Direction, FileView, Filter, Sort, Target},
 };
 use gio::File;
-use gtk4::{prelude::*, TreePath, TreeViewColumn};
+use glib::subclass::types::ObjectSubclassExt;
+use gtk4::{prelude::*, SortColumn, TreePath, TreeViewColumn};
 
 impl MViewWindowImp {
     pub(super) fn on_cursor_changed(&self) {
+        // println!("on_cursor_changed skip={}", self.skip_loading.get());
         let w = self.widgets();
         if !self.skip_loading.get() {
             if let Some(current) = w.file_view.current() {
@@ -65,17 +67,16 @@ impl MViewWindowImp {
                 if let Some(sort) = force_sort {
                     new_backend.set_sort(&sort);
                 }
-                self.set_backend(new_backend, Selection::None, true);
+                self.set_backend(new_backend, Target::First, true);
             }
         }
     }
 
     pub fn dir_leave(&self) {
         let backend = self.backend.borrow();
-        let (new_backend, selection) = backend.leave();
-        // dbg!(&backend, &new_backend);
+        let (new_backend, target) = backend.leave();
         drop(backend);
-        self.set_backend(new_backend, selection, false);
+        self.set_backend(new_backend, target, false);
     }
 
     pub fn navigate_to(&self, file: &File) {
@@ -91,12 +92,10 @@ impl MViewWindowImp {
             .to_str()
             .unwrap_or("/");
         let category = Category::determine(filename, path.is_dir());
-        dbg!(filename, directory, category);
+        // dbg!(filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
-        self.set_backend(new_backend, Selection::Name(filename.to_string()), false);
-        if category.is_container() {
-            self.dir_enter(None);
-        }
+        self.open_container.set(category.is_container());
+        self.set_backend(new_backend, Target::Name(filename.to_string()), false);
     }
 
     pub fn hop(&self, direction: Direction) {
@@ -111,5 +110,16 @@ impl MViewWindowImp {
         // enter dir with remembered sort
         self.skip_loading.set(false);
         self.dir_enter(Some(active_sort));
+    }
+
+    pub fn change_sort(&self, file_view: &FileView, sort_key: Columns) {
+        let backend = self.backend.borrow();
+        if !backend.is_thumbnail() {
+            if let Some(current) = file_view.current() {
+                let target: Target = backend.entry(&current).into();
+                current.set_sort_column(SortColumn::Index(sort_key as u32));
+                file_view.goto(&target, &self.obj());
+            }
+        }
     }
 }

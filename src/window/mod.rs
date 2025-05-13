@@ -20,8 +20,6 @@
 mod imp;
 
 use crate::application::MviewApplication;
-use gio::{prelude::ApplicationExt, File};
-use glib::subclass::types::ObjectSubclassIsExt;
 use gtk4::glib;
 
 glib::wrapper! {
@@ -31,11 +29,7 @@ glib::wrapper! {
 
 impl MViewWindow {
     pub fn new(app: &MviewApplication) -> Self {
-        dbg!(app.application_id());
+        // dbg!(app.application_id());
         glib::Object::builder().property("application", app).build()
-    }
-
-    pub fn navigate_to(&self, file: &File) {
-        self.imp().navigate_to(file);
     }
 }

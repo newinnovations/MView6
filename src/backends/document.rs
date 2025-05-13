@@ -37,13 +37,13 @@ use crate::{
 use super::{
     filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Selection,
+    Backend, Target,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum PageMode {
-    #[default]
     Single,
+    #[default]
     DualOdd,
     DualEven,
 }
@@ -122,16 +122,16 @@ impl Backend for Document {
         self.store.clone()
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
         if self.parent.borrow().is_none() {
             (
                 Box::new(FileSystem::new(&self.directory)),
-                Selection::Name(self.archive.clone()),
+                Target::Name(self.archive.clone()),
             )
         } else {
             (
                 self.parent.replace(<dyn Backend>::none()),
-                Selection::Name(self.archive.clone()),
+                Target::Name(self.archive.clone()),
             )
         }
     }
@@ -209,6 +209,7 @@ fn extract_page(
 }
 
 fn extract_page_single(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+    let duration = Performance::start();
     let doc = mupdf::Document::open(filename)?;
     let page = doc.load_page(index as i32)?;
     let bounds = page.bounds()?;
@@ -216,17 +217,20 @@ fn extract_page_single(filename: &str, index: u32) -> Result<Image, mupdf::Error
     let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
-    Ok(Image::new_pixbuf(
+    let image = Image::new_pixbuf(
         Some(GdkImageLoader::pixbuf_from_rgb(
             pixmap.width(),
             pixmap.height(),
             pixmap.samples(),
         )),
         None,
-    ))
+    );
+    duration.elapsed("single page");
+    Ok(image)
 }
 
 fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+    let duration = Performance::start();
     let doc = mupdf::Document::open(filename)?;
 
     let page = doc.load_page(index as i32)?;
@@ -243,7 +247,7 @@ fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> 
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap2 = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
 
-    Ok(Image::new_dual_pixbuf(
+    let image = Image::new_dual_pixbuf(
         Some(GdkImageLoader::pixbuf_from_rgb(
             pixmap1.width(),
             pixmap1.height(),
@@ -255,7 +259,9 @@ fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> 
             pixmap2.samples(),
         )),
         None,
-    ))
+    );
+    duration.elapsed("dual page");
+    Ok(image)
 }
 
 fn extract_page_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {

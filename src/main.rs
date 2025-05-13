@@ -39,14 +39,6 @@ use std::env;
 fn main() {
     gtk4::init().expect("Failed to initialize gtk");
 
-    let args: Vec<String> = env::args().collect();
-    let filename = if args.len() > 1 {
-        Some(args[1].clone())
-    } else {
-        None
-    };
-    dbg!(filename);
-
     gio::resources_register_include!("mview6.gresource").unwrap();
 
     let display = Display::default().expect("Could not connect to a display.");

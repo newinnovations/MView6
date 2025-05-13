@@ -31,7 +31,7 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use super::{Backend, Selection};
+use super::{Backend, Target};
 
 pub struct Bookmarks {
     store: ListStore,
@@ -114,8 +114,8 @@ impl Backend for Bookmarks {
         Some(<dyn Backend>::new(&cursor.folder()))
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
-        (self.parent.replace(<dyn Backend>::none()), Selection::None)
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
+        (self.parent.replace(<dyn Backend>::none()), Target::First)
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {

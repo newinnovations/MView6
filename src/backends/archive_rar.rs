@@ -43,7 +43,7 @@ use crate::{
 use super::{
     filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Selection,
+    Backend, Target,
 };
 
 pub struct RarArchive {
@@ -124,16 +124,16 @@ impl Backend for RarArchive {
         self.store.clone()
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
         if self.parent.borrow().is_none() {
             (
                 Box::new(FileSystem::new(&self.directory)),
-                Selection::Name(self.archive.clone()),
+                Target::Name(self.archive.clone()),
             )
         } else {
             (
                 self.parent.replace(<dyn Backend>::none()),
-                Selection::Name(self.archive.clone()),
+                Target::Name(self.archive.clone()),
             )
         }
     }

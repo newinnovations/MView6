@@ -19,7 +19,9 @@
 
 mod imp;
 
-use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
+use glib::{
+    clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
+};
 use gtk4::{
     glib,
     prelude::{TreeModelExt, TreeSortableExtManual, TreeViewExt},
@@ -27,10 +29,11 @@ use gtk4::{
 };
 pub use imp::{
     cursor::{Cursor, TreeModelMviewExt},
-    model::{Columns, Direction, Filter, Selection},
+    model::{Columns, Direction, Filter, Target},
     sort::Sort,
 };
 
+use crate::window::MViewWindow;
 glib::wrapper! {
 pub struct FileView(ObjectSubclass<imp::FileViewImp>)
     @extends gtk4::Widget, gtk4::TreeView, gtk4::Scrollable;
@@ -78,19 +81,62 @@ impl FileView {
         }
     }
 
-    pub fn goto(&self, selection: &Selection) -> bool {
-        // println!("Goto {:?}", selection);
+    /// Goto an entry in the in list (files, pages, etc). We do this delayed using idle_add_local,
+    /// so the file_view can render on screen before executing set_cursor. In some cases we go
+    /// through several goto operations before reaching the final (with skip_loading and
+    /// open_container), in those cases do not delay as the file_view does not yet contain the
+    /// desired contents.
+    ///
+    /// Gets called via:
+    /// - MViewWindowImp::set_backend(.. goto: &target ..)
+    /// - On change of sort (keys 1-4) with Target::First (change to current selection?)
+    ///
+    /// In all cases the result is ignored
+    ///
+    /// TODO:
+    /// - remove result ?
+    ///
+    pub fn goto(&self, target: &Target, window: &MViewWindow) -> bool {
+        // println!("fileview::goto {:?}", target);
         if let Some(store) = self.store() {
             if let Some(iter) = store.iter_first() {
                 loop {
-                    let found = match selection {
-                        Selection::Name(filename) => *filename == store.name(&iter),
-                        Selection::Index(index) => *index == store.index(&iter),
-                        Selection::None => true,
+                    let found = match target {
+                        Target::First => true,
+                        Target::Name(filename) => *filename == store.name(&iter),
+                        Target::Index(index) => *index == store.index(&iter),
                     };
                     if found {
                         let tp = store.path(&iter); //.unwrap_or_default();
-                        self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                        let window = window.imp();
+                        let skip_loading = window.skip_loading.get();
+                        if skip_loading {
+                            // do not delay, we need the result now because the final goto which will come later
+                            self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                        } else {
+                            let open_container = window.open_container.get();
+                            if open_container {
+                                // do not delay, we need the result now because the final goto which will come later
+                                window.skip_loading.set(true);
+                                self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                                window.open_container.set(false);
+                                window.skip_loading.set(false);
+                                window.dir_enter(None);
+                            } else {
+                                // this is the final goto: delay navigation so the file_view can render on screen
+                                // before executing set_cursor
+                                idle_add_local(clone!(
+                                    #[weak(rename_to = this)]
+                                    self,
+                                    #[upgrade_or]
+                                    ControlFlow::Break,
+                                    move || {
+                                        this.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                                        ControlFlow::Break
+                                    }
+                                ));
+                            }
+                        }
                         return true;
                     }
                     if !store.iter_next(&iter) {

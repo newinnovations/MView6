@@ -19,7 +19,6 @@
 
 use std::cell::OnceCell;
 
-use gio::File;
 use gtk4::{glib, prelude::GtkWindowExt, subclass::prelude::*, Application};
 
 use crate::window::MViewWindow;
@@ -50,16 +49,6 @@ impl ApplicationImpl for MviewApplicationImp {
         self.window
             .set(window)
             .expect("Failed to initialize application window");
-    }
-
-    fn open(&self, files: &[File], hint: &str) {
-        println!("window:open");
-        dbg!(files, hint);
-        if !files.is_empty() {
-            let file = &files[0];
-            let window = self.window.get().expect("failed to get window");
-            window.navigate_to(file);
-        }
     }
 }
 

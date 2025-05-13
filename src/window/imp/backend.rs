@@ -17,18 +17,20 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use glib::clone;
-use gtk4::prelude::{TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
+use std::path::Path;
+
+use glib::{clone, subclass::types::ObjectSubclassExt};
+use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{Selection, Sort},
+    file_view::{Sort, Target},
 };
 
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: Selection, set_parent: bool) {
+    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: Target, set_parent: bool) {
         let skip_loading = self.skip_loading.get();
         self.skip_loading.set(true);
 
@@ -72,17 +74,20 @@ impl MViewWindowImp {
         ));
 
         // TODO: think about title management
-        // let path = Path::new(new_backend.path());
-        // let filename = path
-        //     .file_name()
-        //     .unwrap_or_default()
-        //     .to_str()
-        //     .unwrap_or_default();
-        // self.obj().set_title(Some(&format!("MView6 - {filename}")));
+        let path = Path::new(new_backend.path());
+        let filename = path
+            .file_name()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or_default();
+        self.obj().set_title(Some(&format!("{filename} - MView6")));
 
+        drop(new_backend);
+
+        self.update_layout();
         w.file_view.set_model(Some(&new_store));
         self.skip_loading.set(skip_loading);
-        w.file_view.goto(&goto);
+        w.file_view.goto(&goto, &self.obj());
     }
 
     pub fn update_thumbnail_backend(&self) {
@@ -92,7 +97,7 @@ impl MViewWindowImp {
             if let Some(thumbnail) =
                 Thumbnail::new(w.image_view.allocation(), 0, self.thumbnail_size.get())
             {
-                let (parent_backend, _selection) = backend.leave();
+                let (parent_backend, _) = backend.leave();
                 drop(backend);
                 self.backend.replace(parent_backend);
                 let startpage = thumbnail.startpage();

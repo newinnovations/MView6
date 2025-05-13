@@ -22,7 +22,7 @@ pub mod processing;
 
 use std::cell::{Cell, RefCell};
 
-use super::{Backend, Image, ImageParams, Selection};
+use super::{Backend, Image, ImageParams, Target};
 use crate::{
     category::Category,
     file_view::{Columns, Cursor, Sort},
@@ -96,8 +96,8 @@ impl Thumbnail {
         self.capacity_x * self.capacity_y
     }
 
-    pub fn startpage(&self) -> Selection {
-        Selection::Index(self.parent_pos as u32 / self.capacity() as u32)
+    pub fn startpage(&self) -> Target {
+        Target::Index(self.parent_pos as u32 / self.capacity() as u32)
     }
 
     pub fn sheet(&self, page: i32) -> Vec<TTask> {
@@ -175,8 +175,8 @@ impl Backend for Thumbnail {
         store
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Selection) {
-        (self.parent.replace(<dyn Backend>::none()), Selection::None)
+    fn leave(&self) -> (Box<dyn Backend>, Target) {
+        (self.parent.replace(<dyn Backend>::none()), Target::First)
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
@@ -202,7 +202,7 @@ impl Backend for Thumbnail {
         }
     }
 
-    fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Selection)> {
+    fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         let x = (x as i32 - self.offset_x) / (self.size + self.separator_x);
         let y = (y as i32 - self.offset_y) / (self.size + self.separator_y);
 
@@ -222,19 +222,19 @@ impl Backend for Thumbnail {
             match source {
                 TReference::FileReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
-                    Selection::Name(src.filename()),
+                    Target::Name(src.filename()),
                 )),
                 TReference::ZipReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
-                    Selection::Index(src.index()),
+                    Target::Index(src.index()),
                 )),
                 TReference::RarReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
-                    Selection::Name(src.selection()),
+                    Target::Name(src.selection()),
                 )),
                 TReference::DocReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
-                    Selection::Index(src.index()),
+                    Target::Index(src.index()),
                 )),
                 TReference::None => None,
             }

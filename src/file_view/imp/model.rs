@@ -20,7 +20,7 @@
 use gtk4::{prelude::TreeSortableExtManual, ListStore};
 
 use super::cursor::TreeModelMviewExt;
-use crate::backends::thumbnail::TReference;
+use crate::backends::thumbnail::{TEntry, TReference};
 
 #[derive(Debug)]
 #[repr(i32)]
@@ -83,20 +83,26 @@ impl Columns {
 }
 
 #[derive(Debug)]
-pub enum Selection {
+pub enum Target {
+    First,
     Name(String),
     Index(u32),
-    None,
 }
 
-impl From<TReference> for Selection {
+impl From<TReference> for Target {
     fn from(item: TReference) -> Self {
         match item {
-            TReference::FileReference(file) => Selection::Name(file.filename()),
-            TReference::ZipReference(zip) => Selection::Index(zip.index()),
-            TReference::RarReference(rar) => Selection::Name(rar.selection()),
-            TReference::DocReference(doc) => Selection::Index(doc.index()),
-            TReference::None => Selection::None,
+            TReference::FileReference(file) => Target::Name(file.filename()),
+            TReference::ZipReference(zip) => Target::Index(zip.index()),
+            TReference::RarReference(rar) => Target::Name(rar.selection()),
+            TReference::DocReference(doc) => Target::Index(doc.index()),
+            TReference::None => Target::First,
         }
+    }
+}
+
+impl From<TEntry> for Target {
+    fn from(item: TEntry) -> Self {
+        item.reference.into()
     }
 }

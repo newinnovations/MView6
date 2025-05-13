@@ -31,19 +31,23 @@ use crate::{
         },
         Backend,
     },
-    file_view::{FileView, Filter, Selection, Sort},
+    file_view::{FileView, Filter, Sort, Target},
     image::view::{ImageView, ZoomMode, SIGNAL_VIEW_RESIZED},
     info_view::InfoView,
 };
 use async_channel::Sender;
-use glib::{clone, closure_local};
+use gio::File;
+use glib::{clone, closure_local, idle_add_local, ControlFlow};
 use gtk4::{
     glib::{self, Propagation},
     prelude::*,
     subclass::prelude::*,
     EventControllerKey, ScrolledWindow,
 };
-use std::cell::{Cell, OnceCell, RefCell};
+use std::{
+    cell::{Cell, OnceCell, RefCell},
+    env,
+};
 
 #[derive(Debug)]
 pub struct MViewWidgets {
@@ -61,7 +65,8 @@ pub struct MViewWindowImp {
     widget_cell: OnceCell<MViewWidgets>,
     backend: RefCell<Box<dyn Backend>>,
     full_screen: Cell<bool>,
-    skip_loading: Cell<bool>,
+    pub skip_loading: Cell<bool>,
+    pub open_container: Cell<bool>,
     thumbnail_size: Cell<i32>,
     current_sort: Cell<Sort>,
     page_mode: Cell<PageMode>,
@@ -83,7 +88,7 @@ impl MViewWindowImp {
         let w = self.widgets();
         if w.file_widget.is_visible() != show {
             w.file_widget.set_visible(show);
-            self.update_margins();
+            self.update_layout();
         }
     }
 
@@ -91,11 +96,11 @@ impl MViewWindowImp {
         let w = self.widgets();
         if w.info_widget.is_visible() != show {
             w.info_widget.set_visible(show);
-            self.update_margins();
+            self.update_layout();
         }
     }
 
-    pub fn update_margins(&self) {
+    pub fn update_layout(&self) {
         let w = self.widgets();
         let border = if w.file_widget.is_visible() || w.info_widget.is_visible() {
             8
@@ -113,7 +118,10 @@ impl MViewWindowImp {
         w.info_widget.set_margin_end(border);
         w.info_widget.set_margin_top(border);
         w.info_widget.set_margin_bottom(border);
-        w.file_view.set_extended(!w.info_widget.is_visible());
+        let backend = self.backend.borrow();
+        let shrink_file_view =
+            w.info_widget.is_visible() || backend.is_thumbnail() || backend.is_doc();
+        w.file_view.set_extended(!shrink_file_view);
     }
 
     pub fn step_size(&self) -> u32 {
@@ -132,6 +140,15 @@ impl MViewWindowImp {
 impl ObjectImpl for MViewWindowImp {
     fn constructed(&self) {
         self.parent_constructed();
+
+        let args: Vec<String> = env::args().collect();
+        let filename = if args.len() > 1 {
+            Some(args[1].clone())
+        } else {
+            None
+        };
+        // dbg!(&filename);
+
         self.thumbnail_size.set(175);
         self.current_sort.set(Sort::sort_on_category());
 
@@ -287,11 +304,24 @@ impl ObjectImpl for MViewWindowImp {
 
         self.show_info_widget(false);
         window.set_child(Some(&w.hbox));
-        // window.show();
 
-        self.set_backend(<dyn Backend>::current_dir(), Selection::None, false);
+        idle_add_local(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[upgrade_or]
+            ControlFlow::Break,
+            move || {
+                if let Some(filename) = &filename {
+                    println!("Opening {}", filename);
+                    this.navigate_to(&File::for_parse_name(filename));
+                } else {
+                    this.set_backend(<dyn Backend>::current_dir(), Target::First, false);
+                }
+                ControlFlow::Break
+            }
+        ));
 
-        println!("MViewWindow: constructed");
+        // println!("MViewWindow: constructed");
     }
 }
 
