@@ -247,8 +247,6 @@ impl ImageViewImp {
     }
 
     fn motion_notify_event(&self, position: (f64, f64)) {
-        // dbg!(position);
-        // self.obj().update_mouse_position();
         let mut p = self.data.borrow_mut();
         p.mouse_position = position;
         if let Some((drag_x, drag_y)) = p.drag {

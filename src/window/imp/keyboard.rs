@@ -105,12 +105,10 @@ impl MViewWindowImp {
                     self.obj().fullscreen();
                     self.full_screen.set(true);
                 }
-                // w.image_view.update_mouse_position();
             }
             Key::Escape => {
                 self.obj().unfullscreen();
                 self.full_screen.set(false);
-                // w.image_view.update_mouse_position();
             }
             Key::r => {
                 w.image_view.rotate(270);
@@ -123,9 +121,6 @@ impl MViewWindowImp {
             }
             Key::BackSpace | Key::KP_Delete | Key::KP_Decimal => {
                 self.dir_leave();
-                // if self.backend.borrow().is_thumbnail() {
-                //     self.show_files_widget(false);
-                // }
             }
             Key::n => {
                 if w.image_view.zoom_mode() == ZoomMode::Fit {
@@ -138,10 +133,10 @@ impl MViewWindowImp {
                 let backend = self.backend.borrow();
                 if backend.is_thumbnail() {
                     let new_size = match self.thumbnail_size.get() {
-                        80 => 100,
-                        100 => 140,
-                        175 => 250,
-                        250 => 80,
+                        175 => 140,
+                        140 => 100,
+                        100 => 80,
+                        80 => 250,
                         _ => 175,
                     };
                     self.thumbnail_size.set(new_size);
@@ -209,35 +204,12 @@ impl MViewWindowImp {
             }
             Key::_1 => {
                 self.change_sort(&w.file_view, Columns::Cat);
-
-                // if let Some(current) = w.file_view.current() {
-                //     current.set_sort_column(SortColumn::Index(0));
-                //     w.file_view.goto(&Target::First, &self.obj());
-                // }
             }
             Key::_2 => {
                 self.change_sort(&w.file_view, Columns::Name);
-
-                // let backend = self.backend.borrow();
-                // if !backend.is_thumbnail() {
-                //     if let Some(current) = w.file_view.current() {
-                //         let target: Target = backend.entry(&current).into();
-                //         current.set_sort_column(SortColumn::Index(2));
-                //         w.file_view.goto(&target, &self.obj());
-                //     }
-                // }
             }
             Key::_3 => {
                 self.change_sort(&w.file_view, Columns::Size);
-
-                // let backend = self.backend.borrow();
-                // if !backend.is_thumbnail() {
-                //     if let Some(current) = w.file_view.current() {
-                //         let target: Target = backend.entry(&current).into();
-                //         current.set_sort_column(SortColumn::Index(3));
-                //         w.file_view.goto(&target, &self.obj());
-                //     }
-                // }
             }
             Key::_4 => {
                 self.change_sort(&w.file_view, Columns::Modified);

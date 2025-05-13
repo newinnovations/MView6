@@ -27,7 +27,7 @@ use gdk_pixbuf::Pixbuf;
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk4::{
     glib,
-    prelude::{DisplayExt, NativeExt, SeatExt, SurfaceExt, WidgetExt},
+    prelude::WidgetExt,
 };
 
 use super::Image;
@@ -113,21 +113,6 @@ impl ImageView {
             ViewCursor::Hidden => self.set_cursor_from_name(Some("none")),
             ViewCursor::Drag => self.set_cursor_from_name(Some("move")),
         };
-    }
-
-    pub fn update_mouse_position(&self) -> Option<()> {
-        let seat = self.display().default_seat()?;
-        let device = seat.pointer()?;
-        let root = self.root()?;
-        let surface = root.surface()?;
-        let (t_x, t_y) = root.surface_transform();
-        // println!("trans {t_x} {t_y}");
-        let (src_x, src_y, _) = surface.device_position(&device)?;
-        let (x, y) = root.translate_coordinates(self, src_x - t_x, src_y - t_y)?;
-        println!("ump {x} {y}");
-        let mut p = self.imp().data.borrow_mut();
-        p.mouse_position = (x, y);
-        Some(())
     }
 
     // Operations on image

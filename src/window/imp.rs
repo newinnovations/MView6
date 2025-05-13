@@ -149,7 +149,7 @@ impl ObjectImpl for MViewWindowImp {
         };
         // dbg!(&filename);
 
-        self.thumbnail_size.set(175);
+        self.thumbnail_size.set(250);
         self.current_sort.set(Sort::sort_on_category());
 
         let window = self.obj();
