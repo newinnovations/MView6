@@ -19,6 +19,7 @@
 
 mod backend;
 mod keyboard;
+mod menu;
 mod mouse;
 mod navigate;
 
@@ -36,13 +37,13 @@ use crate::{
     info_view::InfoView,
 };
 use async_channel::Sender;
-use gio::File;
+use gio::{File, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, ControlFlow};
 use gtk4::{
     glib::{self, Propagation},
     prelude::*,
     subclass::prelude::*,
-    EventControllerKey, ScrolledWindow,
+    EventControllerKey, HeaderBar, MenuButton, ScrolledWindow,
 };
 use std::{
     cell::{Cell, OnceCell, RefCell},
@@ -157,6 +158,36 @@ impl ObjectImpl for MViewWindowImp {
         window.set_title(Some("MView6"));
         // window.set_position(gtk4::WindowPosition::Center); TODO
         window.set_default_size(1280, 720);
+
+        // ---- Create a menu button in the window header bar
+
+        let header_bar = HeaderBar::new();
+
+        // Create a menu button with hamburger icon
+        let menu_button = MenuButton::builder()
+            .icon_name("open-menu-symbolic") // This is the hamburger icon
+            .build();
+
+        let menu = Self::create_main_menu();
+
+        // Set the menu to the button
+        menu_button.set_menu_model(Some(&menu));
+
+        // Pack the menu button at the start of the header bar
+        header_bar.pack_start(&menu_button);
+
+        // Set the header bar as the title bar of the window
+        window.set_titlebar(Some(&header_bar));
+
+        // Create action group for window-specific actions
+        let action_group = SimpleActionGroup::new();
+
+        // Add the action group to the window
+        window.insert_action_group("win", Some(&action_group));
+
+        Self::setup_actions(&window, &action_group);
+
+        // ----
 
         let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 8);
 

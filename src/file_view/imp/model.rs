@@ -82,7 +82,7 @@ impl Columns {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Target {
     First,
     Name(String),

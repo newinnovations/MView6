@@ -1,7 +1,11 @@
 [package]
 name = "MView6"
-version = "6.1.0"
+version = "6.0.0-dev"
 edition = "2021"
+authors = ["Martin van der Werff <github@newinnovations.nl>"]
+description = "Opiniated image and pdf browser written in Rust and GTK4"
+repository = "https://github.com/newinnovations/mview6"
+license = "AGPL"
 
 [package.metadata.winresource]
 LegalCopyright = "Copyright © 2024-2025 Martin van der Werff"

@@ -19,7 +19,12 @@
 
 use std::cell::OnceCell;
 
-use gtk4::{glib, prelude::GtkWindowExt, subclass::prelude::*, Application};
+use gio::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
+use glib::subclass::{
+    object::ObjectImpl,
+    types::{ObjectSubclass, ObjectSubclassExt},
+};
+use gtk4::{glib, prelude::GtkWindowExt, subclass::prelude::GtkApplicationImpl, Application};
 
 use crate::window::MViewWindow;
 

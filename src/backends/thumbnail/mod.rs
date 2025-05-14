@@ -49,12 +49,13 @@ pub struct Thumbnail {
     offset_y: i32,
     // references
     parent: RefCell<Box<dyn Backend>>,
-    parent_pos: i32,
+    parent_target: Target,
+    parent_position: i32,
     sort: Cell<Sort>,
 }
 
 impl Thumbnail {
-    pub fn new(sheet_size: Allocation, position: i32, size: i32) -> Option<Self> {
+    pub fn new(sheet_size: Allocation, position: (Target, i32), size: i32) -> Option<Self> {
         let width = sheet_size.width();
         let height = sheet_size.height();
 
@@ -87,7 +88,8 @@ impl Thumbnail {
             offset_x,
             offset_y,
             parent: RefCell::new(<dyn Backend>::none()),
-            parent_pos: position,
+            parent_target: position.0,
+            parent_position: position.1,
             sort: Default::default(),
         })
     }
@@ -97,7 +99,7 @@ impl Thumbnail {
     }
 
     pub fn startpage(&self) -> Target {
-        Target::Index(self.parent_pos as u32 / self.capacity() as u32)
+        Target::Index(self.parent_position as u32 / self.capacity() as u32)
     }
 
     pub fn sheet(&self, page: i32) -> Vec<TTask> {
@@ -176,7 +178,10 @@ impl Backend for Thumbnail {
     }
 
     fn leave(&self) -> (Box<dyn Backend>, Target) {
-        (self.parent.replace(<dyn Backend>::none()), Target::First)
+        (
+            self.parent.replace(<dyn Backend>::none()),
+            self.parent_target.clone(),
+        )
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
@@ -249,5 +254,9 @@ impl Backend for Thumbnail {
 
     fn sort(&self) -> Sort {
         self.sort.get()
+    }
+
+    fn position(&self) -> (Target, i32) {
+        (self.parent_target.clone(), self.parent_position)
     }
 }

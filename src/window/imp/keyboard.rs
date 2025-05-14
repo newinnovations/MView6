@@ -66,12 +66,15 @@ impl MViewWindowImp {
                 }
             }
             Key::t => {
-                if self.backend.borrow().is_container() {
+                let backend = self.backend.borrow();
+                if backend.is_container() {
                     let position = if let Some(cursor) = w.file_view.current() {
-                        cursor.position()
+                        let target: Target = backend.entry(&cursor).into();
+                        (target, cursor.position())
                     } else {
-                        0
+                        (Target::First, 0)
                     };
+                    drop(backend);
                     if let Some(thumbnail) = Thumbnail::new(
                         w.image_view.allocation(),
                         position,
@@ -83,7 +86,8 @@ impl MViewWindowImp {
                         self.set_backend(new_backend, startpage, true);
                         self.show_info_widget(false);
                     }
-                } else if self.backend.borrow().is_thumbnail() {
+                } else if backend.is_thumbnail() {
+                    drop(backend);
                     self.dir_leave();
                 }
             }

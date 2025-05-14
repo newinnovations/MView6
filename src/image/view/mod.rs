@@ -25,10 +25,7 @@ use std::time::SystemTime;
 use data::QUALITY_HIGH;
 use gdk_pixbuf::Pixbuf;
 use glib::subclass::types::ObjectSubclassIsExt;
-use gtk4::{
-    glib,
-    prelude::WidgetExt,
-};
+use gtk4::{glib, prelude::WidgetExt};
 
 use super::Image;
 pub use imp::SIGNAL_VIEW_RESIZED;

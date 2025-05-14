@@ -84,6 +84,9 @@ pub trait Backend {
     fn set_parent(&self, parent: Box<dyn Backend>) {}
     fn set_sort(&self, sort: &Sort);
     fn sort(&self) -> Sort;
+    fn position(&self) -> (Target, i32) {
+        (Target::First, 0)
+    }
 }
 
 impl std::fmt::Debug for dyn Backend {

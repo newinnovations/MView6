@@ -94,9 +94,11 @@ impl MViewWindowImp {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if backend.is_thumbnail() {
-            if let Some(thumbnail) =
-                Thumbnail::new(w.image_view.allocation(), 0, self.thumbnail_size.get())
-            {
+            if let Some(thumbnail) = Thumbnail::new(
+                w.image_view.allocation(),
+                backend.position(),
+                self.thumbnail_size.get(),
+            ) {
                 let (parent_backend, _) = backend.leave();
                 drop(backend);
                 self.backend.replace(parent_backend);
