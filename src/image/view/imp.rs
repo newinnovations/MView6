@@ -28,13 +28,12 @@ use crate::image::{
     draw::transparency_background,
     Image, ImageData,
 };
-use gio::prelude::{ObjectExt, StaticType};
+use gio::prelude::StaticType;
 use glib::{
-    clone, ffi::g_source_remove, result_from_gboolean, subclass::Signal, BoolError, Propagation,
-    SourceId,
+    clone, ffi::g_source_remove, object::ObjectExt, result_from_gboolean, subclass::Signal,
+    BoolError, ControlFlow, Propagation, SourceId,
 };
 use gtk4::{
-    glib::{self, ControlFlow},
     prelude::{DrawingAreaExtManual, GestureSingleExt, WidgetExt},
     subclass::prelude::*,
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
@@ -159,6 +158,20 @@ impl ImageViewImp {
                     ControlFlow::Break,
                     move || {
                         this.resize_notify_timeout_id.replace(None);
+
+                        // let mut p = this.data.borrow_mut();
+                        // println!(
+                        //     "p.mouse_position {} {}",
+                        //     p.mouse_position.0, p.mouse_position.1
+                        // );
+                        // match this.obj().get_window_relative_cursor_position() {
+                        //     Ok(position) => {
+                        //         p.mouse_position = position;
+                        //         println!("position {} {}", position.0, position.1)
+                        //     }
+                        //     Err(err) => println!("error {}", err),
+                        // }
+
                         // println!("notify of resize");
                         let obj = this.obj();
                         let allocation = obj.allocation();
@@ -273,6 +286,10 @@ impl ImageViewImp {
             self.schedule_hq_redraw();
         }
         Propagation::Stop
+    }
+
+    pub fn mouse_position(&self) -> (f64, f64) {
+        self.data.borrow().mouse_position
     }
 }
 

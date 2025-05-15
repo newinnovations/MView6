@@ -44,8 +44,28 @@ use super::{
 pub enum PageMode {
     Single,
     #[default]
-    DualOdd,
-    DualEven,
+    DualEvenOdd, // 1, 2-3, 4-5, ...
+    DualOddEven, // 1-2, 3-4, 5-6, ...
+}
+
+impl From<&str> for PageMode {
+    fn from(value: &str) -> Self {
+        match value {
+            "deo" => PageMode::DualEvenOdd,
+            "doe" => PageMode::DualOddEven,
+            _ => PageMode::Single,
+        }
+    }
+}
+
+impl From<PageMode> for &str {
+    fn from(value: PageMode) -> Self {
+        match value {
+            PageMode::Single => "single",
+            PageMode::DualEvenOdd => "deo",
+            PageMode::DualOddEven => "doe",
+        }
+    }
 }
 
 pub struct Document {
@@ -185,7 +205,7 @@ fn extract_page(
 ) -> Result<Image, mupdf::Error> {
     match mode {
         PageMode::Single => extract_page_single(filename, index),
-        PageMode::DualOdd => {
+        PageMode::DualEvenOdd => {
             if index == 0 {
                 extract_page_single(filename, index)
             } else {
@@ -197,7 +217,7 @@ fn extract_page(
                 }
             }
         }
-        PageMode::DualEven => {
+        PageMode::DualOddEven => {
             let left = index & !1;
             if left == last_page {
                 extract_page_single(filename, left)

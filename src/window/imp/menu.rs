@@ -17,12 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use chrono::Datelike;
 use gio::{prelude::ActionMapExt, Menu, SimpleAction, SimpleActionGroup};
-use glib::object::ObjectExt;
-use gtk4::{prelude::GtkWindowExt, AboutDialog, License};
-
-use crate::window::MViewWindow;
+use glib::VariantTy;
 
 use super::MViewWindowImp;
 
@@ -31,122 +27,134 @@ impl MViewWindowImp {
         // Create the main menu
         let main_menu = Menu::new();
 
-        // File section
-        let file_section = Menu::new();
-        file_section.append(Some("New"), Some("win.new"));
-        file_section.append(Some("Open"), Some("win.open"));
-        file_section.append(Some("Save"), Some("win.save"));
-        file_section.append(Some("Save As..."), Some("win.save_as"));
+        let top_section = Menu::new();
+        top_section.append(Some("Open"), Some("win.open"));
 
-        // Edit section
-        let edit_section = Menu::new();
-        edit_section.append(Some("Cut"), Some("win.cut"));
-        edit_section.append(Some("Copy"), Some("win.copy"));
-        edit_section.append(Some("Paste"), Some("win.paste"));
+        let zoom_submenu = Menu::new();
+        zoom_submenu.append(Some("No scaling"), Some("win.zoom::nozoom"));
+        zoom_submenu.append(Some("Fit window"), Some("win.zoom::fit"));
+        zoom_submenu.append(Some("Fill window"), Some("win.zoom::fill"));
+        zoom_submenu.append(Some("Maximum zoom"), Some("win.zoom::max"));
 
-        // View submenu
-        let view_submenu = Menu::new();
-        view_submenu.append(Some("Full Screen"), Some("win.fullscreen"));
-        view_submenu.append(Some("Zoom In"), Some("win.zoom_in"));
-        view_submenu.append(Some("Zoom Out"), Some("win.zoom_out"));
-        view_submenu.append(Some("Reset Zoom"), Some("win.zoom_reset"));
+        let rotate_submenu = Menu::new();
+        rotate_submenu.append(Some("90° Clockwise"), Some("win.rotate::270"));
+        rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::90"));
+        rotate_submenu.append(Some("Rotate 180°"), Some("win.rotate::180"));
 
-        // Settings and Help section
-        let settings_section = Menu::new();
-        settings_section.append(Some("Preferences"), Some("win.preferences"));
+        let page_submenu = Menu::new();
+        page_submenu.append(Some("Single"), Some("win.page::single"));
+        page_submenu.append(Some("Dual (1, 2-3, 4-5, ...)"), Some("win.page::deo"));
+        page_submenu.append(Some("Dual (1-2, 3-4, 5-6, ...)"), Some("win.page::doe"));
 
-        // Add all sections to the main menu
-        // First file section
-        main_menu.append_section(Some("File"), &file_section);
+        let panes_submenu = Menu::new();
+        panes_submenu.append(Some("Files"), Some("win.panes.files"));
+        panes_submenu.append(Some("Information"), Some("win.panes.info"));
 
-        // Edit section with separator
-        main_menu.append_section(Some("Edit"), &edit_section);
+        let flag_section = Menu::new();
+        flag_section.append(Some("Full screen"), Some("win.fullscreen"));
+        flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
+        flag_section.append_submenu(Some("Zoom"), &zoom_submenu);
+        flag_section.append_submenu(Some("Page mode"), &page_submenu);
+        flag_section.append_submenu(Some("Panes"), &panes_submenu);
 
-        // View submenu
-        main_menu.append_submenu(Some("View"), &view_submenu);
+        let bottom_section = Menu::new();
+        bottom_section.append(Some("About"), Some("win.about"));
+        bottom_section.append(Some("Quit"), Some("win.quit"));
 
-        // Settings section with separator
-        main_menu.append_section(Some("Settings"), &settings_section);
-
-        // Append quit directly to main menu as its own section
-        let quit_section = Menu::new();
-        quit_section.append(Some("About"), Some("win.about"));
-        quit_section.append(Some("Quit"), Some("win.quit"));
-        main_menu.append_section(None, &quit_section);
+        main_menu.append_section(None, &top_section);
+        main_menu.append_section(None, &flag_section);
+        main_menu.append_section(None, &bottom_section);
 
         main_menu
     }
 
-    pub fn setup_actions(window: &MViewWindow, action_group: &SimpleActionGroup) {
-        // File actions
-        Self::add_simple_action(action_group, "new", || println!("New file"));
-        Self::add_simple_action(action_group, "open", || println!("Open file"));
-        Self::add_simple_action(action_group, "save", || println!("Save file"));
-        Self::add_simple_action(action_group, "save_as", || println!("Save as..."));
-
-        // Edit actions
-        Self::add_simple_action(action_group, "cut", || println!("Cut"));
-        Self::add_simple_action(action_group, "copy", || println!("Copy"));
-        Self::add_simple_action(action_group, "paste", || println!("Paste"));
-
-        // View actions
-        Self::add_simple_action(action_group, "fullscreen", || println!("Toggle fullscreen"));
-        Self::add_simple_action(action_group, "zoom_in", || println!("Zoom in"));
-        Self::add_simple_action(action_group, "zoom_out", || println!("Zoom out"));
-        Self::add_simple_action(action_group, "zoom_reset", || println!("Reset zoom"));
-
-        // Settings actions
-        Self::add_simple_action(action_group, "preferences", || println!("Preferences"));
-
-        // About action
-        let window_clone = window.clone();
-        let action_about = SimpleAction::new("about", None);
-        action_about.connect_activate(move |_, _| {
-            Self::show_about_dialog(&window_clone);
-        });
-
-        action_group.add_action(&action_about);
-        // Quit action
-        let window_weak = window.downgrade();
-        let action_quit = SimpleAction::new("quit", None);
-        action_quit.connect_activate(move |_, _| {
-            if let Some(w) = window_weak.upgrade() {
-                w.close();
-            }
-        });
-        action_group.add_action(&action_quit);
+    pub fn setup_actions(&self) -> SimpleActionGroup {
+        let action_group = SimpleActionGroup::new();
+        self.add_action(&action_group, "open", Self::open_file);
+        self.add_action(&action_group, "about", Self::show_about_dialog);
+        self.add_action(&action_group, "quit", Self::quit);
+        self.add_action_bool(&action_group, "fullscreen", false, Self::toggle_fullscreen);
+        self.add_action_int(&action_group, "rotate", Self::rotate_image);
+        self.add_action_state(&action_group, "zoom", "fill", Self::change_zoom);
+        self.add_action_state(&action_group, "page", "deo", Self::change_zoom);
+        self.add_action_bool(&action_group, "panes.files", true, Self::toggle_pane_files);
+        self.add_action_bool(&action_group, "panes.info", false, Self::toggle_pane_info);
+        action_group
     }
 
-    fn add_simple_action<F: Fn() + 'static>(
+    fn add_action<F: Fn(&MViewWindowImp) + 'static>(
+        &self,
         action_group: &SimpleActionGroup,
         name: &str,
         callback: F,
     ) {
         let action = SimpleAction::new(name, None);
+        let window_weak = self.downgrade();
         action.connect_activate(move |_, _| {
-            callback();
+            if let Some(this) = window_weak.upgrade() {
+                callback(&this);
+            }
         });
         action_group.add_action(&action);
     }
 
-    fn show_about_dialog(parent: &MViewWindow) {
-        let dialog = AboutDialog::builder()
-            .transient_for(parent)
-            .modal(true)
-            .program_name("MView6")
-            .version(env!("CARGO_PKG_VERSION")) // Get version from Cargo.toml
-            .logo_icon_name("mview6") // This will load the icon from resources
-            .authors(vec![env!("CARGO_PKG_AUTHORS")]) // Get authors from Cargo.toml
-            .copyright(format!(
-                "© {} {}",
-                chrono::Local::now().year(),
-                env!("CARGO_PKG_AUTHORS")
-            ))
-            .comments(env!("CARGO_PKG_DESCRIPTION"))
-            .license_type(License::Agpl30)
-            .website(env!("CARGO_PKG_REPOSITORY")) // Get repository URL from Cargo.toml
-            .website_label("Visit source repository")
-            .build();
-        dialog.present();
+    fn add_action_int<F: Fn(&MViewWindowImp, i32) + 'static>(
+        &self,
+        action_group: &SimpleActionGroup,
+        name: &str,
+        callback: F,
+    ) {
+        let action = SimpleAction::new(name, Some(VariantTy::STRING));
+        let window_weak = self.downgrade();
+        action.connect_activate(move |_, param| {
+            if let Some(this) = window_weak.upgrade() {
+                if let Some(param) = param {
+                    if let Some(text) = param.get::<String>() {
+                        if let Ok(i) = text.parse::<i32>() {
+                            callback(&this, i);
+                        }
+                    }
+                }
+            }
+        });
+        action_group.add_action(&action);
+    }
+
+    fn add_action_bool<F: Fn(&MViewWindowImp) + 'static>(
+        &self,
+        action_group: &SimpleActionGroup,
+        name: &str,
+        default: bool,
+        callback: F,
+    ) {
+        let action = SimpleAction::new_stateful(name, None, &default.into());
+        let window_weak = self.downgrade();
+        action.connect_activate(move |_, _| {
+            if let Some(this) = window_weak.upgrade() {
+                callback(&this);
+            }
+        });
+        action_group.add_action(&action);
+    }
+
+    fn add_action_state<F: Fn(&MViewWindowImp, &str) + 'static>(
+        &self,
+        action_group: &SimpleActionGroup,
+        name: &str,
+        default: &str,
+        callback: F,
+    ) {
+        let action = SimpleAction::new_stateful(name, Some(VariantTy::STRING), &default.into());
+        let window_weak = self.downgrade();
+        action.connect_activate(move |_, param| {
+            if let Some(this) = window_weak.upgrade() {
+                if let Some(param) = param {
+                    if let Some(text) = param.get::<String>() {
+                        callback(&this, &text);
+                    }
+                }
+            }
+        });
+        action_group.add_action(&action);
     }
 }

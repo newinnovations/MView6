@@ -60,11 +60,6 @@ impl MViewWindowImp {
                     self.set_backend(<dyn Backend>::bookmarks(), Target::First, true);
                 }
             }
-            Key::i => {
-                if !self.backend.borrow().is_thumbnail() {
-                    self.show_info_widget(!w.info_widget.is_visible());
-                }
-            }
             Key::t => {
                 let backend = self.backend.borrow();
                 if backend.is_container() {
@@ -98,21 +93,18 @@ impl MViewWindowImp {
                 self.hop(Direction::Down);
             }
             Key::space | Key::KP_Divide => {
-                self.show_files_widget(!w.file_widget.is_visible());
+                self.toggle_pane_files();
+            }
+            Key::i => {
+                self.toggle_pane_info();
             }
             Key::f | Key::KP_Multiply => {
-                if self.full_screen.get() {
-                    self.obj().unfullscreen();
-                    self.full_screen.set(false);
-                } else {
-                    self.show_files_widget(false);
-                    self.obj().fullscreen();
-                    self.full_screen.set(true);
-                }
+                self.toggle_fullscreen();
             }
             Key::Escape => {
                 self.obj().unfullscreen();
-                self.full_screen.set(false);
+                self.fullscreen.set(false);
+                self.widgets().set_action_bool("fullscreen", false);
             }
             Key::r => {
                 w.image_view.rotate(270);
@@ -128,9 +120,9 @@ impl MViewWindowImp {
             }
             Key::n => {
                 if w.image_view.zoom_mode() == ZoomMode::Fit {
-                    w.image_view.set_zoom_mode(ZoomMode::NoZoom);
+                    self.change_zoom(ZoomMode::NoZoom.into());
                 } else {
-                    w.image_view.set_zoom_mode(ZoomMode::Fit);
+                    self.change_zoom(ZoomMode::Fit.into());
                 }
             }
             Key::m | Key::KP_0 | Key::KP_Insert => {
@@ -147,9 +139,9 @@ impl MViewWindowImp {
                     drop(backend);
                     self.update_thumbnail_backend()
                 } else if w.image_view.zoom_mode() == ZoomMode::Max {
-                    w.image_view.set_zoom_mode(ZoomMode::Fill);
+                    self.change_zoom(ZoomMode::Fill.into());
                 } else {
-                    w.image_view.set_zoom_mode(ZoomMode::Max);
+                    self.change_zoom(ZoomMode::Max.into());
                 }
             }
             Key::minus | Key::KP_Subtract => {
@@ -182,16 +174,18 @@ impl MViewWindowImp {
             Key::s => {
                 w.file_view.navigate(Direction::Down, Filter::Favorite, 1);
             }
-            Key::Z => {
-                w.file_view.navigate(Direction::Up, Filter::None, 1);
+            Key::Up | Key::Z => {
+                w.file_view
+                    .navigate(Direction::Up, Filter::None, self.step_size());
             }
-            Key::X => {
-                w.file_view.navigate(Direction::Down, Filter::None, 1);
+            Key::Down | Key::X => {
+                w.file_view
+                    .navigate(Direction::Down, Filter::None, self.step_size());
             }
-            Key::Up | Key::KP_8 | Key::KP_Up => {
+            Key::KP_8 | Key::KP_Up => {
                 w.file_view.navigate(Direction::Up, w.filter(), 5);
             }
-            Key::Down | Key::KP_2 | Key::KP_Down => {
+            Key::KP_2 | Key::KP_Down => {
                 w.file_view.navigate(Direction::Down, w.filter(), 5);
             }
             Key::Page_Up => {
@@ -219,16 +213,11 @@ impl MViewWindowImp {
                 self.change_sort(&w.file_view, Columns::Modified);
             }
             Key::p => {
-                let new_page_mode = match self.page_mode.get() {
-                    PageMode::DualOdd => PageMode::Single,
-                    PageMode::Single => PageMode::DualEven,
-                    PageMode::DualEven => PageMode::DualOdd,
+                match self.page_mode.get() {
+                    PageMode::DualEvenOdd => self.change_page_mode(PageMode::Single.into()),
+                    PageMode::Single => self.change_page_mode(PageMode::DualOddEven.into()),
+                    PageMode::DualOddEven => self.change_page_mode(PageMode::DualEvenOdd.into()),
                 };
-                dbg!(new_page_mode);
-                self.page_mode.set(new_page_mode);
-                if self.backend.borrow().is_doc() {
-                    self.on_cursor_changed();
-                }
             }
             Key::P => {
                 let w = self.widgets();

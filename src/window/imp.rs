@@ -17,6 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+mod actions;
 mod backend;
 mod keyboard;
 mod menu;
@@ -37,13 +38,11 @@ use crate::{
     info_view::InfoView,
 };
 use async_channel::Sender;
-use gio::{File, SimpleActionGroup};
+use gio::{File, SimpleAction, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, ControlFlow};
 use gtk4::{
-    glib::{self, Propagation},
-    prelude::*,
-    subclass::prelude::*,
-    EventControllerKey, HeaderBar, MenuButton, ScrolledWindow,
+    glib::Propagation, prelude::*, subclass::prelude::*, EventControllerKey, HeaderBar, MenuButton,
+    ScrolledWindow,
 };
 use std::{
     cell::{Cell, OnceCell, RefCell},
@@ -59,13 +58,32 @@ pub struct MViewWidgets {
     info_view: InfoView,
     image_view: ImageView,
     pub sender: Sender<Message>,
+    actions: SimpleActionGroup,
+}
+
+impl MViewWidgets {
+    pub fn set_action_state(&self, action_name: &str, state: &str) {
+        if let Some(action) = self.actions.lookup_action(action_name) {
+            if let Ok(action) = action.downcast::<SimpleAction>() {
+                action.set_state(&state.to_variant());
+            }
+        }
+    }
+
+    pub fn set_action_bool(&self, action_name: &str, state: bool) {
+        if let Some(action) = self.actions.lookup_action(action_name) {
+            if let Ok(action) = action.downcast::<SimpleAction>() {
+                action.set_state(&state.to_variant());
+            }
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct MViewWindowImp {
     widget_cell: OnceCell<MViewWidgets>,
     backend: RefCell<Box<dyn Backend>>,
-    full_screen: Cell<bool>,
+    fullscreen: Cell<bool>,
     pub skip_loading: Cell<bool>,
     pub open_container: Cell<bool>,
     thumbnail_size: Cell<i32>,
@@ -129,8 +147,8 @@ impl MViewWindowImp {
         if self.backend.borrow().is_doc() {
             match self.page_mode.get() {
                 PageMode::Single => 1,
-                PageMode::DualOdd => 2,
-                PageMode::DualEven => 2,
+                PageMode::DualEvenOdd => 2,
+                PageMode::DualOddEven => 2,
             }
         } else {
             1
@@ -148,7 +166,6 @@ impl ObjectImpl for MViewWindowImp {
         } else {
             None
         };
-        // dbg!(&filename);
 
         self.thumbnail_size.set(250);
         self.current_sort.set(Sort::sort_on_category());
@@ -165,8 +182,10 @@ impl ObjectImpl for MViewWindowImp {
 
         // Create a menu button with hamburger icon
         let menu_button = MenuButton::builder()
-            .icon_name("open-menu-symbolic") // This is the hamburger icon
+            .icon_name("open-menu-symbolic") // hamburger icon
             .build();
+
+        menu_button.set_can_focus(false); // disable keyboard activation (enter)
 
         let menu = Self::create_main_menu();
 
@@ -180,12 +199,10 @@ impl ObjectImpl for MViewWindowImp {
         window.set_titlebar(Some(&header_bar));
 
         // Create action group for window-specific actions
-        let action_group = SimpleActionGroup::new();
+        let actions = self.setup_actions();
 
         // Add the action group to the window
-        window.insert_action_group("win", Some(&action_group));
-
-        Self::setup_actions(&window, &action_group);
+        window.insert_action_group("win", Some(&actions));
 
         // ----
 
@@ -253,6 +270,14 @@ impl ObjectImpl for MViewWindowImp {
             ),
         );
 
+        // let menu_button = MenuButton::new();
+        // menu_button.set_has_frame(false);
+        // menu_button.set_menu_model(Some(&menu));
+        // menu_button.set_visible(false);
+        // hbox.append(&menu_button);
+
+        image_view.add_context_menu(menu);
+
         file_view.connect_cursor_changed(clone!(
             #[weak(rename_to = this)]
             self,
@@ -278,6 +303,7 @@ impl ObjectImpl for MViewWindowImp {
                 info_view,
                 image_view,
                 sender,
+                actions,
             })
             .expect("Failed to initialize MView window");
 
