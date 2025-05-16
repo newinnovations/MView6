@@ -119,14 +119,14 @@ jobs:
           path: |
             mview6_*
 
-      # - name: Release
-      #   uses: ncipollo/release-action@v1
-      #   with:
-      #     name: ${{ steps.date.outputs.today }}
-      #     commit: ${{ github.sha }}
-      #     tag: ${{ steps.date.outputs.today }}
-      #     body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
-      #     makeLatest: true
-      #     allowUpdates: true
-      #     replacesArtifacts: true
-      #     artifacts: "mview6_*"
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ steps.date.outputs.today }}
+          commit: ${{ github.sha }}
+          tag: ${{ steps.date.outputs.today }}
+          body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
+          makeLatest: true
+          allowUpdates: true
+          replacesArtifacts: true
+          artifacts: "mview6_*"

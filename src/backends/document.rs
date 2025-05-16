@@ -99,7 +99,7 @@ impl Document {
             store,
             last_page,
             parent: RefCell::new(<dyn Backend>::none()),
-            sort: Default::default(),
+            sort: Sort::sort_on_category().into(),
         }
     }
 
