@@ -82,6 +82,8 @@ impl MViewWindowImp {
             .unwrap_or_default();
         self.obj().set_title(Some(&format!("{filename} - MView6")));
 
+        w.set_action_bool("thumb.show", new_backend.is_thumbnail());
+
         drop(new_backend);
 
         self.update_layout();

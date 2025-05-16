@@ -20,15 +20,12 @@
 use super::MViewWindowImp;
 
 use glib::subclass::types::ObjectSubclassExt;
-use gtk4::{
-    gdk::Key,
-    prelude::{GtkWindowExt, WidgetExt},
-};
+use gtk4::{gdk::Key, prelude::GtkWindowExt};
 
 use crate::{
-    backends::{document::PageMode, thumbnail::Thumbnail, Backend, ImageParams},
-    file_view::{Columns, Direction, Filter, Sort, Target},
-    image::{provider::ImageLoader, view::ZoomMode, Image, ImageData},
+    backends::{document::PageMode, Backend, ImageParams},
+    file_view::{Columns, Direction, Filter, Target},
+    image::{view::ZoomMode, Image, ImageData},
 };
 
 impl MViewWindowImp {
@@ -39,20 +36,7 @@ impl MViewWindowImp {
                 self.obj().close();
             }
             Key::h => {
-                let image = if w.image_view.has_tag("help1") {
-                    ImageLoader::image_from_svg_data(
-                        include_bytes!("../../../resources/mv6-help-2.svgz"),
-                        Some("help2".to_string()),
-                    )
-                } else {
-                    ImageLoader::image_from_svg_data(
-                        include_bytes!("../../../resources/mv6-help-1.svgz"),
-                        Some("help1".to_string()),
-                    )
-                };
-                if let Some(image) = image {
-                    w.image_view.set_image(image);
-                }
+                self.show_help();
             }
             Key::d => {
                 self.show_files_widget(true);
@@ -61,30 +45,7 @@ impl MViewWindowImp {
                 }
             }
             Key::t => {
-                let backend = self.backend.borrow();
-                if backend.is_container() {
-                    let position = if let Some(cursor) = w.file_view.current() {
-                        let target: Target = backend.entry(&cursor).into();
-                        (target, cursor.position())
-                    } else {
-                        (Target::First, 0)
-                    };
-                    drop(backend);
-                    if let Some(thumbnail) = Thumbnail::new(
-                        w.image_view.allocation(),
-                        position,
-                        self.thumbnail_size.get(),
-                    ) {
-                        let startpage = thumbnail.startpage();
-                        let new_backend = <dyn Backend>::thumbnail(thumbnail);
-                        new_backend.set_sort(&Sort::sort_on_category());
-                        self.set_backend(new_backend, startpage, true);
-                        self.show_info_widget(false);
-                    }
-                } else if backend.is_thumbnail() {
-                    drop(backend);
-                    self.dir_leave();
-                }
+                self.toggle_thumbnail_view();
             }
             Key::w | Key::KP_7 | Key::KP_Home => {
                 self.hop(Direction::Up);
@@ -126,8 +87,7 @@ impl MViewWindowImp {
                 }
             }
             Key::m | Key::KP_0 | Key::KP_Insert => {
-                let backend = self.backend.borrow();
-                if backend.is_thumbnail() {
+                if self.backend.borrow().is_thumbnail() {
                     let new_size = match self.thumbnail_size.get() {
                         175 => 140,
                         140 => 100,
@@ -135,9 +95,7 @@ impl MViewWindowImp {
                         80 => 250,
                         _ => 175,
                     };
-                    self.thumbnail_size.set(new_size);
-                    drop(backend);
-                    self.update_thumbnail_backend()
+                    self.set_thumbnail_size(new_size);
                 } else if w.image_view.zoom_mode() == ZoomMode::Max {
                     self.change_zoom(ZoomMode::Fill.into());
                 } else {

@@ -25,6 +25,12 @@ use gtk4::{
     AboutDialog, FileChooserAction, FileChooserDialog, FileFilter, License, ResponseType,
 };
 
+use crate::{
+    backends::{thumbnail::Thumbnail, Backend},
+    file_view::{Sort, Target},
+    image::provider::ImageLoader,
+};
+
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
@@ -99,15 +105,33 @@ impl MViewWindowImp {
         self.obj().close();
     }
 
+    pub fn show_help(&self) {
+        let w = self.widgets();
+        let image = if w.image_view.has_tag("help1") {
+            ImageLoader::image_from_svg_data(
+                include_bytes!("../../../resources/mv6-help-2.svgz"),
+                Some("help2".to_string()),
+            )
+        } else {
+            ImageLoader::image_from_svg_data(
+                include_bytes!("../../../resources/mv6-help-1.svgz"),
+                Some("help1".to_string()),
+            )
+        };
+        if let Some(image) = image {
+            w.image_view.set_image(image);
+        }
+    }
+
     pub fn change_zoom(&self, zoom: &str) {
         let w = self.widgets();
-        w.set_action_state("zoom", zoom);
+        w.set_action_string("zoom", zoom);
         w.image_view.set_zoom_mode(zoom.into());
     }
 
     pub fn change_page_mode(&self, page_mode: &str) {
         dbg!(page_mode);
-        self.widgets().set_action_state("page", page_mode);
+        self.widgets().set_action_string("page", page_mode);
         self.page_mode.set(page_mode.into());
         if self.backend.borrow().is_doc() {
             self.on_cursor_changed();
@@ -140,5 +164,40 @@ impl MViewWindowImp {
 
     pub fn rotate_image(&self, angle: i32) {
         self.widgets().image_view.rotate(angle);
+    }
+
+    pub fn toggle_thumbnail_view(&self) {
+        let w = self.widgets();
+        let backend = self.backend.borrow();
+        if backend.is_container() {
+            let position = if let Some(cursor) = w.file_view.current() {
+                let target: Target = backend.entry(&cursor).into();
+                (target, cursor.position())
+            } else {
+                (Target::First, 0)
+            };
+            drop(backend);
+            if let Some(thumbnail) = Thumbnail::new(
+                w.image_view.allocation(),
+                position,
+                self.thumbnail_size.get(),
+            ) {
+                let startpage = thumbnail.startpage();
+                let new_backend = <dyn Backend>::thumbnail(thumbnail);
+                new_backend.set_sort(&Sort::sort_on_category());
+                self.set_backend(new_backend, startpage, true);
+                self.show_info_widget(false);
+            }
+        } else if backend.is_thumbnail() {
+            drop(backend);
+            self.dir_leave();
+        }
+    }
+
+    pub fn set_thumbnail_size(&self, new_size: i32) {
+        self.widgets()
+            .set_action_string("thumb.size", &new_size.to_string());
+        self.thumbnail_size.set(new_size);
+        self.update_thumbnail_backend()
     }
 }

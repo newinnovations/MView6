@@ -50,8 +50,20 @@ impl MViewWindowImp {
         panes_submenu.append(Some("Files"), Some("win.pane.files"));
         panes_submenu.append(Some("Information"), Some("win.pane.info"));
 
+        let thumbnail_size_submenu = Menu::new();
+        thumbnail_size_submenu.append(Some("Extra small (80 px)"), Some("win.thumb.size::80"));
+        thumbnail_size_submenu.append(Some("Small (100 px)"), Some("win.thumb.size::100"));
+        thumbnail_size_submenu.append(Some("Medium (140 px)"), Some("win.thumb.size::140"));
+        thumbnail_size_submenu.append(Some("Large (175 px)"), Some("win.thumb.size::175"));
+        thumbnail_size_submenu.append(Some("Extra large (250 px)"), Some("win.thumb.size::250"));
+
+        let thumbnail_submenu = Menu::new();
+        thumbnail_submenu.append(Some("Show thumbnails"), Some("win.thumb.show"));
+        thumbnail_submenu.append_section(Some("Size"), &thumbnail_size_submenu);
+
         let flag_section = Menu::new();
         flag_section.append(Some("Full screen"), Some("win.fullscreen"));
+        flag_section.append_submenu(Some("Thumbnails"), &thumbnail_submenu);
         flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
         flag_section.append_submenu(Some("Zoom"), &zoom_submenu);
         flag_section.append_submenu(Some("Page mode"), &page_submenu);
@@ -59,6 +71,7 @@ impl MViewWindowImp {
 
         let bottom_section = Menu::new();
         bottom_section.append(Some("About"), Some("win.about"));
+        bottom_section.append(Some("Help"), Some("win.help"));
         bottom_section.append(Some("Quit"), Some("win.quit"));
 
         main_menu.append_section(None, &top_section);
@@ -72,13 +85,21 @@ impl MViewWindowImp {
         let action_group = SimpleActionGroup::new();
         self.add_action(&action_group, "open", Self::open_file);
         self.add_action(&action_group, "about", Self::show_about_dialog);
+        self.add_action(&action_group, "help", Self::show_help);
         self.add_action(&action_group, "quit", Self::quit);
         self.add_action_bool(&action_group, "fullscreen", false, Self::toggle_fullscreen);
-        self.add_action_int(&action_group, "rotate", Self::rotate_image);
-        self.add_action_state(&action_group, "zoom", "fill", Self::change_zoom);
-        self.add_action_state(&action_group, "page", "deo", Self::change_page_mode);
+        self.add_action_int(&action_group, "rotate", 0, Self::rotate_image);
+        self.add_action_string(&action_group, "zoom", "fill", Self::change_zoom);
+        self.add_action_string(&action_group, "page", "deo", Self::change_page_mode);
         self.add_action_bool(&action_group, "pane.files", true, Self::toggle_pane_files);
         self.add_action_bool(&action_group, "pane.info", false, Self::toggle_pane_info);
+        self.add_action_bool(
+            &action_group,
+            "thumb.show",
+            false,
+            Self::toggle_thumbnail_view,
+        );
+        self.add_action_int(&action_group, "thumb.size", 250, Self::set_thumbnail_size);
         action_group
     }
 
@@ -102,9 +123,12 @@ impl MViewWindowImp {
         &self,
         action_group: &SimpleActionGroup,
         name: &str,
+        default: i32,
         callback: F,
     ) {
-        let action = SimpleAction::new(name, Some(VariantTy::STRING));
+        // let action = SimpleAction::new(name, Some(VariantTy::STRING));
+        let default = default.to_string();
+        let action = SimpleAction::new_stateful(name, Some(VariantTy::STRING), &default.into());
         let window_weak = self.downgrade();
         action.connect_activate(move |_, param| {
             if let Some(this) = window_weak.upgrade() {
@@ -137,7 +161,7 @@ impl MViewWindowImp {
         action_group.add_action(&action);
     }
 
-    fn add_action_state<F: Fn(&MViewWindowImp, &str) + 'static>(
+    fn add_action_string<F: Fn(&MViewWindowImp, &str) + 'static>(
         &self,
         action_group: &SimpleActionGroup,
         name: &str,

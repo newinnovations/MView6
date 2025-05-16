@@ -62,7 +62,7 @@ pub struct MViewWidgets {
 }
 
 impl MViewWidgets {
-    pub fn set_action_state(&self, action_name: &str, state: &str) {
+    pub fn set_action_string(&self, action_name: &str, state: &str) {
         if let Some(action) = self.actions.lookup_action(action_name) {
             if let Ok(action) = action.downcast::<SimpleAction>() {
                 action.set_state(&state.to_variant());

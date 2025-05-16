@@ -367,7 +367,7 @@ impl DrawingAreaImpl for ImageViewImp {
     fn resize(&self, width: i32, height: i32) {
         let current_size = self.window_size.get();
         if current_size != (width, height) {
-            println!("view was resized to {width} {height}");
+            // println!("view was resized to {width} {height}");
             self.window_size.set((width, height));
             self.cancel_resize_notify();
             let mut p = self.data.borrow_mut();
