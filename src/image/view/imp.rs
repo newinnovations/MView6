@@ -18,7 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     sync::OnceLock,
     time::{Duration, SystemTime},
 };
@@ -53,6 +53,7 @@ pub struct ImageViewImp {
     animation_timeout_id: RefCell<Option<SourceId>>,
     hq_redraw_timeout_id: RefCell<Option<SourceId>>,
     resize_notify_timeout_id: RefCell<Option<SourceId>>,
+    window_size: Cell<(i32, i32)>,
 }
 
 #[glib::object_subclass]
@@ -363,11 +364,17 @@ impl WidgetImpl for ImageViewImp {
 }
 
 impl DrawingAreaImpl for ImageViewImp {
-    fn resize(&self, _width: i32, _height: i32) {
-        // println!("resize {_width} {_height}");
-        self.cancel_resize_notify();
-        let mut p = self.data.borrow_mut();
-        p.apply_zoom();
-        self.schedule_resize_notify();
+    fn resize(&self, width: i32, height: i32) {
+        let current_size = self.window_size.get();
+        if current_size != (width, height) {
+            println!("view was resized to {width} {height}");
+            self.window_size.set((width, height));
+            self.cancel_resize_notify();
+            let mut p = self.data.borrow_mut();
+            p.apply_zoom();
+            self.schedule_resize_notify();
+            // } else {
+            //     println!("spurious resize");
+        }
     }
 }

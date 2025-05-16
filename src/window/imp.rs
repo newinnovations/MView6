@@ -105,6 +105,7 @@ impl MViewWindowImp {
 
     pub fn show_files_widget(&self, show: bool) {
         let w = self.widgets();
+        w.set_action_bool("pane.files", show);
         if w.file_widget.is_visible() != show {
             w.file_widget.set_visible(show);
             self.update_layout();
@@ -113,6 +114,7 @@ impl MViewWindowImp {
 
     pub fn show_info_widget(&self, show: bool) {
         let w = self.widgets();
+        w.set_action_bool("pane.info", show);
         if w.info_widget.is_visible() != show {
             w.info_widget.set_visible(show);
             self.update_layout();

@@ -47,8 +47,8 @@ impl MViewWindowImp {
         page_submenu.append(Some("Dual (1-2, 3-4, 5-6, ...)"), Some("win.page::doe"));
 
         let panes_submenu = Menu::new();
-        panes_submenu.append(Some("Files"), Some("win.panes.files"));
-        panes_submenu.append(Some("Information"), Some("win.panes.info"));
+        panes_submenu.append(Some("Files"), Some("win.pane.files"));
+        panes_submenu.append(Some("Information"), Some("win.pane.info"));
 
         let flag_section = Menu::new();
         flag_section.append(Some("Full screen"), Some("win.fullscreen"));
@@ -76,9 +76,9 @@ impl MViewWindowImp {
         self.add_action_bool(&action_group, "fullscreen", false, Self::toggle_fullscreen);
         self.add_action_int(&action_group, "rotate", Self::rotate_image);
         self.add_action_state(&action_group, "zoom", "fill", Self::change_zoom);
-        self.add_action_state(&action_group, "page", "deo", Self::change_zoom);
-        self.add_action_bool(&action_group, "panes.files", true, Self::toggle_pane_files);
-        self.add_action_bool(&action_group, "panes.info", false, Self::toggle_pane_info);
+        self.add_action_state(&action_group, "page", "deo", Self::change_page_mode);
+        self.add_action_bool(&action_group, "pane.files", true, Self::toggle_pane_files);
+        self.add_action_bool(&action_group, "pane.info", false, Self::toggle_pane_info);
         action_group
     }
 
