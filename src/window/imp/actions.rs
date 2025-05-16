@@ -18,10 +18,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use chrono::Datelike;
-use gio::prelude::FileExt;
-use glib::subclass::types::ObjectSubclassExt;
+use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::{
-    prelude::{DialogExt, FileChooserExt, FileChooserExtManual, GtkWindowExt, WidgetExt},
+    prelude::{DialogExt, FileChooserExt, GtkWindowExt, WidgetExt},
     AboutDialog, FileChooserAction, FileChooserDialog, FileFilter, License, ResponseType,
 };
 
@@ -52,30 +51,43 @@ impl MViewWindowImp {
         all_files.add_pattern("*");
 
         let text_files = FileFilter::new();
-        text_files.set_name(Some("Text Files"));
-        text_files.add_pattern("*.txt");
-        text_files.add_pattern("*.md");
+        text_files.set_name(Some("Supported Files"));
+        text_files.add_pattern("*.jpg");
+        text_files.add_pattern("*.jpeg");
+        text_files.add_pattern("*.jfif");
+        text_files.add_pattern("*.gif");
+        text_files.add_pattern("*.png");
+        text_files.add_pattern("*.svg");
+        text_files.add_pattern("*.svgz");
+        text_files.add_pattern("*.webp");
+        text_files.add_pattern("*.avif");
+        text_files.add_pattern("*.heic");
+        text_files.add_pattern("*.zip");
+        text_files.add_pattern("*.rar");
+        text_files.add_pattern("*.pdf");
+        text_files.add_pattern("*.epub");
+        text_files.add_pattern("*.xps");
 
         // Add filters to the dialog
         dialog.add_filter(&text_files);
         dialog.add_filter(&all_files);
 
         // Set default folder (optional)
-        _ = dialog.set_current_folder(Some(&gio::File::for_path("/home")));
+        // _ = dialog.set_current_folder(Some(&gio::File::for_path("/home")));
 
         // Show the dialog and handle the response
-        dialog.connect_response(|dialog, response| {
-            if response == ResponseType::Accept {
-                // Get the selected file
-                if let Some(file) = dialog.file() {
-                    if let Some(path) = file.path() {
-                        println!("Selected file: {:?}", path);
-                        // Here you would handle the file (open it, read it, etc.)
+        dialog.connect_response(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |dialog, response| {
+                if response == ResponseType::Accept {
+                    if let Some(file) = dialog.file() {
+                        this.navigate_to(&file);
                     }
                 }
+                dialog.destroy();
             }
-            dialog.destroy();
-        });
+        ));
 
         dialog.show();
     }

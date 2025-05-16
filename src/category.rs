@@ -54,6 +54,7 @@ impl Category {
 
         let supported = filename_lower.ends_with(".jpg")
             | filename_lower.ends_with(".jpeg")
+            | filename_lower.ends_with(".jfif")
             | filename_lower.ends_with(".gif")
             | filename_lower.ends_with(".svg")
             | filename_lower.ends_with(".svgz")
