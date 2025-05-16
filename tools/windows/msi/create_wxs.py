@@ -73,8 +73,11 @@ def create_component_element(parent_element, file_id, relative_path, source_path
     return component
 
 
-def generate_wxs(root_folder, output_file="mview6.wxs"):
+def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
     """Generate a WXS file from a folder structure."""
+
+    if version.startswith("20"):
+        version = version[2:]
 
     # Initialize the XML structure
     wix = ET.Element("{http://schemas.microsoft.com/wix/2006/wi}Wix")
@@ -85,7 +88,7 @@ def generate_wxs(root_folder, output_file="mview6.wxs"):
             "Id": "69c966bc-c892-421f-a9d0-749e21a0745a",
             "Name": "MView6",
             "Language": "1033",
-            "Version": "1.0.0.0",
+            "Version": version,
             "Manufacturer": "NewInnovations",
             "UpgradeCode": str(uuid.uuid4()),
         },
@@ -338,7 +341,7 @@ def generate_wxs(root_folder, output_file="mview6.wxs"):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f"Usage: {sys.argv[0]} path/to/mview6-windows [output.wxs]")
+        print(f"Usage: {sys.argv[0]} path/to/mview6-windows [output.wxs] [version]")
         sys.exit(1)
 
     root_folder = sys.argv[1]
@@ -348,9 +351,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     output_file = sys.argv[2] if len(sys.argv) > 2 else "mview6.wxs"
+    version = sys.argv[3] if len(sys.argv) > 3 else "6.0.0"
 
     try:
-        _, file_count = generate_wxs(root_folder, output_file)
+        _, file_count = generate_wxs(root_folder, output_file, version)
         print(f"Successfully generated {output_file} with {file_count} files")
     except Exception as e:
         print(f"Error generating WXS file: {e}")
