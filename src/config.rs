@@ -18,9 +18,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{
-    env,
     fs::{self, File},
     io::{self, BufWriter, Write},
+    path::PathBuf,
     sync::OnceLock,
 };
 
@@ -37,22 +37,25 @@ pub struct Config {
     pub bookmarks: Vec<Bookmark>,
 }
 
+fn pathbuf_to_string(pathbuf: &PathBuf) -> String {
+    pathbuf.to_str().unwrap_or_default().to_string()
+}
+
 impl Config {
-    pub fn home() -> String {
-        env::var("HOME").unwrap_or_default()
+    fn config_dir() -> PathBuf {
+        let mut dir = dirs::config_dir().unwrap_or_default();
+        dir.push("mview6");
+        dbg!(&dir);
+        dir
     }
 
-    fn dir() -> String {
-        format!("{}/.config/mview", Self::home())
-    }
-
-    fn filename() -> String {
-        format!("{}/mview6.json", Self::dir())
+    fn config_file() -> PathBuf {
+        Self::config_dir().join("mview6.json")
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        fs::create_dir_all(Self::dir())?;
-        let file = File::create(Self::filename())?;
+        fs::create_dir_all(Self::config_dir())?;
+        let file = File::create(Self::config_file())?;
         let mut writer = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut writer, self)?;
         writer.flush()?;
@@ -62,17 +65,36 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let config = Self {
-            bookmarks: vec![Bookmark {
+        let mut bookmarks = Vec::<Bookmark>::new();
+
+        if let Some(dir) = dirs::home_dir() {
+            bookmarks.push(Bookmark {
                 name: "Home folder".to_string(),
-                folder: Self::home(),
-            }],
-        };
+                folder: pathbuf_to_string(&dir),
+            });
+        }
+
+        if let Some(dir) = dirs::picture_dir() {
+            bookmarks.push(Bookmark {
+                name: "Pictures folder".to_string(),
+                folder: pathbuf_to_string(&dir),
+            });
+        }
+
+        if let Some(dir) = dirs::document_dir() {
+            bookmarks.push(Bookmark {
+                name: "Document folder".to_string(),
+                folder: pathbuf_to_string(&dir),
+            });
+        }
+
+        let config = Self { bookmarks };
+
         match config.save() {
-            Ok(_) => println!("Saved default configuration to {}", Self::filename()),
+            Ok(_) => println!("Saved default configuration to {:?}", Self::config_file()),
             Err(_) => println!(
-                "Failed to save default configuration to {}",
-                Self::filename()
+                "Failed to save default configuration to {:?}",
+                Self::config_file()
             ),
         };
         config
@@ -80,7 +102,7 @@ impl Default for Config {
 }
 
 fn read_config() -> io::Result<Config> {
-    let file = fs::File::open(Config::filename())?;
+    let file = fs::File::open(Config::config_file())?;
     let config: Config = serde_json::from_reader(file)?;
     println!("deserialized = {:?}", config);
     Ok(config)
