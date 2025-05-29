@@ -19,6 +19,7 @@
 
 use std::env;
 
+use archive_mar::MarArchive;
 use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
 use async_channel::Sender;
@@ -34,6 +35,7 @@ use crate::{
     image::Image,
 };
 
+mod archive_mar;
 mod archive_rar;
 mod archive_zip;
 mod bookmarks;
@@ -108,6 +110,8 @@ impl dyn Backend {
             Box::new(ZipArchive::new(filename))
         } else if filename_lower.ends_with(".rar") {
             Box::new(RarArchive::new(filename))
+        } else if filename_lower.ends_with(".mar") {
+            Box::new(MarArchive::new(filename))
         } else if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
             Box::new(Document::new(filename))
         } else {

@@ -58,7 +58,7 @@ impl Columns {
             glib::Type::STRING,
             glib::Type::U64,
             glib::Type::U64,
-            glib::Type::U32,
+            glib::Type::U64,
             glib::Type::STRING,
         ];
         let store = ListStore::new(&col_types);
@@ -86,7 +86,7 @@ impl Columns {
 pub enum Target {
     First,
     Name(String),
-    Index(u32),
+    Index(u64),
 }
 
 impl From<TReference> for Target {
@@ -94,6 +94,7 @@ impl From<TReference> for Target {
         match item {
             TReference::FileReference(file) => Target::Name(file.filename()),
             TReference::ZipReference(zip) => Target::Index(zip.index()),
+            TReference::MarReference(zip) => Target::Index(zip.index()),
             TReference::RarReference(rar) => Target::Name(rar.selection()),
             TReference::DocReference(doc) => Target::Index(doc.index()),
             TReference::None => Target::First,

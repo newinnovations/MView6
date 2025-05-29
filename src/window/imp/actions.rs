@@ -18,6 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use chrono::Datelike;
+use gio::prelude::FileExt;
 use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::{
     prelude::{DialogExt, FileChooserExt, GtkWindowExt, WidgetExt},
@@ -82,7 +83,8 @@ impl MViewWindowImp {
             move |dialog, response| {
                 if response == ResponseType::Accept {
                     if let Some(file) = dialog.file() {
-                        this.navigate_to(&file);
+                        let path = file.path().unwrap_or_default();
+                        this.navigate_to(&path);
                     }
                 }
                 dialog.destroy();

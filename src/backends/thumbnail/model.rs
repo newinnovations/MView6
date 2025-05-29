@@ -23,8 +23,8 @@ use image::DynamicImage;
 
 use crate::{
     backends::{
-        archive_rar::TRarReference, archive_zip::TZipReference, document::TDocReference,
-        filesystem::TFileReference,
+        archive_mar::TMarReference, archive_rar::TRarReference, archive_zip::TZipReference,
+        document::TDocReference, filesystem::TFileReference,
     },
     category::Category,
     image::colors::Color,
@@ -34,6 +34,7 @@ use crate::{
 pub enum TReference {
     FileReference(TFileReference),
     ZipReference(TZipReference),
+    MarReference(TMarReference),
     RarReference(TRarReference),
     DocReference(TDocReference),
     None,

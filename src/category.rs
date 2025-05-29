@@ -39,7 +39,9 @@ impl Category {
 
         let filename_lower = filename.to_lowercase();
 
-        let archive = filename_lower.ends_with(".zip") | filename_lower.ends_with(".rar");
+        let archive = filename_lower.ends_with(".zip")
+            | filename_lower.ends_with(".rar")
+            | filename_lower.ends_with(".mar");
         // | filename_lower.ends_with(".tar")
         // | filename_lower.contains(".tar.")
         // | filename_lower.ends_with(".tgz");
@@ -63,6 +65,7 @@ impl Category {
             | filename_lower.ends_with(".avif")
             // | filename_lower.ends_with(".jxl") // TODO
             | filename_lower.ends_with("-1")
+            | filename_lower.ends_with(".pcx")
             | filename_lower.ends_with(".png");
 
         if supported {

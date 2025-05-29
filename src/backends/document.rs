@@ -159,7 +159,7 @@ impl Backend for Document {
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
         match extract_page(
             &self.filename,
-            cursor.index(),
+            cursor.index() as u32,
             self.last_page,
             params.page_mode,
         ) {
@@ -334,11 +334,11 @@ fn list_pages(filename: &str, store: &ListStore) -> MviewResult<u32> {
 #[derive(Debug, Clone)]
 pub struct TDocReference {
     filename: String,
-    index: u32,
+    index: u64,
 }
 
 impl TDocReference {
-    pub fn new(backend: &Document, index: u32) -> Self {
+    pub fn new(backend: &Document, index: u64) -> Self {
         TDocReference {
             filename: backend.filename.clone(),
             index,
@@ -349,7 +349,7 @@ impl TDocReference {
         self.filename.clone()
     }
 
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> u64 {
         self.index
     }
 }

@@ -48,7 +48,7 @@ impl Cursor {
     }
 
     /// Value of the index field of the row
-    pub fn index(&self) -> u32 {
+    pub fn index(&self) -> u64 {
         self.store.index(&self.iter)
     }
 
@@ -153,7 +153,7 @@ pub trait TreeModelMviewExt: IsA<TreeModel> {
     fn folder(&self, iter: &TreeIter) -> String;
     fn category_id(&self, iter: &TreeIter) -> u32;
     fn category(&self, iter: &TreeIter) -> Category;
-    fn index(&self, iter: &TreeIter) -> u32;
+    fn index(&self, iter: &TreeIter) -> u64;
     fn modified(&self, iter: &TreeIter) -> u64;
     fn size(&self, iter: &TreeIter) -> u64;
 }
@@ -180,9 +180,9 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
             Err(_) => Default::default(),
         }
     }
-    fn index(&self, iter: &TreeIter) -> u32 {
+    fn index(&self, iter: &TreeIter) -> u64 {
         self.get_value(iter, Columns::Index as i32)
-            .get::<u32>()
+            .get::<u64>()
             .unwrap_or(0)
     }
     fn modified(&self, iter: &TreeIter) -> u64 {

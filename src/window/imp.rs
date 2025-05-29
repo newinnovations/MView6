@@ -38,7 +38,7 @@ use crate::{
     info_view::InfoView,
 };
 use async_channel::Sender;
-use gio::{File, SimpleAction, SimpleActionGroup};
+use gio::{SimpleAction, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, ControlFlow};
 use gtk4::{
     glib::Propagation, prelude::*, subclass::prelude::*, EventControllerKey, HeaderBar, MenuButton,
@@ -46,7 +46,7 @@ use gtk4::{
 };
 use std::{
     cell::{Cell, OnceCell, RefCell},
-    env,
+    env, fs,
 };
 
 #[derive(Debug)]
@@ -372,7 +372,13 @@ impl ObjectImpl for MViewWindowImp {
             move || {
                 if let Some(filename) = &filename {
                     println!("Opening {}", filename);
-                    this.navigate_to(&File::for_parse_name(filename));
+                    // match path::absolute(filename) {
+                    match fs::canonicalize(filename) {
+                        Ok(abs_path) => this.navigate_to(&abs_path),
+                        Err(_) => {
+                            this.set_backend(<dyn Backend>::current_dir(), Target::First, false)
+                        }
+                    }
                 } else {
                     this.set_backend(<dyn Backend>::current_dir(), Target::First, false);
                 }

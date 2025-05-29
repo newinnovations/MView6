@@ -18,17 +18,15 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use super::{Image, ImageParams};
-use chrono::{Local, TimeZone};
 use gtk4::ListStore;
-use human_bytes::human_bytes;
 use image::DynamicImage;
 use std::{
     cell::{Cell, RefCell},
     fs,
-    io::{BufReader, Read},
+    io::{BufReader, ErrorKind, Read, Result, Seek, SeekFrom},
     path::Path,
+    str::from_utf8,
 };
-use zip::result::ZipResult;
 
 use crate::{
     category::Category,
@@ -36,7 +34,7 @@ use crate::{
     file_view::{Columns, Cursor, Sort},
     image::{
         draw::draw_error,
-        provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
+        provider::internal::{InternalImageLoader, InternalReader},
     },
     profile::performance::Performance,
 };
@@ -47,7 +45,32 @@ use super::{
     Backend, Target,
 };
 
-pub struct ZipArchive {
+pub struct MarEntry {
+    pub offset: u64,
+    pub filename: String,
+    pub image_size: u32,
+    pub date: u64,
+}
+
+impl MarEntry {
+    pub fn read<R: Read>(reader: &mut R, mode: u8) -> Result<Self> {
+        let _length = InternalReader::read_u32(reader)?;
+        let offset = InternalReader::read_u64(reader)?;
+        let image_size = InternalReader::read_u32(reader)?;
+        let date = InternalReader::read_u64(reader)?;
+        let filename_length = InternalReader::read_u32(reader)?;
+        let filename_bytes = InternalReader::read_bytes(reader, Some(filename_length), mode)?;
+        let filename = from_utf8(&filename_bytes).unwrap_or_default().to_string();
+        Ok(MarEntry {
+            offset,
+            filename,
+            image_size,
+            date,
+        })
+    }
+}
+
+pub struct MarArchive {
     filename: String,
     directory: String,
     archive: String,
@@ -56,7 +79,7 @@ pub struct ZipArchive {
     sort: Cell<Sort>,
 }
 
-impl ZipArchive {
+impl MarArchive {
     pub fn new(filename: &str) -> Self {
         let path = Path::new(filename);
         let directory = path
@@ -69,7 +92,7 @@ impl ZipArchive {
             .unwrap_or_default()
             .to_str()
             .unwrap_or_default();
-        ZipArchive {
+        MarArchive {
             filename: filename.to_string(),
             directory: directory.to_string(),
             archive: archive.to_string(),
@@ -80,45 +103,27 @@ impl ZipArchive {
     }
 
     fn create_store(filename: &str) -> ListStore {
-        println!("create_store ZipArchive {}", filename);
+        println!("create_store MarArchive {}", filename);
         let store = Columns::store();
-        match list_zip(filename, &store) {
+        match list_mar(filename, &store) {
             Ok(()) => println!("OK"),
             Err(e) => println!("ERROR {:?}", e),
         };
         store
     }
 
-    // pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
-    //     let thumb_filename = format!("{}-{}.mthumb", src.archive, src.index);
-    //     let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
-
-    //     if Path::new(&thumb_path).exists() {
-    //         RsImageLoader::dynimg_from_file(&thumb_path)
-    //     } else {
-    //         let bytes = extract_zip(&src.filename, src.index as usize)?;
-    //         let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-    //         let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-    //         ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
-    //         Ok(image)
-    //     }
-    // }
-
-    pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
-        let bytes = extract_zip(&src.filename, src.index as usize)?;
-        if let Some(image) = InternalImageLoader::thumb_from_bytes(&bytes) {
-            Ok(image)
-        } else {
-            let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-            Ok(image)
-        }
+    pub fn get_thumbnail(src: &TMarReference) -> MviewResult<DynamicImage> {
+        let fname = Path::new(&src.filename);
+        let file = fs::File::open(fname)?;
+        let mut reader = BufReader::new(file);
+        reader.seek(SeekFrom::Start(src.index))?;
+        InternalImageLoader::thumb_from_reader(&mut reader)
     }
 }
 
-impl Backend for ZipArchive {
+impl Backend for MarArchive {
     fn class_name(&self) -> &str {
-        "ZipArchive"
+        "MarArchive"
     }
 
     fn is_container(&self) -> bool {
@@ -148,11 +153,9 @@ impl Backend for ZipArchive {
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        match extract_zip(&self.filename, cursor.index() as usize) {
-            Ok(bytes) => {
-                ImageLoader::image_from_memory(bytes, cursor.name().to_lowercase().contains(".svg"))
-            }
-            Err(error) => draw_error(error.into()),
+        match extract_mar(&self.filename, cursor.index()) {
+            Ok(image) => image,
+            Err(error) => draw_error(error),
         }
     }
 
@@ -160,7 +163,7 @@ impl Backend for ZipArchive {
         TEntry::new(
             cursor.category(),
             &cursor.name(),
-            TReference::ZipReference(TZipReference::new(self, cursor.index())),
+            TReference::MarReference(TMarReference::new(self, cursor.index())),
         )
     }
 
@@ -179,75 +182,54 @@ impl Backend for ZipArchive {
     }
 }
 
-fn extract_zip(filename: &str, index: usize) -> ZipResult<Vec<u8>> {
+fn extract_mar(filename: &str, offset: u64) -> MviewResult<Image> {
     let duration = Performance::start();
     let fname = std::path::Path::new(filename);
     let file = fs::File::open(fname)?;
-    let reader = BufReader::new(file);
-    let mut archive = zip::ZipArchive::new(reader)?;
-    let mut file = archive.by_index(index)?;
-    let mut buf = Vec::<u8>::new();
-    let size = file.read_to_end(&mut buf)?;
-    duration.elapsed_suffix("extract (zip)", &format!("({})", &human_bytes(size as f64)));
-    Ok(buf)
+    let mut reader = BufReader::new(file);
+    // println!("Offset {}", offset);
+    reader.seek(SeekFrom::Start(offset))?;
+    let image = InternalImageLoader::image_from_reader(&mut reader);
+    duration.elapsed("extract/dec (mar)");
+    image
 }
 
-fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
+fn list_mar(filename: &str, store: &ListStore) -> Result<()> {
     let fname = std::path::Path::new(filename);
     let file = fs::File::open(fname)?;
-    let reader = BufReader::new(file);
+    let mut reader = BufReader::new(file);
 
-    let mut archive = zip::ZipArchive::new(reader)?;
+    let mut buf = [0u8; 12];
+    reader.read_exact(&mut buf)?;
+    if &buf[0..4] != b"MAR2" {
+        return Err(ErrorKind::Unsupported.into());
+    }
+    let start_of_directory = u64::from_le_bytes(buf[4..12].try_into().unwrap());
+    reader.seek(SeekFrom::Start(start_of_directory))?;
+    if InternalReader::read_bytes(&mut reader, Some(4), buf[3])? != b"DIR2" {
+        return Err(ErrorKind::Unsupported.into());
+    }
+    let num_entries = InternalReader::read_u32(&mut reader)?;
 
-    for i in 0..archive.len() {
-        let file = archive.by_index(i)?;
+    for _ in 0..num_entries {
+        let entry = MarEntry::read(&mut reader, buf[3])?;
 
-        let outpath = match file.enclosed_name() {
-            Some(path) => path,
-            None => {
-                println!("Entry {} has a suspicious path", file.name());
-                continue;
-            }
-        };
-
-        let filename = outpath.display().to_string();
-        let cat = Category::determine(&filename, file.is_dir());
-        let file_size = file.size();
-        let index = i as u64;
-
-        if file_size == 0 {
-            continue;
-        }
+        let cat = Category::determine(&entry.filename, false);
+        let file_size = entry.image_size as u64;
 
         if cat.id() == Category::Unsupported.id() {
             continue;
         }
-
-        let m = file.last_modified().unwrap_or_default();
-        let modified = match Local.with_ymd_and_hms(
-            m.year() as i32,
-            m.month() as u32,
-            m.day() as u32,
-            m.hour() as u32,
-            m.minute() as u32,
-            m.second() as u32,
-        ) {
-            chrono::offset::LocalResult::Single(datetime) => datetime.timestamp() as u64,
-            _ => {
-                println!("Could not create local datetime (Ambiguous or None)");
-                0_u64
-            }
-        };
 
         store.insert_with_values(
             None,
             &[
                 (Columns::Cat as u32, &cat.id()),
                 (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &filename),
+                (Columns::Name as u32, &entry.filename),
                 (Columns::Size as u32, &file_size),
-                (Columns::Modified as u32, &modified),
-                (Columns::Index as u32, &index),
+                (Columns::Modified as u32, &entry.date),
+                (Columns::Index as u32, &entry.offset),
             ],
         );
     }
@@ -255,19 +237,15 @@ fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
 }
 
 #[derive(Debug, Clone)]
-pub struct TZipReference {
+pub struct TMarReference {
     filename: String,
-    // directory: String,
-    // archive: String,
     index: u64,
 }
 
-impl TZipReference {
-    pub fn new(backend: &ZipArchive, index: u64) -> Self {
-        TZipReference {
+impl TMarReference {
+    pub fn new(backend: &MarArchive, index: u64) -> Self {
+        TMarReference {
             filename: backend.filename.clone(),
-            // directory: backend.directory.clone(),
-            // archive: backend.archive.clone(),
             index,
         }
     }

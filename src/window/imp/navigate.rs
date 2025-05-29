@@ -26,9 +26,8 @@ use crate::{
     category::Category,
     file_view::{Columns, Direction, FileView, Filter, Sort, Target},
 };
-use gio::File;
 use glib::subclass::types::ObjectSubclassExt;
-use gtk4::{prelude::*, SortColumn, TreePath, TreeViewColumn};
+use gtk4::{SortColumn, TreePath, TreeViewColumn};
 
 impl MViewWindowImp {
     pub(super) fn on_cursor_changed(&self) {
@@ -79,8 +78,8 @@ impl MViewWindowImp {
         self.set_backend(new_backend, target, false);
     }
 
-    pub fn navigate_to(&self, file: &File) {
-        let path = file.path().unwrap_or_default().clone();
+    pub fn navigate_to(&self, path: &Path) {
+        println!("navigate_to {}", path.display());
         let filename = path
             .file_name()
             .unwrap_or_default()

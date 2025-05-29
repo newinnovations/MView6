@@ -24,8 +24,8 @@ use image::DynamicImage;
 
 use crate::{
     backends::{
-        archive_rar::RarArchive, archive_zip::ZipArchive, document::Document,
-        filesystem::FileSystem,
+        archive_mar::MarArchive, archive_rar::RarArchive, archive_zip::ZipArchive,
+        document::Document, filesystem::FileSystem,
     },
     category::Category,
     error::MviewResult,
@@ -87,6 +87,9 @@ pub fn start_thumbnail_task(
                     }
                     TReference::ZipReference(src) => {
                         thumb_result(ZipArchive::get_thumbnail(src), &task)
+                    }
+                    TReference::MarReference(src) => {
+                        thumb_result(MarArchive::get_thumbnail(src), &task)
                     }
                     TReference::RarReference(src) => {
                         thumb_result(RarArchive::get_thumbnail(src), &task)

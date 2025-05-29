@@ -18,10 +18,13 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{
-    fs::{self, File},
-    io::{self, BufWriter, Write},
-    path::PathBuf,
-    sync::OnceLock,
+    fs::{create_dir_all, File},
+    io::{BufWriter, Result, Write},
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        OnceLock,
+    },
 };
 
 use serde::{Deserialize, Serialize};
@@ -35,9 +38,11 @@ pub struct Bookmark {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
     pub bookmarks: Vec<Bookmark>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub contrast: Option<i32>,
 }
 
-fn pathbuf_to_string(pathbuf: &PathBuf) -> String {
+fn pathbuf_to_string(pathbuf: &Path) -> String {
     pathbuf.to_str().unwrap_or_default().to_string()
 }
 
@@ -54,7 +59,7 @@ impl Config {
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        fs::create_dir_all(Self::config_dir())?;
+        create_dir_all(Self::config_dir())?;
         let file = File::create(Self::config_file())?;
         let mut writer = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut writer, self)?;
@@ -88,7 +93,17 @@ impl Default for Config {
             });
         }
 
-        let config = Self { bookmarks };
+        if let Some(dir) = dirs::download_dir() {
+            bookmarks.push(Bookmark {
+                name: "Download folder".to_string(),
+                folder: pathbuf_to_string(&dir),
+            });
+        }
+
+        let config = Self {
+            bookmarks,
+            contrast: None,
+        };
 
         match config.save() {
             Ok(_) => println!("Saved default configuration to {:?}", Self::config_file()),
@@ -101,8 +116,8 @@ impl Default for Config {
     }
 }
 
-fn read_config() -> io::Result<Config> {
-    let file = fs::File::open(Config::config_file())?;
+fn read_config() -> Result<Config> {
+    let file = File::open(Config::config_file())?;
     let config: Config = serde_json::from_reader(file)?;
     println!("deserialized = {:?}", config);
     Ok(config)
@@ -111,4 +126,18 @@ fn read_config() -> io::Result<Config> {
 pub fn config<'a>() -> &'a Config {
     static CONFIG: OnceLock<Config> = OnceLock::new();
     CONFIG.get_or_init(|| read_config().unwrap_or_default())
+}
+
+static CONTRAST: AtomicI32 = AtomicI32::new(0);
+
+pub fn contrast_delta(delta: i32) {
+    CONTRAST.store(CONTRAST.load(Ordering::Relaxed) + delta, Ordering::Relaxed);
+}
+
+pub fn contrast() -> u8 {
+    let mut contrast = CONTRAST.load(Ordering::Relaxed);
+    if let Some(initial) = config().contrast {
+        contrast += initial;
+    }
+    contrast as u8
 }

@@ -24,6 +24,7 @@ use gtk4::{gdk::Key, prelude::GtkWindowExt};
 
 use crate::{
     backends::{document::PageMode, Backend, ImageParams},
+    config::{contrast, contrast_delta},
     file_view::{Columns, Direction, Filter, Target},
     image::{view::ZoomMode, Image, ImageData},
 };
@@ -157,6 +158,14 @@ impl MViewWindowImp {
             }
             Key::End => {
                 w.file_view.end();
+            }
+            Key::F6 => {
+                contrast_delta(-1);
+                dbg!(contrast());
+            }
+            Key::F7 => {
+                contrast_delta(1);
+                dbg!(contrast());
             }
             Key::_1 => {
                 self.change_sort(&w.file_view, Columns::Cat);

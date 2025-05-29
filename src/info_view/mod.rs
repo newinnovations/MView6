@@ -82,7 +82,10 @@ impl InfoView {
                     if f.ifd_num == In::PRIMARY {
                         let key = f.tag.to_string();
                         let key = key.from_case(Case::Pascal).to_case(Case::Lower);
-                        insert(&store, &key, &f.display_value().with_unit(exif).to_string())
+                        // println!("{}", key);
+                        if key != "maker note" && !key.starts_with("tag(") {
+                            insert(&store, &key, &f.display_value().with_unit(exif).to_string())
+                        }
                     }
                 }
             }

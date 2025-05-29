@@ -99,7 +99,7 @@ impl Thumbnail {
     }
 
     pub fn startpage(&self) -> Target {
-        Target::Index(self.parent_position as u32 / self.capacity() as u32)
+        Target::Index(self.parent_position as u64 / self.capacity() as u64)
     }
 
     pub fn sheet(&self, page: i32) -> Vec<TTask> {
@@ -230,6 +230,10 @@ impl Backend for Thumbnail {
                     Target::Name(src.filename()),
                 )),
                 TReference::ZipReference(src) => Some((
+                    self.parent.replace(<dyn Backend>::none()),
+                    Target::Index(src.index()),
+                )),
+                TReference::MarReference(src) => Some((
                     self.parent.replace(<dyn Backend>::none()),
                     Target::Index(src.index()),
                 )),

@@ -22,7 +22,9 @@ use crate::{
     category::Category,
     error::MviewResult,
     file_view::{Columns, Cursor, Direction, Sort},
-    image::provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
+    image::provider::{
+        image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader, ImageSaver,
+    },
 };
 use gtk4::ListStore;
 use image::DynamicImage;
@@ -30,9 +32,9 @@ use regex::Regex;
 use std::{
     cell::{Cell, RefCell},
     ffi::OsStr,
-    fs::{self, rename},
+    fs::{metadata, read_dir, rename},
     io,
-    path::Path,
+    path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
 
@@ -59,7 +61,7 @@ impl FileSystem {
     }
 
     fn read_directory(store: &ListStore, current_dir: &str) -> io::Result<()> {
-        for entry in fs::read_dir(current_dir)? {
+        for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
             let filename = path.file_name().unwrap_or(OsStr::new("-"));
@@ -69,7 +71,7 @@ impl FileSystem {
                 continue;
             }
 
-            let metadata = match fs::metadata(&path) {
+            let metadata = match metadata(&path) {
                 Ok(m) => m,
                 Err(e) => {
                     println!("{}: Err = {:?}", filename, e);
@@ -113,16 +115,20 @@ impl FileSystem {
     }
 
     pub fn get_thumbnail(src: &TFileReference) -> MviewResult<DynamicImage> {
-        let thumb_filename = src.filename.replace(".lo.", ".").replace(".hi.", ".") + ".mthumb";
-        let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
-        if Path::new(&thumb_path).exists() {
-            RsImageLoader::dynimg_from_file(&thumb_path)
-        } else {
-            let path = format!("{}/{}", src.directory, src.filename);
-            let image = RsImageLoader::dynimg_from_file(&path)?;
-            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-            ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
+        if let Some(image) = InternalImageLoader::thumb_from_file(&src.path()) {
             Ok(image)
+        } else {
+            let thumb_filename = src.filename.replace(".lo.", ".").replace(".hi.", ".") + ".mthumb";
+            let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
+            if Path::new(&thumb_path).exists() {
+                RsImageLoader::dynimg_from_file(&thumb_path)
+            } else {
+                let path = format!("{}/{}", src.directory, src.filename);
+                let image = RsImageLoader::dynimg_from_file(&path)?;
+                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
+                Ok(image)
+            }
         }
     }
 }
@@ -272,5 +278,10 @@ impl TFileReference {
 
     pub fn filename(&self) -> String {
         self.filename.clone()
+    }
+
+    pub fn path(&self) -> PathBuf {
+        let p = Path::new(&self.directory);
+        p.join(&self.filename)
     }
 }
