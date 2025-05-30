@@ -50,7 +50,7 @@ pub struct Thumbnail {
     // references
     parent: RefCell<Box<dyn Backend>>,
     parent_target: Target,
-    parent_position: i32,
+    focus_position: Cell<i32>,
     sort: Cell<Sort>,
 }
 
@@ -89,7 +89,7 @@ impl Thumbnail {
             offset_y,
             parent: RefCell::new(<dyn Backend>::none()),
             parent_target: position.0,
-            parent_position: position.1,
+            focus_position: position.1.into(),
             sort: Default::default(),
         })
     }
@@ -98,8 +98,8 @@ impl Thumbnail {
         self.capacity_x * self.capacity_y
     }
 
-    pub fn startpage(&self) -> Target {
-        Target::Index(self.parent_position as u64 / self.capacity() as u64)
+    pub fn focus_page(&self) -> Target {
+        Target::Index(self.focus_position.get() as u64 / self.capacity() as u64)
     }
 
     pub fn sheet(&self, page: i32) -> Vec<TTask> {
@@ -185,7 +185,11 @@ impl Backend for Thumbnail {
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
-        let page = cursor.index();
+        let page = cursor.index() as i32;
+        let focus_page = self.focus_position.get() / self.capacity();
+        if focus_page != page {
+            self.focus_position.set(page * self.capacity());
+        }
         let caption = format!("{} of {}", page + 1, cursor.store_size());
         let image = match thumbnail_sheet(self.width, self.height, MARGIN, &caption) {
             Ok(image) => image,
@@ -261,6 +265,6 @@ impl Backend for Thumbnail {
     }
 
     fn position(&self) -> (Target, i32) {
-        (self.parent_target.clone(), self.parent_position)
+        (self.parent_target.clone(), self.focus_position.get())
     }
 }

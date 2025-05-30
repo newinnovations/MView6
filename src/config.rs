@@ -50,7 +50,7 @@ impl Config {
     fn config_dir() -> PathBuf {
         let mut dir = dirs::config_dir().unwrap_or_default();
         dir.push("mview6");
-        dbg!(&dir);
+        // dbg!(&dir);
         dir
     }
 
@@ -119,7 +119,7 @@ impl Default for Config {
 fn read_config() -> Result<Config> {
     let file = File::open(Config::config_file())?;
     let config: Config = serde_json::from_reader(file)?;
-    println!("deserialized = {:?}", config);
+    // println!("deserialized = {:?}", config);
     Ok(config)
 }
 

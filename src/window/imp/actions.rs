@@ -196,10 +196,10 @@ impl MViewWindowImp {
                 position,
                 self.thumbnail_size.get(),
             ) {
-                let startpage = thumbnail.startpage();
+                let focus_page = thumbnail.focus_page();
                 let new_backend = <dyn Backend>::thumbnail(thumbnail);
                 new_backend.set_sort(&Sort::sort_on_category());
-                self.set_backend(new_backend, startpage, true);
+                self.set_backend(new_backend, focus_page, true);
                 self.show_info_widget(false);
             }
         } else if backend.is_thumbnail() {

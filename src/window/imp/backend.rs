@@ -104,9 +104,9 @@ impl MViewWindowImp {
                 let (parent_backend, _) = backend.leave();
                 drop(backend);
                 self.backend.replace(parent_backend);
-                let startpage = thumbnail.startpage();
+                let focus_page = thumbnail.focus_page();
                 let new_backend = <dyn Backend>::thumbnail(thumbnail);
-                self.set_backend(new_backend, startpage, true);
+                self.set_backend(new_backend, focus_page, true);
             }
         }
     }
