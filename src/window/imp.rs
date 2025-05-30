@@ -321,7 +321,7 @@ impl ObjectImpl for MViewWindowImp {
                 while let Ok(msg) = receiver.recv().await {
                     match msg {
                         Message::Command(cmd) => {
-                            command = cmd;
+                            command = *cmd;
                             current_task = 0;
                             if command.needs_work() {
                                 start_thumbnail_task(
@@ -343,7 +343,8 @@ impl ObjectImpl for MViewWindowImp {
                                     &mut current_task,
                                 );
                             } else {
-                                image_view.set_image_post();
+                                // Nothing to do for the command
+                                image_view.set_image_post(Default::default());
                             }
                         }
                         Message::Result(res) => {

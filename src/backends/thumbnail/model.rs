@@ -120,15 +120,24 @@ pub struct TTask {
     pub size: u32,
     pub position: (i32, i32),
     pub source: TEntry,
+    pub annotation: Annotation,
 }
 
 impl TTask {
-    pub fn new(tid: i32, size: u32, x: i32, y: i32, source: TEntry) -> Self {
+    pub fn new(
+        tid: i32,
+        size: u32,
+        x: i32,
+        y: i32,
+        source: TEntry,
+        annotation: Annotation,
+    ) -> Self {
         TTask {
             tid,
             size,
             position: (x, y),
             source,
+            annotation,
         }
     }
 }
@@ -183,6 +192,14 @@ impl TResult {
 }
 
 pub enum Message {
-    Command(TCommand),
-    Result(TResult),
+    Command(Box<TCommand>),
+    Result(Box<TResult>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Annotation {
+    pub position: (f64, f64, f64, f64),
+    pub name: String,
+    pub category: Category,
+    pub reference: TReference,
 }

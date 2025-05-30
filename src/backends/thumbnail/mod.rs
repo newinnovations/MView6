@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod model;
+pub mod model;
 pub mod processing;
 
 use std::cell::{Cell, RefCell};
@@ -29,6 +29,7 @@ use crate::{
     image::draw::thumbnail_sheet,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
+use model::Annotation;
 pub use model::{Message, TCommand, TEntry, TMessage, TReference, TResult, TResultOption, TTask};
 
 const FOOTER: i32 = 50;
@@ -120,12 +121,26 @@ impl Thumbnail {
                 for col in 0..self.capacity_x {
                     let source = backend.entry(&cursor);
                     if !matches!(source.reference, TReference::None) {
+                        let annotation = Annotation {
+                            position: (
+                                (self.offset_x + col * (self.size + self.separator_x)) as f64,
+                                (self.offset_y + row * (self.size + self.separator_y)) as f64,
+                                (self.offset_x + col * (self.size + self.separator_x) + self.size)
+                                    as f64,
+                                (self.offset_y + row * (self.size + self.separator_y) + self.size)
+                                    as f64,
+                            ),
+                            name: source.name.clone(),
+                            category: source.category,
+                            reference: source.reference.clone(),
+                        };
                         let task = TTask::new(
                             tid,
                             self.size as u32,
                             self.offset_x + col * (self.size + self.separator_x),
                             self.offset_y + row * (self.size + self.separator_y),
                             source,
+                            annotation,
                         );
                         res.push(task);
                         tid += 1;
@@ -199,8 +214,10 @@ impl Backend for Thumbnail {
             }
         };
 
-        let command = TCommand::new(image.id(), self.sheet(page as i32));
-        let _ = params.sender.send_blocking(Message::Command(command));
+        let command = TCommand::new(image.id(), self.sheet(page));
+        let _ = params
+            .sender
+            .send_blocking(Message::Command(command.into()));
 
         image
     }

@@ -104,7 +104,8 @@ pub fn start_thumbnail_task(
                     Ok(image) => image,
                     Err(_) => TResultOption::Message(TMessage::error("panic", &task.source.name)),
                 };
-                let _ = sender_clone.send_blocking(Message::Result(TResult::new(id, task, result)));
+                let _ = sender_clone
+                    .send_blocking(Message::Result(TResult::new(id, task, result).into()));
             });
         }
     } else {
@@ -115,7 +116,7 @@ pub fn start_thumbnail_task(
 pub fn handle_thumbnail_result(
     image_view: &ImageView,
     command: &mut TCommand,
-    result: TResult,
+    result: Box<TResult>,
 ) -> bool {
     if command.id != result.id {
         return false;
@@ -156,8 +157,10 @@ pub fn handle_thumbnail_result(
             }
         }
         if command.todo == 0 || (elapsed - command.last_update) > 0.3 {
-            if command.last_update == 0.0 {
-                image_view.set_image_post();
+            // if command.last_update == 0.0 {
+            if command.todo == 0 {
+                let annotations = command.tasks.iter().map(|t| t.annotation.clone()).collect();
+                image_view.set_image_post(annotations);
             }
             image_view.image_modified();
             command.last_update = elapsed;

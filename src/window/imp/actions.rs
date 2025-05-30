@@ -63,7 +63,9 @@ impl MViewWindowImp {
         text_files.add_pattern("*.webp");
         text_files.add_pattern("*.avif");
         text_files.add_pattern("*.heic");
+        text_files.add_pattern("*.pcx");
         text_files.add_pattern("*.zip");
+        text_files.add_pattern("*.mar");
         text_files.add_pattern("*.rar");
         text_files.add_pattern("*.pdf");
         text_files.add_pattern("*.epub");

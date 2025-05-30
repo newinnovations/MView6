@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod data;
+pub mod data;
 mod imp;
 
 use std::time::SystemTime;
@@ -35,6 +35,8 @@ use gtk4::{
     prelude::{GestureSingleExt, NativeExt, PopoverExt, WidgetExt},
     ApplicationWindow, GestureClick, PopoverMenu,
 };
+
+use crate::backends::thumbnail::model::Annotation;
 
 use super::Image;
 pub use imp::SIGNAL_VIEW_RESIZED;
@@ -97,7 +99,7 @@ impl ImageView {
 
     pub fn set_image(&self, image: Image) {
         self.set_image_pre(image);
-        self.set_image_post();
+        self.set_image_post(Default::default());
     }
 
     pub fn set_image_pre(&self, image: Image) {
@@ -108,8 +110,10 @@ impl ImageView {
         p.rotation = 0;
     }
 
-    pub fn set_image_post(&self) {
+    pub fn set_image_post(&self, annotations: Vec<Annotation>) {
+        dbg!(&annotations);
         let mut p = self.imp().data.borrow_mut();
+        p.annotations = annotations;
         p.create_surface();
         self.imp().schedule_animation(&p.image, SystemTime::now());
         p.apply_zoom();
