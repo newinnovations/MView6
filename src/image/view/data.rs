@@ -28,7 +28,7 @@ use glib::translate::ToGlibPtr;
 use gtk4::prelude::WidgetExt;
 
 use crate::{
-    backends::thumbnail::model::Annotation,
+    backends::thumbnail::model::Annotations,
     image::{Image, ImageData},
     profile::performance::Performance,
 };
@@ -66,7 +66,8 @@ pub struct ImageViewData {
     pub mouse_position: (f64, f64),
     pub drag: Option<(f64, f64)>,
     pub quality: cairo::Filter,
-    pub annotations: Vec<Annotation>,
+    pub annotations: Option<Annotations>,
+    pub hover: Option<i32>,
 }
 
 impl Default for ImageViewData {
@@ -85,6 +86,7 @@ impl Default for ImageViewData {
             drag: None,
             quality: QUALITY_HIGH,
             annotations: Default::default(),
+            hover: None,
         }
     }
 }

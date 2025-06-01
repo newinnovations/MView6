@@ -23,11 +23,11 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::image::{
+use crate::{category::Category, image::{
     colors::{CairoColorExt, Color},
     draw::transparency_background,
     Image, ImageData,
-};
+}};
 use gio::prelude::StaticType;
 use glib::{
     clone, ffi::g_source_remove, object::ObjectExt, result_from_gboolean, subclass::Signal,
@@ -151,7 +151,7 @@ impl ImageViewImp {
     fn schedule_resize_notify(&self) {
         self.resize_notify_timeout_id
             .replace(Some(glib::timeout_add_local(
-                Duration::from_millis(300),
+                Duration::from_millis(100),
                 clone!(
                     #[weak(rename_to = this)]
                     self,
@@ -238,7 +238,44 @@ impl ImageViewImp {
                 let _ =
                     context.set_source_surface(surface2, w1 + xofs / p.zoom, yofs / p.zoom + y2);
             }
+
             let _ = context.paint();
+
+            if let Some(annotations) = &p.annotations {
+                let hover = annotations.get(p.hover);
+                if let Some(hover) = hover {
+                    context.set_source_rgba(1.0, 1.0, 1.0, 0.1);
+                    context.rectangle(
+                        xofs + hover.position.x,
+                        yofs + hover.position.y,
+                        hover.position.width,
+                        hover.position.height,
+                    );
+                    let _ = context.fill_preserve();
+                    context.set_source_rgb(0.7, 0.7, 0.0);
+                    context.set_line_width(3.0);
+                    let _ = context.stroke();
+                }
+
+                for annotation in &annotations.annotations {
+                    match annotation.category {
+                        Category::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
+                        Category::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
+                        _ => continue,
+                    };
+                    context.arc(
+                        xofs + annotation.position.x + annotation.position.width,
+                        yofs + annotation.position.y + annotation.position.height,
+                        if hover == Some(annotation) {5.0} else {2.0},
+                        0.0,
+                        2.0 * std::f64::consts::PI,
+                    );
+                    let _ = context.fill_preserve();
+                    context.set_line_width(2.0);
+                    let _ = context.stroke();
+                }
+
+            }
         }
     }
 
@@ -260,14 +297,33 @@ impl ImageViewImp {
         }
     }
 
-    fn motion_notify_event(&self, position: (f64, f64)) {
+    fn motion_notify_event(&self, x: f64, y: f64) {
         let mut p = self.data.borrow_mut();
-        p.mouse_position = position;
+        p.mouse_position = (x, y);
+        let mut redraw = None;
+        if let Some(annotations) = &p.annotations {
+            let index = annotations.index_at(x + p.xofs, y + p.yofs);
+            if index != p.hover {
+                // dbg!(index);
+                p.hover = index;
+                redraw = Some(QUALITY_HIGH);
+            }
+        }
         if let Some((drag_x, drag_y)) = p.drag {
-            let (position_x, position_y) = position;
-            p.xofs = drag_x - position_x;
-            p.yofs = drag_y - position_y;
-            p.redraw(QUALITY_LOW);
+            p.xofs = drag_x - x;
+            p.yofs = drag_y - y;
+            redraw = Some(QUALITY_LOW);
+        }
+        if let Some(quality) = redraw {
+            p.redraw(quality);
+        }
+    }
+
+    fn motion_leave_event(&self) {
+        let mut p = self.data.borrow_mut();
+        if p.hover.is_some() {
+            p.hover = None;
+            p.redraw(QUALITY_HIGH);
         }
     }
 
@@ -317,7 +373,13 @@ impl ObjectImpl for ImageViewImp {
         motion_controller.connect_motion(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, x, y| this.motion_notify_event((x, y))
+            move |_, x, y| this.motion_notify_event(x, y)
+        ));
+
+        motion_controller.connect_leave(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_| this.motion_leave_event()
         ));
 
         let scroll_controller = EventControllerScroll::new(EventControllerScrollFlags::VERTICAL);
@@ -371,8 +433,8 @@ impl DrawingAreaImpl for ImageViewImp {
             self.window_size.set((width, height));
             self.cancel_resize_notify();
             let mut p = self.data.borrow_mut();
-            p.apply_zoom();
             self.schedule_resize_notify();
+            p.apply_zoom();
             // } else {
             //     println!("spurious resize");
         }

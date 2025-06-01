@@ -19,7 +19,7 @@
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Cursor, ErrorKind, Read, Result, Seek, SeekFrom},
+    io::{BufRead, BufReader, Cursor, ErrorKind, Read, Result, Seek},
     path::Path,
 };
 
@@ -47,8 +47,7 @@ pub struct InternalReader {}
 pub struct InternalImageLoader {}
 
 impl InternalImage {
-    pub fn new<T: BufRead + Seek>(reader: &mut T, thumb: bool) -> Result<InternalImage> {
-        // reader.seek(SeekFrom::Start(0))?;
+    pub fn new<T: BufRead + Seek>(reader: &mut T, get_thumb: bool) -> Result<InternalImage> {
         let mut buf = [0u8; 16];
         reader.read_exact(&mut buf)?;
         if &buf[0..2] != b"MP" {
@@ -90,11 +89,7 @@ impl InternalImage {
             ),
         };
 
-        if offset != 16 {
-            reader.seek(SeekFrom::Current(offset - 16))?;
-        }
-
-        let (comment, data) = if thumb {
+        let (comment, data) = if get_thumb {
             if matches!(image_type, ImageType::T) {
                 if thumb_length > 80_000 {
                     return Err(ErrorKind::FileTooLarge.into());
@@ -104,12 +99,12 @@ impl InternalImage {
                     InternalReader::read_bytes(reader, Some(thumb_length), mode)?,
                 )
             } else {
-                return Err(ErrorKind::Unsupported.into());
+                reader.seek_relative(-16)?; // rewind to beginning
+                return Err(ErrorKind::NotFound.into());
             }
         } else {
-            reader.seek(SeekFrom::Current(thumb_length as i64))?;
+            reader.seek_relative(offset + thumb_length as i64 - 16)?;
             let comment = if comment_length > 0 {
-                // reader.seek(SeekFrom::Start(offset + thumb_length as u64))?;
                 let bytes = InternalReader::read_bytes(reader, Some(comment_length), mode)?;
                 core::str::from_utf8(&bytes).ok().map(String::from)
             } else {
@@ -203,8 +198,19 @@ impl InternalImageLoader {
     }
 
     pub fn thumb_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<DynamicImage> {
-        let image = InternalImage::new(reader, true)?;
-        RsImageLoader::dynimg_from_memory(image.data())
+        match InternalImage::new(reader, true) {
+            Ok(image) => RsImageLoader::dynimg_from_memory(image.data()),
+            Err(err) => {
+                if err.kind() == ErrorKind::NotFound {
+                    let image = InternalImage::new(reader, false)?;
+                    let image = RsImageLoader::dynimg_from_memory(image.data())?;
+                    let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                    Ok(image)
+                } else {
+                    Err(err.into())
+                }
+            }
+        }
     }
 
     pub fn image_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<Image> {

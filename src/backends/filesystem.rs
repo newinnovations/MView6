@@ -22,9 +22,7 @@ use crate::{
     category::Category,
     error::MviewResult,
     file_view::{Columns, Cursor, Direction, Sort},
-    image::provider::{
-        image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader, ImageSaver,
-    },
+    image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
 };
 use gtk4::ListStore;
 use image::DynamicImage;
@@ -126,7 +124,7 @@ impl FileSystem {
                 let path = format!("{}/{}", src.directory, src.filename);
                 let image = RsImageLoader::dynimg_from_file(&path)?;
                 let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-                ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
+                // ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
                 Ok(image)
             }
         }

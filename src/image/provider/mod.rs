@@ -30,7 +30,7 @@ use image_rs::RsImageLoader;
 use internal::InternalImageLoader;
 use std::{
     fs,
-    io::{BufRead, BufReader, Cursor, Seek, SeekFrom},
+    io::{BufRead, BufReader, Cursor, Seek},
     path::Path,
 };
 
@@ -77,17 +77,14 @@ impl ImageLoader {
         };
         let mut reader = BufReader::new(input);
 
-        let start = reader.stream_position().unwrap_or_default();
-        println!("Start = {}", start);
-
         let image = if let Ok(im) = GdkImageLoader::image_from_reader(&mut reader) {
             im
         } else {
-            let _ = reader.seek(SeekFrom::Start(start));
+            let _ = reader.rewind();
             if let Ok(im) = InternalImageLoader::image_from_reader(&mut reader) {
                 im
             } else {
-                let _ = reader.seek(SeekFrom::Start(start));
+                let _ = reader.rewind();
                 match RsImageLoader::image_from_file(reader) {
                     Ok(im) => im,
                     Err(e) => draw_error(e),
@@ -112,18 +109,14 @@ impl ImageLoader {
 
         let mut reader = Cursor::new(buf);
 
-        let start = reader.stream_position().unwrap_or_default();
-
-        println!("Start = {}", start);
-
         let image = if let Ok(im) = GdkImageLoader::image_from_reader(&mut reader) {
             im
         } else {
-            let _ = reader.seek(SeekFrom::Start(start));
+            let _ = reader.rewind();
             if let Ok(im) = InternalImageLoader::image_from_reader(&mut reader) {
                 im
             } else {
-                let _ = reader.seek(SeekFrom::Start(start));
+                let _ = reader.rewind();
                 match RsImageLoader::image_from_memory(reader) {
                     Ok(im) => im,
                     Err(e) => draw_error(e),

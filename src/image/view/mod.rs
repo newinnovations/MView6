@@ -36,7 +36,7 @@ use gtk4::{
     ApplicationWindow, GestureClick, PopoverMenu,
 };
 
-use crate::backends::thumbnail::model::Annotation;
+use crate::backends::thumbnail::model::Annotations;
 
 use super::Image;
 pub use imp::SIGNAL_VIEW_RESIZED;
@@ -103,15 +103,19 @@ impl ImageView {
     }
 
     pub fn set_image_pre(&self, image: Image) {
+        println!("set_image_pre");
         let mut p = self.imp().data.borrow_mut();
         self.imp().cancel_animation();
         p.image = image;
         // p.image.crop_to_max_size();
         p.rotation = 0;
+        p.annotations = None;
+        p.hover = None;
     }
 
-    pub fn set_image_post(&self, annotations: Vec<Annotation>) {
-        dbg!(&annotations);
+    pub fn set_image_post(&self, annotations: Option<Annotations>) {
+        println!("set_image_post");
+        // dbg!(&annotations);
         let mut p = self.imp().data.borrow_mut();
         p.annotations = annotations;
         p.create_surface();
@@ -122,7 +126,8 @@ impl ImageView {
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
         p.create_surface();
-        p.redraw(QUALITY_HIGH);
+        // p.redraw(QUALITY_HIGH);
+        p.apply_zoom();
     }
 
     pub fn zoom_mode(&self) -> ZoomMode {

@@ -70,33 +70,39 @@ impl Default for TEntry {
 #[derive(Debug, Clone)]
 pub struct TCommand {
     pub id: u32,
+    pub page: i32,
     pub start: SystemTime,
     pub tasks: Vec<TTask>,
     pub todo: usize,
     pub last_update: f64,
+    pub dim: SheetDimensions,
 }
 
 impl Default for TCommand {
     fn default() -> Self {
         Self {
             id: Default::default(),
+            page: Default::default(),
             start: SystemTime::now(),
             tasks: Default::default(),
             todo: 0,
             last_update: 0.0,
+            dim: Default::default(),
         }
     }
 }
 
 impl TCommand {
-    pub fn new(id: u32, tasks: Vec<TTask>) -> Self {
+    pub fn new(id: u32, page: i32, tasks: Vec<TTask>, dim: SheetDimensions) -> Self {
         let todo = tasks.len();
         TCommand {
             id,
+            page,
             start: SystemTime::now(),
             tasks,
             todo,
             last_update: 0.0,
+            dim,
         }
     }
 
@@ -116,7 +122,7 @@ impl TCommand {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TTask {
-    pub tid: i32,
+    pub id: i32,
     pub size: u32,
     pub position: (i32, i32),
     pub source: TEntry,
@@ -125,7 +131,7 @@ pub struct TTask {
 
 impl TTask {
     pub fn new(
-        tid: i32,
+        id: i32,
         size: u32,
         x: i32,
         y: i32,
@@ -133,7 +139,7 @@ impl TTask {
         annotation: Annotation,
     ) -> Self {
         TTask {
-            tid,
+            id,
             size,
             position: (x, y),
             source,
@@ -196,10 +202,98 @@ pub enum Message {
     Result(Box<TResult>),
 }
 
+#[derive(Default, Debug, Clone)]
+pub struct SheetDimensions {
+    pub size: i32,
+    pub width: i32,
+    pub height: i32,
+    pub separator_x: i32,
+    pub separator_y: i32,
+    pub capacity_x: i32,
+    pub capacity_y: i32,
+    pub offset_x: i32,
+    pub offset_y: i32,
+}
+
+impl SheetDimensions {
+    pub fn capacity(&self) -> i32 {
+        self.capacity_x * self.capacity_y
+    }
+
+    pub fn rel_position(&self, x: f64, y: f64) -> Option<i32> {
+        let x = (x as i32 - self.offset_x) / (self.size + self.separator_x);
+        let y = (y as i32 - self.offset_y) / (self.size + self.separator_y);
+        if x < 0 || y < 0 || x >= self.capacity_x || y >= self.capacity_y {
+            None
+        } else {
+            Some(y * self.capacity_x + x)
+        }
+    }
+
+    pub fn abs_position(&self, page: i32, x: f64, y: f64) -> Option<i32> {
+        self.rel_position(x, y)
+            .map(|rel| page * self.capacity() + rel)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Annotations {
+    pub dim: SheetDimensions,
+    pub page: i32,
+    pub annotations: Vec<Annotation>,
+}
+
+impl Annotations {
+    pub fn get(&self, index: Option<i32>) -> Option<&Annotation> {
+        self.annotations.get(index? as usize)
+    }
+
+    // pub fn get_at(&self, x: f64, y: f64) -> Option<&Annotation> {
+    //     self.get(self.dim.rel_position(x, y))
+    //         .filter(|a| a.position.inside(x, y))
+    // }
+
+    pub fn index_at(&self, x: f64, y: f64) -> Option<i32> {
+        let index = self.dim.rel_position(x, y)?;
+        let annotation = self.annotations.get(index as usize)?;
+        annotation.position.inside(x, y).then_some(index)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl TRect {
+    pub fn new_i32(x: i32, y: i32, width: i32, height: i32) -> Self {
+        TRect {
+            x: x as f64,
+            y: y as f64,
+            width: width as f64,
+            height: height as f64,
+        }
+    }
+
+    pub fn inside(&self, x: f64, y: f64) -> bool {
+        x >= self.x && y >= self.y && x < self.x + self.width && y < self.y + self.height
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Annotation {
-    pub position: (f64, f64, f64, f64),
+    pub id: i32,
+    pub position: TRect,
     pub name: String,
     pub category: Category,
     pub reference: TReference,
+}
+
+impl PartialEq for Annotation {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
 }

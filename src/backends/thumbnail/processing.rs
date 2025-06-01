@@ -32,7 +32,10 @@ use crate::{
     image::{draw::text_thumb, provider::image_rs::RsImageLoader, view::ImageView},
 };
 
-use super::{Message, TCommand, TMessage, TReference, TResult, TResultOption, TTask};
+use super::{
+    model::{Annotations, TRect},
+    Message, TCommand, TMessage, TReference, TResult, TResultOption, TTask,
+};
 
 fn thumb_result(res: MviewResult<DynamicImage>, task: &TTask) -> TResultOption {
     match res {
@@ -145,11 +148,15 @@ pub fn handle_thumbnail_result(
 
                 if let Some(thumb_pb) = thumb_pb {
                     let (x, y) = result.task.position;
-                    image_view.draw_pixbuf(
-                        &thumb_pb,
-                        x + (size - thumb_pb.width()) / 2,
-                        y + (size - thumb_pb.height()) / 2,
-                    );
+                    let dest_x = x + (size - thumb_pb.width()) / 2;
+                    let dest_y = y + (size - thumb_pb.height()) / 2;
+
+                    image_view.draw_pixbuf(&thumb_pb, dest_x, dest_y);
+                    // ongoing
+                    if let Some(task) = command.tasks.get_mut(result.task.id as usize) {
+                        task.annotation.position =
+                            TRect::new_i32(dest_x, dest_y, thumb_pb.width(), thumb_pb.height());
+                    }
                 }
             }
             Err(error) => {
@@ -159,8 +166,12 @@ pub fn handle_thumbnail_result(
         if command.todo == 0 || (elapsed - command.last_update) > 0.3 {
             // if command.last_update == 0.0 {
             if command.todo == 0 {
-                let annotations = command.tasks.iter().map(|t| t.annotation.clone()).collect();
-                image_view.set_image_post(annotations);
+                // let annotations = ;
+                image_view.set_image_post(Some(Annotations {
+                    dim: command.dim.clone(),
+                    annotations: command.tasks.iter().map(|t| t.annotation.clone()).collect(),
+                    page: command.page,
+                }));
             }
             image_view.image_modified();
             command.last_update = elapsed;

@@ -29,7 +29,7 @@ use crate::{
     image::draw::thumbnail_sheet,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
-use model::Annotation;
+use model::{Annotation, SheetDimensions, TRect};
 pub use model::{Message, TCommand, TEntry, TMessage, TReference, TResult, TResultOption, TTask};
 
 const FOOTER: i32 = 50;
@@ -38,17 +38,7 @@ const MIN_SEPARATOR: i32 = 5;
 
 #[derive(Debug)]
 pub struct Thumbnail {
-    size: i32,
-    width: i32,
-    height: i32,
-    // calculated
-    separator_x: i32,
-    separator_y: i32,
-    capacity_x: i32,
-    capacity_y: i32,
-    offset_x: i32,
-    offset_y: i32,
-    // references
+    dim: SheetDimensions,
     parent: RefCell<Box<dyn Backend>>,
     parent_target: Target,
     focus_position: Cell<i32>,
@@ -79,15 +69,17 @@ impl Thumbnail {
             MARGIN + (usable_height - capacity_y * (size + separator_y) + separator_y) / 2;
 
         Some(Thumbnail {
-            size,
-            width,
-            height,
-            separator_x,
-            separator_y,
-            capacity_x,
-            capacity_y,
-            offset_x,
-            offset_y,
+            dim: SheetDimensions {
+                size,
+                width,
+                height,
+                separator_x,
+                separator_y,
+                capacity_x,
+                capacity_y,
+                offset_x,
+                offset_y,
+            },
             parent: RefCell::new(<dyn Backend>::none()),
             parent_target: position.0,
             focus_position: position.1.into(),
@@ -96,7 +88,7 @@ impl Thumbnail {
     }
 
     pub fn capacity(&self) -> i32 {
-        self.capacity_x * self.capacity_y
+        self.dim.capacity()
     }
 
     pub fn focus_page(&self) -> Target {
@@ -109,45 +101,36 @@ impl Thumbnail {
 
         let mut res = Vec::<TTask>::new();
 
-        let mut done = false;
-        let mut tid = 0;
         let start = page * self.capacity();
         if let Some(iter) = store.iter_nth_child(None, start) {
             let cursor = Cursor::new(store, iter, start);
-            for row in 0..self.capacity_y {
-                if done {
-                    break;
-                }
-                for col in 0..self.capacity_x {
+            for row in 0..self.dim.capacity_y {
+                for col in 0..self.dim.capacity_x {
                     let source = backend.entry(&cursor);
                     if !matches!(source.reference, TReference::None) {
+                        let x = self.dim.offset_x + col * (self.dim.size + self.dim.separator_x);
+                        let y = self.dim.offset_y + row * (self.dim.size + self.dim.separator_y);
+                        let id = row * self.dim.capacity_x + col;
+
                         let annotation = Annotation {
-                            position: (
-                                (self.offset_x + col * (self.size + self.separator_x)) as f64,
-                                (self.offset_y + row * (self.size + self.separator_y)) as f64,
-                                (self.offset_x + col * (self.size + self.separator_x) + self.size)
-                                    as f64,
-                                (self.offset_y + row * (self.size + self.separator_y) + self.size)
-                                    as f64,
-                            ),
+                            id,
+                            position: TRect::new_i32(x, y, self.dim.size, self.dim.size),
                             name: source.name.clone(),
                             category: source.category,
                             reference: source.reference.clone(),
                         };
                         let task = TTask::new(
-                            tid,
-                            self.size as u32,
-                            self.offset_x + col * (self.size + self.separator_x),
-                            self.offset_y + row * (self.size + self.separator_y),
+                            id,
+                            self.dim.size as u32,
+                            x,
+                            y,
                             source,
                             annotation,
                         );
                         res.push(task);
-                        tid += 1;
                     }
                     if !cursor.next() {
-                        done = true;
-                        break;
+                        return res;
                     }
                 }
             }
@@ -206,7 +189,7 @@ impl Backend for Thumbnail {
             self.focus_position.set(page * self.capacity());
         }
         let caption = format!("{} of {}", page + 1, cursor.store_size());
-        let image = match thumbnail_sheet(self.width, self.height, MARGIN, &caption) {
+        let image = match thumbnail_sheet(self.dim.width, self.dim.height, MARGIN, &caption) {
             Ok(image) => image,
             Err(_) => {
                 println!("Failed to create thumbnail_sheet: should not happen");
@@ -214,7 +197,7 @@ impl Backend for Thumbnail {
             }
         };
 
-        let command = TCommand::new(image.id(), self.sheet(page));
+        let command = TCommand::new(image.id(), page, self.sheet(page), self.dim.clone());
         let _ = params
             .sender
             .send_blocking(Message::Command(command.into()));
@@ -229,44 +212,38 @@ impl Backend for Thumbnail {
     }
 
     fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
-        let x = (x as i32 - self.offset_x) / (self.size + self.separator_x);
-        let y = (y as i32 - self.offset_y) / (self.size + self.separator_y);
-
-        if x < 0 || y < 0 || x >= self.capacity_x || y >= self.capacity_y {
-            return None;
-        }
-
-        let page = current.index() as i32;
-        let pos = page * self.capacity() + y * self.capacity_x + x;
-
-        let backend = self.parent.borrow();
-        let store = backend.store();
-        if let Some(iter) = store.iter_nth_child(None, pos) {
-            let cursor = Cursor::new(store, iter, pos);
-            let source = backend.entry(&cursor).reference;
-            drop(backend);
-            match source {
-                TReference::FileReference(src) => Some((
-                    self.parent.replace(<dyn Backend>::none()),
-                    Target::Name(src.filename()),
-                )),
-                TReference::ZipReference(src) => Some((
-                    self.parent.replace(<dyn Backend>::none()),
-                    Target::Index(src.index()),
-                )),
-                TReference::MarReference(src) => Some((
-                    self.parent.replace(<dyn Backend>::none()),
-                    Target::Index(src.index()),
-                )),
-                TReference::RarReference(src) => Some((
-                    self.parent.replace(<dyn Backend>::none()),
-                    Target::Name(src.selection()),
-                )),
-                TReference::DocReference(src) => Some((
-                    self.parent.replace(<dyn Backend>::none()),
-                    Target::Index(src.index()),
-                )),
-                TReference::None => None,
+        if let Some(pos) = self.dim.abs_position(current.index() as i32, x, y) {
+            let backend = self.parent.borrow();
+            let store = backend.store();
+            if let Some(iter) = store.iter_nth_child(None, pos) {
+                let cursor = Cursor::new(store, iter, pos);
+                let source = backend.entry(&cursor).reference;
+                drop(backend);
+                match source {
+                    TReference::FileReference(src) => Some((
+                        self.parent.replace(<dyn Backend>::none()),
+                        Target::Name(src.filename()),
+                    )),
+                    TReference::ZipReference(src) => Some((
+                        self.parent.replace(<dyn Backend>::none()),
+                        Target::Index(src.index()),
+                    )),
+                    TReference::MarReference(src) => Some((
+                        self.parent.replace(<dyn Backend>::none()),
+                        Target::Index(src.index()),
+                    )),
+                    TReference::RarReference(src) => Some((
+                        self.parent.replace(<dyn Backend>::none()),
+                        Target::Name(src.selection()),
+                    )),
+                    TReference::DocReference(src) => Some((
+                        self.parent.replace(<dyn Backend>::none()),
+                        Target::Index(src.index()),
+                    )),
+                    TReference::None => None,
+                }
+            } else {
+                None
             }
         } else {
             None
