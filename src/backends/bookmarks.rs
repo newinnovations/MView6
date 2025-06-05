@@ -26,9 +26,7 @@ use crate::{
 };
 use gtk4::ListStore;
 use std::{
-    cell::{Cell, RefCell},
-    fs, io,
-    time::UNIX_EPOCH,
+    cell::{Cell, RefCell}, fs, io, path::{Path, PathBuf}, time::UNIX_EPOCH
 };
 
 use super::{Backend, Target};
@@ -102,8 +100,8 @@ impl Backend for Bookmarks {
         true
     }
 
-    fn path(&self) -> &str {
-        "/bookmarks"
+    fn path(&self) -> PathBuf {
+        Path::new("bookmarks").into()
     }
 
     fn store(&self) -> ListStore {
@@ -111,11 +109,11 @@ impl Backend for Bookmarks {
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        Some(<dyn Backend>::new(&cursor.folder()))
+        Some(<dyn Backend>::new(Path::new(&cursor.folder())))
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        (self.parent.replace(<dyn Backend>::none()), Target::First)
+    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        None
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {

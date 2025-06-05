@@ -19,7 +19,7 @@
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Cursor, Seek},
+    io::{BufRead, BufReader, Cursor, Seek}, path::Path,
 };
 
 use exif::Exif;
@@ -38,7 +38,7 @@ impl RsImageLoader {
         Self::dynimg(ImageReader::new(Cursor::new(buffer)))
     }
 
-    pub fn dynimg_from_file(filename: &str) -> MviewResult<DynamicImage> {
+    pub fn dynimg_from_file(filename: &Path) -> MviewResult<DynamicImage> {
         Self::dynimg(ImageReader::open(filename)?)
     }
 }

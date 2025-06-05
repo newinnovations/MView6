@@ -42,13 +42,13 @@ use super::{
 pub struct ImageLoader {}
 
 impl ImageLoader {
-    pub fn image_from_file(filename: &str) -> Image {
+    pub fn image_from_file(path: &Path) -> Image {
         let duration = Performance::start();
 
-        let path = Path::new(&filename);
+        // let path = Path::new(&filename);
 
         let cat = match fs::metadata(path) {
-            Ok(metadata) => Category::determine(filename, metadata.is_dir()),
+            Ok(metadata) => Category::determine(path, metadata.is_dir()),
             Err(_) => Category::Unsupported,
         };
 
@@ -64,10 +64,12 @@ impl ImageLoader {
             _ => (),
         };
 
-        if filename.to_lowercase().contains(".svg") {
-            if let Ok(Some(handle)) = rsvg::Handle::from_file(filename) {
-                duration.elapsed("decode svg (file)");
-                return Image::new_svg(handle, None, ZoomMode::NotSpecified);
+        if let Some(path_as_string) = path.to_str() {
+            if path_as_string.to_lowercase().contains(".svg") {
+                if let Ok(Some(handle)) = rsvg::Handle::from_file(path_as_string) {
+                    duration.elapsed("decode svg (file)");
+                    return Image::new_svg(handle, None, ZoomMode::NotSpecified);
+                }
             }
         }
 
@@ -141,15 +143,15 @@ impl ImageLoader {
 pub struct ImageSaver {}
 
 impl ImageSaver {
-    pub fn save_thumbnail(base_directory: &str, filename: &str, image: &DynamicImage) {
-        let thumbnail_dir = format!("{}/.mview", base_directory);
-        if !Path::new(&thumbnail_dir).exists() {
-            if let Err(error) = fs::create_dir(&thumbnail_dir) {
-                println!("Failed to create thumbnail directory: {:?}", error);
-                return;
+    pub fn save_thumbnail(thumbnail_path: &Path, image: &DynamicImage) {
+        if let Some(thumbnail_dir) = thumbnail_path.parent() {
+            if !thumbnail_dir.exists() {
+                if let Err(error) = fs::create_dir_all(&thumbnail_dir) {
+                    println!("Failed to create thumbnail directory: {:?}", error);
+                    return;
+                }
             }
         }
-        let thumbnail_path = format!("{thumbnail_dir}/{filename}");
 
         let image = match image.color() {
             image::ColorType::L16 => &DynamicImage::from(image.to_luma8()),

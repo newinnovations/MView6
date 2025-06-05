@@ -17,6 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::path::PathBuf;
+
 use super::{Image, ImageParams};
 use gtk4::ListStore;
 
@@ -48,16 +50,16 @@ impl Backend for NoneBackend {
         true
     }
 
-    fn path(&self) -> &str {
-        "/invalid"
+    fn path(&self) -> PathBuf {
+        "invalid".into()
     }
 
     fn store(&self) -> ListStore {
         Columns::store()
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        (Box::new(NoneBackend::new()), Target::First)
+    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        None
     }
 
     fn image(&self, _: &Cursor, _: &ImageParams) -> Image {

@@ -23,7 +23,7 @@ use image::{DynamicImage, ImageBuffer, Rgb};
 use mupdf::{Colorspace, Matrix};
 use std::{
     cell::{Cell, RefCell},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use crate::{
@@ -35,9 +35,8 @@ use crate::{
 };
 
 use super::{
-    filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Target,
+    Backend,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -69,9 +68,7 @@ impl From<PageMode> for &str {
 }
 
 pub struct Document {
-    filename: String,
-    directory: String,
-    archive: String,
+    filename: PathBuf,
     store: ListStore,
     last_page: u32,
     parent: RefCell<Box<dyn Backend>>,
@@ -79,23 +76,10 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn new(filename: &str) -> Self {
-        let path = Path::new(filename);
-        let directory = path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_str()
-            .unwrap_or("/");
-        let archive = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+    pub fn new(filename: &Path) -> Self {
         let (store, last_page) = Self::create_store(filename);
         Document {
-            filename: filename.to_string(),
-            directory: directory.to_string(),
-            archive: archive.to_string(),
+            filename: filename.into(),
             store,
             last_page,
             parent: RefCell::new(<dyn Backend>::none()),
@@ -103,7 +87,7 @@ impl Document {
         }
     }
 
-    fn create_store(filename: &str) -> (ListStore, u32) {
+    fn create_store(filename: &Path) -> (ListStore, u32) {
         let store = Columns::store();
         match list_pages(filename, &store) {
             Ok(last_page) => (store, last_page),
@@ -134,26 +118,12 @@ impl Backend for Document {
         true
     }
 
-    fn path(&self) -> &str {
-        &self.filename
+    fn path(&self) -> PathBuf {
+        self.filename.clone()
     }
 
     fn store(&self) -> ListStore {
         self.store.clone()
-    }
-
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        if self.parent.borrow().is_none() {
-            (
-                Box::new(FileSystem::new(&self.directory)),
-                Target::Name(self.archive.clone()),
-            )
-        } else {
-            (
-                self.parent.replace(<dyn Backend>::none()),
-                Target::Name(self.archive.clone()),
-            )
-        }
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
@@ -198,7 +168,7 @@ impl Backend for Document {
 //         3              5                 6
 
 fn extract_page(
-    filename: &str,
+    filename: &Path,
     index: u32,
     last_page: u32,
     mode: &PageMode,
@@ -228,9 +198,9 @@ fn extract_page(
     }
 }
 
-fn extract_page_single(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+fn extract_page_single(filename: &Path, index: u32) -> Result<Image, mupdf::Error> {
     let duration = Performance::start();
-    let doc = mupdf::Document::open(filename)?;
+    let doc = open(filename)?;
     let page = doc.load_page(index as i32)?;
     let bounds = page.bounds()?;
     let height = bounds.y1 - bounds.y0;
@@ -249,9 +219,9 @@ fn extract_page_single(filename: &str, index: u32) -> Result<Image, mupdf::Error
     Ok(image)
 }
 
-fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> {
+fn extract_page_dual(filename: &Path, index: u32) -> Result<Image, mupdf::Error> {
     let duration = Performance::start();
-    let doc = mupdf::Document::open(filename)?;
+    let doc = open(filename)?;
 
     let page = doc.load_page(index as i32)?;
     let bounds = page.bounds()?;
@@ -284,8 +254,8 @@ fn extract_page_dual(filename: &str, index: u32) -> Result<Image, mupdf::Error> 
     Ok(image)
 }
 
-fn extract_page_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
-    let doc = mupdf::Document::open(filename)?;
+fn extract_page_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
+    let doc = open(filename)?;
     let page = doc.load_page(index)?;
     let bounds = page.bounds()?;
     let height = bounds.y1 - bounds.y0;
@@ -305,9 +275,13 @@ fn extract_page_thumb(filename: &str, index: i32) -> MviewResult<DynamicImage> {
     }
 }
 
-fn list_pages(filename: &str, store: &ListStore) -> MviewResult<u32> {
+fn open(path: &Path) -> Result<mupdf::Document, mupdf::Error> {
+    mupdf::Document::open(&path.to_string_lossy().to_string()) // FIXME: LOOK AT THIS
+}
+
+fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<u32> {
     let duration = Performance::start();
-    let doc = mupdf::Document::open(filename)?;
+    let doc = open(filename)?;
     let page_count = doc.page_count()? as u32;
     println!("Total pages: {}", page_count);
     if page_count > 0 {
@@ -333,7 +307,7 @@ fn list_pages(filename: &str, store: &ListStore) -> MviewResult<u32> {
 
 #[derive(Debug, Clone)]
 pub struct TDocReference {
-    filename: String,
+    filename: PathBuf,
     index: u64,
 }
 
@@ -345,7 +319,7 @@ impl TDocReference {
         }
     }
 
-    pub fn filename(&self) -> String {
+    pub fn filename(&self) -> PathBuf {
         self.filename.clone()
     }
 

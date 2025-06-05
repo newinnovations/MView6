@@ -20,7 +20,7 @@
 pub mod model;
 pub mod processing;
 
-use std::cell::{Cell, RefCell};
+use std::{cell::{Cell, RefCell}, path::{Path, PathBuf}};
 
 use super::{Backend, Image, ImageParams, Target};
 use crate::{
@@ -149,8 +149,8 @@ impl Backend for Thumbnail {
         true
     }
 
-    fn path(&self) -> &str {
-        "/thumbnail"
+    fn path(&self) -> PathBuf {
+        Path::new("thumbnail").into()
     }
 
     fn store(&self) -> ListStore {
@@ -175,11 +175,11 @@ impl Backend for Thumbnail {
         store
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        (
+    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        Some((
             self.parent.replace(<dyn Backend>::none()),
             self.parent_target.clone(),
-        )
+        ))
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {

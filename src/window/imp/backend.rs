@@ -17,8 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::Path;
-
 use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
 
@@ -74,7 +72,7 @@ impl MViewWindowImp {
         ));
 
         // TODO: think about title management
-        let path = Path::new(new_backend.path());
+        let path = new_backend.path();
         let filename = path
             .file_name()
             .unwrap_or_default()
@@ -101,12 +99,13 @@ impl MViewWindowImp {
                 backend.position(),
                 self.thumbnail_size.get(),
             ) {
-                let (parent_backend, _) = backend.leave();
-                drop(backend);
-                self.backend.replace(parent_backend);
-                let focus_page = thumbnail.focus_page();
-                let new_backend = <dyn Backend>::thumbnail(thumbnail);
-                self.set_backend(new_backend, focus_page, true);
+                if let Some((parent_backend, _)) = backend.leave() {
+                    drop(backend);
+                    self.backend.replace(parent_backend);
+                    let focus_page = thumbnail.focus_page();
+                    let new_backend = <dyn Backend>::thumbnail(thumbnail);
+                    self.set_backend(new_backend, focus_page, true);
+                }
             }
         }
     }

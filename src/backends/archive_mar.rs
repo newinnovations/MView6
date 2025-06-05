@@ -24,7 +24,7 @@ use std::{
     cell::{Cell, RefCell},
     fs,
     io::{BufReader, ErrorKind, Read, Result, Seek, SeekFrom},
-    path::Path,
+    path::{Path, PathBuf},
     str::from_utf8,
 };
 
@@ -40,9 +40,8 @@ use crate::{
 };
 
 use super::{
-    filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Target,
+    Backend,
 };
 
 pub struct MarEntry {
@@ -71,39 +70,24 @@ impl MarEntry {
 }
 
 pub struct MarArchive {
-    filename: String,
-    directory: String,
-    archive: String,
+    filename: PathBuf,
     store: ListStore,
     parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
 impl MarArchive {
-    pub fn new(filename: &str) -> Self {
-        let path = Path::new(filename);
-        let directory = path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_str()
-            .unwrap_or("/");
-        let archive = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+    pub fn new(filename: &Path) -> Self {
         MarArchive {
-            filename: filename.to_string(),
-            directory: directory.to_string(),
-            archive: archive.to_string(),
+            filename: filename.into(),
             store: Self::create_store(filename),
             parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
 
-    fn create_store(filename: &str) -> ListStore {
-        println!("create_store MarArchive {}", filename);
+    fn create_store(filename: &Path) -> ListStore {
+        println!("create_store MarArchive {:?}", filename);
         let store = Columns::store();
         match list_mar(filename, &store) {
             Ok(()) => println!("OK"),
@@ -130,26 +114,12 @@ impl Backend for MarArchive {
         true
     }
 
-    fn path(&self) -> &str {
-        &self.filename
+    fn path(&self) -> PathBuf {
+        self.filename.clone()
     }
 
     fn store(&self) -> ListStore {
         self.store.clone()
-    }
-
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        if self.parent.borrow().is_none() {
-            (
-                Box::new(FileSystem::new(&self.directory)),
-                Target::Name(self.archive.clone()),
-            )
-        } else {
-            (
-                self.parent.replace(<dyn Backend>::none()),
-                Target::Name(self.archive.clone()),
-            )
-        }
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
@@ -182,7 +152,7 @@ impl Backend for MarArchive {
     }
 }
 
-fn extract_mar(filename: &str, offset: u64) -> MviewResult<Image> {
+fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Image> {
     let duration = Performance::start();
     let fname = std::path::Path::new(filename);
     let file = fs::File::open(fname)?;
@@ -194,8 +164,8 @@ fn extract_mar(filename: &str, offset: u64) -> MviewResult<Image> {
     image
 }
 
-fn list_mar(filename: &str, store: &ListStore) -> Result<()> {
-    let fname = std::path::Path::new(filename);
+fn list_mar(mar_file: &Path, store: &ListStore) -> Result<()> {
+    let fname = std::path::Path::new(mar_file);
     let file = fs::File::open(fname)?;
     let mut reader = BufReader::new(file);
 
@@ -214,7 +184,7 @@ fn list_mar(filename: &str, store: &ListStore) -> Result<()> {
     for _ in 0..num_entries {
         let entry = MarEntry::read(&mut reader, buf[3])?;
 
-        let cat = Category::determine(&entry.filename, false);
+        let cat = Category::determine(Path::new(&entry.filename), false);
         let file_size = entry.image_size as u64;
 
         if cat.id() == Category::Unsupported.id() {
@@ -238,7 +208,7 @@ fn list_mar(filename: &str, store: &ListStore) -> Result<()> {
 
 #[derive(Debug, Clone)]
 pub struct TMarReference {
-    filename: String,
+    filename: PathBuf,
     index: u64,
 }
 
@@ -250,7 +220,7 @@ impl TMarReference {
         }
     }
 
-    pub fn filename(&self) -> String {
+    pub fn filename(&self) -> PathBuf {
         self.filename.clone()
     }
 

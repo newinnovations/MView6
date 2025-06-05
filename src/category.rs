@@ -17,6 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::path::Path;
+
 use crate::image::colors::Color;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -32,10 +34,13 @@ pub enum Category {
 }
 
 impl Category {
-    pub fn determine(filename: &str, is_dir: bool) -> Self {
+    pub fn determine(filename: &Path, is_dir: bool) -> Self {
         if is_dir {
             return Self::Folder;
         }
+
+        // FIX_ME PATH
+        let filename = filename.to_str().unwrap_or_default();
 
         let filename_lower = filename.to_lowercase();
 

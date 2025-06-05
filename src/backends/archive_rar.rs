@@ -25,7 +25,7 @@ use image::DynamicImage;
 use sha2::{Digest, Sha256};
 use std::{
     cell::{Cell, RefCell},
-    path::Path,
+    path::{Path, PathBuf},
 };
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
@@ -41,44 +41,28 @@ use crate::{
 };
 
 use super::{
-    filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Target,
+    Backend,
 };
 
 pub struct RarArchive {
-    filename: String,
-    directory: String,
-    archive: String,
+    filename: PathBuf,
     store: ListStore,
     parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
 impl RarArchive {
-    pub fn new(filename: &str) -> Self {
-        let path = Path::new(filename);
-        let directory = path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_str()
-            .unwrap_or("/");
-        let archive = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+    pub fn new(filename: &Path) -> Self {
         RarArchive {
-            filename: filename.to_string(),
-            directory: directory.to_string(),
-            archive: archive.to_string(),
+            filename: filename.into(),
             store: Self::create_store(filename),
             parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
 
-    fn create_store(filename: &str) -> ListStore {
+    fn create_store(filename: &Path) -> ListStore {
         let store = Columns::store();
         match list_rar(filename, &store) {
             Ok(()) => (),
@@ -88,21 +72,25 @@ impl RarArchive {
     }
 
     pub fn get_thumbnail(src: &TRarReference) -> MviewResult<DynamicImage> {
-        let mut hasher = Sha256::new();
-        hasher.update(src.archive.as_bytes());
-        hasher.update(src.selection.as_bytes());
-        let sha256sum = format!("{:x}", hasher.finalize());
-        let thumb_filename = format!("{sha256sum}.mthumb");
-        let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
+        if let Some(directory) = src.filename.parent() {
+            let mut hasher = Sha256::new();
+            hasher.update(src.filename.to_string_lossy().to_string().as_bytes());
+            hasher.update(src.selection.as_bytes());
+            let sha256sum = format!("{:x}", hasher.finalize());
+            let thumb_filename = format!("{sha256sum}.mthumb");
+            let thumb_path = directory.join(".mview").join(thumb_filename);
 
-        if Path::new(&thumb_path).exists() {
-            RsImageLoader::dynimg_from_file(&thumb_path)
+            if Path::new(&thumb_path).exists() {
+                RsImageLoader::dynimg_from_file(&thumb_path)
+            } else {
+                let bytes = extract_rar(&src.filename, &src.selection)?;
+                let image = RsImageLoader::dynimg_from_memory(&bytes)?;
+                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                ImageSaver::save_thumbnail(&thumb_path, &image);
+                Ok(image)
+            }
         } else {
-            let bytes = extract_rar(&src.filename, &src.selection)?;
-            let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-            ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
-            Ok(image)
+            Err("Failed to find directory of rar file".into()) // FIXME
         }
     }
 }
@@ -116,26 +104,12 @@ impl Backend for RarArchive {
         true
     }
 
-    fn path(&self) -> &str {
-        &self.filename
+    fn path(&self) -> PathBuf {
+        self.filename.clone()
     }
 
     fn store(&self) -> ListStore {
         self.store.clone()
-    }
-
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        if self.parent.borrow().is_none() {
-            (
-                Box::new(FileSystem::new(&self.directory)),
-                Target::Name(self.archive.clone()),
-            )
-        } else {
-            (
-                self.parent.replace(<dyn Backend>::none()),
-                Target::Name(self.archive.clone()),
-            )
-        }
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
@@ -169,9 +143,9 @@ impl Backend for RarArchive {
     }
 }
 
-fn extract_rar(filename: &str, sel: &str) -> UnrarResult<Vec<u8>> {
+fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
     let duration = Performance::start();
-    let mut archive = Archive::new(filename).open_for_processing()?;
+    let mut archive = Archive::new(rar_file).open_for_processing()?;
     while let Some(header) = archive.read_header()? {
         let e_filename = header.entry().filename.as_os_str().to_str().unwrap_or("-");
         archive = if header.entry().is_file() {
@@ -195,12 +169,11 @@ fn extract_rar(filename: &str, sel: &str) -> UnrarResult<Vec<u8>> {
     })
 }
 
-fn list_rar(filename: &str, store: &ListStore) -> UnrarResult<()> {
-    let archive = Archive::new(&filename).open_for_listing()?;
+fn list_rar(rar_file: &Path, store: &ListStore) -> UnrarResult<()> {
+    let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
-        let filename = entry.filename.as_os_str().to_str().unwrap_or("???");
-        let cat = Category::determine(filename, false); //file.is_dir());
+        let cat = Category::determine(&entry.filename, false); //file.is_dir());
         let file_size = entry.unpacked_size;
         let modified = unix_from_msdos(entry.file_time);
         if file_size == 0 {
@@ -209,12 +182,13 @@ fn list_rar(filename: &str, store: &ListStore) -> UnrarResult<()> {
         if cat.id() == Category::Unsupported.id() {
             continue;
         }
+        let name = entry.filename.as_os_str().to_str().unwrap_or("???");
         store.insert_with_values(
             None,
             &[
                 (Columns::Cat as u32, &cat.id()),
                 (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &filename),
+                (Columns::Name as u32, &name),
                 (Columns::Size as u32, &file_size),
                 (Columns::Modified as u32, &modified),
             ],
@@ -244,9 +218,7 @@ pub fn unix_from_msdos(dostime: u32) -> u64 {
 
 #[derive(Debug, Clone)]
 pub struct TRarReference {
-    filename: String,
-    directory: String,
-    archive: String,
+    filename: PathBuf,
     selection: String,
 }
 
@@ -254,8 +226,6 @@ impl TRarReference {
     pub fn new(backend: &RarArchive, selection: &str) -> Self {
         TRarReference {
             filename: backend.filename.clone(),
-            directory: backend.directory.clone(),
-            archive: backend.archive.clone(),
             selection: selection.to_string(),
         }
     }

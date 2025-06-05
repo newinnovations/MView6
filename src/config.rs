@@ -117,6 +117,7 @@ impl Default for Config {
 }
 
 fn read_config() -> Result<Config> {
+    println!("Config file location {:?}", Config::config_file());
     let file = File::open(Config::config_file())?;
     let config: Config = serde_json::from_reader(file)?;
     // println!("deserialized = {:?}", config);

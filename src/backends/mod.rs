@@ -17,7 +17,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::env;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use archive_mar::MarArchive;
 use archive_rar::RarArchive;
@@ -52,7 +55,7 @@ pub struct ImageParams<'a> {
 #[allow(unused_variables)]
 pub trait Backend {
     fn class_name(&self) -> &str;
-    fn path(&self) -> &str;
+    fn path(&self) -> PathBuf;
     fn store(&self) -> ListStore;
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
@@ -60,7 +63,19 @@ pub trait Backend {
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         None
     }
-    fn leave(&self) -> (Box<dyn Backend>, Target);
+    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        if let Some(parent) = self.path().parent() {
+            let my_name = self
+                .path()
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            Some((Box::new(FileSystem::new(parent)), Target::Name(my_name)))
+        } else {
+            None
+        }
+    }
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
     fn entry(&self, cursor: &Cursor) -> TEntry {
         Default::default()
@@ -104,18 +119,17 @@ impl Default for Box<dyn Backend> {
 }
 
 impl dyn Backend {
-    pub fn new(filename: &str) -> Box<dyn Backend> {
-        let filename_lower = filename.to_lowercase();
-        if filename_lower.ends_with(".zip") {
-            Box::new(ZipArchive::new(filename))
-        } else if filename_lower.ends_with(".rar") {
-            Box::new(RarArchive::new(filename))
-        } else if filename_lower.ends_with(".mar") {
-            Box::new(MarArchive::new(filename))
-        } else if filename_lower.ends_with(".pdf") || filename_lower.ends_with(".epub") {
-            Box::new(Document::new(filename))
-        } else {
-            Box::new(FileSystem::new(filename))
+    pub fn new(filename: &Path) -> Box<dyn Backend> {
+        let ext = filename
+            .extension()
+            .map(|ext| ext.to_str().unwrap_or_default());
+
+        match ext {
+            Some("zip") => Box::new(ZipArchive::new(filename)),
+            Some("rar") => Box::new(RarArchive::new(filename)),
+            Some("mar") => Box::new(MarArchive::new(filename)),
+            Some("pdf") | Some("epub") => Box::new(Document::new(filename)),
+            Some(_) | None => Box::new(FileSystem::new(filename)),
         }
     }
 
@@ -133,8 +147,8 @@ impl dyn Backend {
 
     pub fn current_dir() -> Box<dyn Backend> {
         match env::current_dir() {
-            Ok(cwd) => Box::new(FileSystem::new(cwd.as_os_str().to_str().unwrap_or("/"))),
-            Err(_) => Box::new(FileSystem::new("/")),
+            Ok(cwd) => Box::new(FileSystem::new(&cwd)),
+            Err(_) => Box::new(FileSystem::new(&PathBuf::new())),
         }
     }
 }

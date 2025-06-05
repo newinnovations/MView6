@@ -28,8 +28,7 @@ use gtk4::ListStore;
 use image::DynamicImage;
 use regex::Regex;
 use std::{
-    cell::{Cell, RefCell},
-    ffi::OsStr,
+    cell::Cell,
     fs::{metadata, read_dir, rename},
     io,
     path::{Path, PathBuf},
@@ -42,28 +41,29 @@ use super::{
 };
 
 pub struct FileSystem {
-    directory: String,
+    directory: PathBuf,
     store: ListStore,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
 impl FileSystem {
-    pub fn new(directory: &str) -> Self {
+    pub fn new(directory: &Path) -> Self {
         FileSystem {
-            directory: directory.to_string(),
+            directory: directory.into(),
             store: Self::create_store(directory),
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
 
-    fn read_directory(store: &ListStore, current_dir: &str) -> io::Result<()> {
+    fn read_directory(store: &ListStore, current_dir: &Path) -> io::Result<()> {
         for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
-            let filename = path.file_name().unwrap_or(OsStr::new("-"));
-            let filename = filename.to_str().unwrap_or("-");
+            let filename = path
+                .file_name()
+                .unwrap_or_default()
+                .to_str()
+                .unwrap_or_default();
 
             if filename.starts_with('.') {
                 continue;
@@ -85,7 +85,7 @@ impl FileSystem {
             };
             let file_size = metadata.len();
 
-            let cat = Category::determine(filename, metadata.is_dir());
+            let cat = Category::determine(&path, metadata.is_dir());
 
             store.insert_with_values(
                 None,
@@ -101,7 +101,7 @@ impl FileSystem {
         Ok(())
     }
 
-    fn create_store(directory: &str) -> ListStore {
+    fn create_store(directory: &Path) -> ListStore {
         let store = Columns::store();
         match Self::read_directory(&store, directory) {
             Ok(()) => (),
@@ -117,11 +117,11 @@ impl FileSystem {
             Ok(image)
         } else {
             let thumb_filename = src.filename.replace(".lo.", ".").replace(".hi.", ".") + ".mthumb";
-            let thumb_path = format!("{}/.mview/{}", src.directory, thumb_filename);
+            let thumb_path = src.directory.join(".mview").join(thumb_filename);
             if Path::new(&thumb_path).exists() {
                 RsImageLoader::dynimg_from_file(&thumb_path)
             } else {
-                let path = format!("{}/{}", src.directory, src.filename);
+                let path = src.directory.join(&src.filename);
                 let image = RsImageLoader::dynimg_from_file(&path)?;
                 let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
                 // ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
@@ -140,8 +140,8 @@ impl Backend for FileSystem {
         true
     }
 
-    fn path(&self) -> &str {
-        &self.directory
+    fn path(&self) -> PathBuf {
+        self.directory.clone()
     }
 
     fn store(&self) -> ListStore {
@@ -154,42 +154,28 @@ impl Backend for FileSystem {
             || category == Category::Archive
             || category == Category::Document
         {
-            Some(<dyn Backend>::new(&format!(
-                "{}/{}",
-                self.directory,
-                cursor.name()
-            )))
+            Some(<dyn Backend>::new(&self.directory.join(cursor.name())))
         } else {
             None
         }
     }
 
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        let directory_p = Path::new(&self.directory);
-        let current = directory_p
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default()
-            .to_string();
-        if self.parent.borrow().is_none() {
-            match directory_p.parent() {
-                Some(parent) => (
-                    Box::new(FileSystem::new(parent.to_str().unwrap_or("/"))),
-                    Target::Name(current),
-                ),
-                _ => (Box::new(FileSystem::new("/")), Target::Name(current)),
-            }
+    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        if let Some(parent) = self.directory.parent() {
+            let my_name = self
+                .directory
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            Some((Box::new(FileSystem::new(parent)), Target::Name(my_name)))
         } else {
-            (
-                self.parent.replace(<dyn Backend>::none()),
-                Target::Name(current),
-            )
+            None
         }
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        let filename = format!("{}/{}", self.directory, cursor.name());
+        let filename = self.directory.join(cursor.name());
         ImageLoader::image_from_file(&filename)
     }
 
@@ -221,8 +207,8 @@ impl Backend for FileSystem {
         };
         dbg!(&self.directory, &filename, &new_filename);
         match rename(
-            format!("{}/{}", self.directory, &filename),
-            format!("{}/{}", self.directory, &new_filename),
+            self.directory.join(&filename),
+            self.directory.join(&new_filename),
         ) {
             Ok(()) => {
                 cursor.update(new_category, &new_filename);
@@ -244,10 +230,7 @@ impl Backend for FileSystem {
         )
     }
 
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
+    fn set_parent(&self, _parent: Box<dyn Backend>) {
     }
 
     fn set_sort(&self, sort: &Sort) {
@@ -262,14 +245,14 @@ impl Backend for FileSystem {
 
 #[derive(Debug, Clone)]
 pub struct TFileReference {
-    directory: String,
+    directory: PathBuf,
     filename: String,
 }
 
 impl TFileReference {
-    pub fn new(directory: &str, filename: &str) -> Self {
+    pub fn new(directory: &Path, filename: &str) -> Self {
         TFileReference {
-            directory: directory.to_string(),
+            directory: directory.into(),
             filename: filename.to_string(),
         }
     }

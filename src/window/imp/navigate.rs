@@ -73,9 +73,10 @@ impl MViewWindowImp {
 
     pub fn dir_leave(&self) {
         let backend = self.backend.borrow();
-        let (new_backend, target) = backend.leave();
-        drop(backend);
-        self.set_backend(new_backend, target, false);
+        if let Some((new_backend, target)) = backend.leave() {
+            drop(backend);
+            self.set_backend(new_backend, target, false);
+        }
     }
 
     pub fn navigate_to(&self, path: &Path) {
@@ -85,13 +86,9 @@ impl MViewWindowImp {
             .unwrap_or_default()
             .to_str()
             .unwrap_or_default();
-        let directory = path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_str()
-            .unwrap_or("/");
-        let category = Category::determine(filename, path.is_dir());
-        // dbg!(filename, directory, category);
+        let directory = path.parent().unwrap_or_else(|| Path::new(""));
+        let category = Category::determine(path, path.is_dir());
+        dbg!(filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
         self.open_container.set(category.is_container());
         self.set_backend(new_backend, Target::Name(filename.to_string()), false);

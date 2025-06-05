@@ -26,7 +26,7 @@ use std::{
     cell::{Cell, RefCell},
     fs,
     io::{BufReader, Read},
-    path::Path,
+    path::{Path, PathBuf},
 };
 use zip::result::ZipResult;
 
@@ -42,45 +42,29 @@ use crate::{
 };
 
 use super::{
-    filesystem::FileSystem,
     thumbnail::{TEntry, TReference},
-    Backend, Target,
+    Backend,
 };
 
 pub struct ZipArchive {
-    filename: String,
-    directory: String,
-    archive: String,
+    filename: PathBuf,
     store: ListStore,
     parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
 impl ZipArchive {
-    pub fn new(filename: &str) -> Self {
-        let path = Path::new(filename);
-        let directory = path
-            .parent()
-            .unwrap_or_else(|| Path::new("/"))
-            .to_str()
-            .unwrap_or("/");
-        let archive = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+    pub fn new(filename: &Path) -> Self {
         ZipArchive {
-            filename: filename.to_string(),
-            directory: directory.to_string(),
-            archive: archive.to_string(),
+            filename: filename.into(),
             store: Self::create_store(filename),
             parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
 
-    fn create_store(filename: &str) -> ListStore {
-        println!("create_store ZipArchive {}", filename);
+    fn create_store(filename: &Path) -> ListStore {
+        println!("create_store ZipArchive {:?}", filename);
         let store = Columns::store();
         match list_zip(filename, &store) {
             Ok(()) => println!("OK"),
@@ -125,26 +109,12 @@ impl Backend for ZipArchive {
         true
     }
 
-    fn path(&self) -> &str {
-        &self.filename
+    fn path(&self) -> PathBuf {
+        self.filename.clone()
     }
 
     fn store(&self) -> ListStore {
         self.store.clone()
-    }
-
-    fn leave(&self) -> (Box<dyn Backend>, Target) {
-        if self.parent.borrow().is_none() {
-            (
-                Box::new(FileSystem::new(&self.directory)),
-                Target::Name(self.archive.clone()),
-            )
-        } else {
-            (
-                self.parent.replace(<dyn Backend>::none()),
-                Target::Name(self.archive.clone()),
-            )
-        }
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
@@ -179,7 +149,7 @@ impl Backend for ZipArchive {
     }
 }
 
-fn extract_zip(filename: &str, index: usize) -> ZipResult<Vec<u8>> {
+fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
     let duration = Performance::start();
     let fname = std::path::Path::new(filename);
     let file = fs::File::open(fname)?;
@@ -192,8 +162,8 @@ fn extract_zip(filename: &str, index: usize) -> ZipResult<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
-    let fname = std::path::Path::new(filename);
+fn list_zip(zip_file: &Path, store: &ListStore) -> ZipResult<()> {
+    let fname = std::path::Path::new(zip_file);
     let file = fs::File::open(fname)?;
     let reader = BufReader::new(file);
 
@@ -210,8 +180,7 @@ fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
             }
         };
 
-        let filename = outpath.display().to_string();
-        let cat = Category::determine(&filename, file.is_dir());
+        let cat = Category::determine(&outpath, file.is_dir());
         let file_size = file.size();
         let index = i as u64;
 
@@ -239,12 +208,14 @@ fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
             }
         };
 
+        let name = outpath.file_name().unwrap_or_default().to_string_lossy().to_string();
+
         store.insert_with_values(
             None,
             &[
                 (Columns::Cat as u32, &cat.id()),
                 (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &filename),
+                (Columns::Name as u32, &name),
                 (Columns::Size as u32, &file_size),
                 (Columns::Modified as u32, &modified),
                 (Columns::Index as u32, &index),
@@ -256,9 +227,7 @@ fn list_zip(filename: &str, store: &ListStore) -> ZipResult<()> {
 
 #[derive(Debug, Clone)]
 pub struct TZipReference {
-    filename: String,
-    // directory: String,
-    // archive: String,
+    filename: PathBuf,
     index: u64,
 }
 
@@ -266,13 +235,11 @@ impl TZipReference {
     pub fn new(backend: &ZipArchive, index: u64) -> Self {
         TZipReference {
             filename: backend.filename.clone(),
-            // directory: backend.directory.clone(),
-            // archive: backend.archive.clone(),
             index,
         }
     }
 
-    pub fn filename(&self) -> String {
+    pub fn filename(&self) -> PathBuf {
         self.filename.clone()
     }
 

@@ -103,7 +103,6 @@ impl ImageView {
     }
 
     pub fn set_image_pre(&self, image: Image) {
-        println!("set_image_pre");
         let mut p = self.imp().data.borrow_mut();
         self.imp().cancel_animation();
         p.image = image;
@@ -114,7 +113,6 @@ impl ImageView {
     }
 
     pub fn set_image_post(&self, annotations: Option<Annotations>) {
-        println!("set_image_post");
         // dbg!(&annotations);
         let mut p = self.imp().data.borrow_mut();
         p.annotations = annotations;
