@@ -21,7 +21,7 @@ use super::{Image, ImageParams};
 use gtk4::ListStore;
 use image::DynamicImage;
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     fs,
     io::{BufReader, ErrorKind, Read, Result, Seek, SeekFrom},
     path::{Path, PathBuf},
@@ -72,7 +72,6 @@ impl MarEntry {
 pub struct MarArchive {
     filename: PathBuf,
     store: ListStore,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
@@ -81,7 +80,6 @@ impl MarArchive {
         MarArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
@@ -135,12 +133,6 @@ impl Backend for MarArchive {
             &cursor.name(),
             TReference::MarReference(TMarReference::new(self, cursor.index())),
         )
-    }
-
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
     }
 
     fn set_sort(&self, sort: &Sort) {

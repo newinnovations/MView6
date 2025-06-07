@@ -26,7 +26,10 @@ use gtk4::{
 };
 
 use crate::{
-    backends::{thumbnail::Thumbnail, Backend},
+    backends::{
+        thumbnail::{model::TParent, Thumbnail},
+        Backend,
+    },
     file_view::{Sort, Target},
     image::provider::ImageLoader,
 };
@@ -193,17 +196,18 @@ impl MViewWindowImp {
                 (Target::First, 0)
             };
             drop(backend);
-            if let Some(thumbnail) = Thumbnail::new(
-                w.image_view.allocation(),
-                position,
-                self.thumbnail_size.get(),
-            ) {
-                let focus_page = thumbnail.focus_page();
-                let new_backend = <dyn Backend>::thumbnail(thumbnail);
-                new_backend.set_sort(&Sort::sort_on_category());
-                self.set_backend(new_backend, focus_page, true);
-                self.show_info_widget(false);
-            }
+            let parent = TParent {
+                backend: self.backend.replace(<dyn Backend>::none()),
+                target: position.0,
+                focus_pos: position.1,
+            };
+            let thumbnail =
+                Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
+            let focus_page = thumbnail.focus_page();
+            let thumbnail = <dyn Backend>::thumbnail(thumbnail);
+            thumbnail.set_sort(&Sort::sort_on_category());
+            self.set_backend(thumbnail, focus_page);
+            self.show_info_widget(false);
         } else if backend.is_thumbnail() {
             drop(backend);
             self.dir_leave();

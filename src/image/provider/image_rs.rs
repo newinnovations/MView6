@@ -19,7 +19,8 @@
 
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Cursor, Seek}, path::Path,
+    io::{BufRead, BufReader, Cursor, Seek},
+    path::Path,
 };
 
 use exif::Exif;

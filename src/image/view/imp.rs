@@ -23,11 +23,14 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use crate::{category::Category, image::{
-    colors::{CairoColorExt, Color},
-    draw::transparency_background,
-    Image, ImageData,
-}};
+use crate::{
+    category::Category,
+    image::{
+        colors::{CairoColorExt, Color},
+        draw::transparency_background,
+        Image, ImageData,
+    },
+};
 use gio::prelude::StaticType;
 use glib::{
     clone, ffi::g_source_remove, object::ObjectExt, result_from_gboolean, subclass::Signal,
@@ -266,7 +269,7 @@ impl ImageViewImp {
                     context.arc(
                         xofs + annotation.position.x + annotation.position.width,
                         yofs + annotation.position.y + annotation.position.height,
-                        if hover == Some(annotation) {5.0} else {2.0},
+                        if hover == Some(annotation) { 5.0 } else { 2.0 },
                         0.0,
                         2.0 * std::f64::consts::PI,
                     );
@@ -274,7 +277,6 @@ impl ImageViewImp {
                     context.set_line_width(2.0);
                     let _ = context.stroke();
                 }
-
             }
         }
     }

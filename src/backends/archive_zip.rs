@@ -23,7 +23,7 @@ use gtk4::ListStore;
 use human_bytes::human_bytes;
 use image::DynamicImage;
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     fs,
     io::{BufReader, Read},
     path::{Path, PathBuf},
@@ -49,7 +49,6 @@ use super::{
 pub struct ZipArchive {
     filename: PathBuf,
     store: ListStore,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
@@ -58,7 +57,6 @@ impl ZipArchive {
         ZipArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
@@ -134,12 +132,6 @@ impl Backend for ZipArchive {
         )
     }
 
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
-    }
-
     fn set_sort(&self, sort: &Sort) {
         self.sort.set(*sort)
     }
@@ -208,7 +200,11 @@ fn list_zip(zip_file: &Path, store: &ListStore) -> ZipResult<()> {
             }
         };
 
-        let name = outpath.file_name().unwrap_or_default().to_string_lossy().to_string();
+        let name = outpath
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
 
         store.insert_with_values(
             None,

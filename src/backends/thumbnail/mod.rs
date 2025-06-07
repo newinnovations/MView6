@@ -20,10 +20,14 @@
 pub mod model;
 pub mod processing;
 
-use std::{cell::{Cell, RefCell}, path::{Path, PathBuf}};
+use std::{
+    cell::{Cell, RefCell},
+    path::{Path, PathBuf},
+};
 
 use super::{Backend, Image, ImageParams, Target};
 use crate::{
+    backends::thumbnail::model::TParent,
     category::Category,
     file_view::{Columns, Cursor, Sort},
     image::draw::thumbnail_sheet,
@@ -39,14 +43,14 @@ const MIN_SEPARATOR: i32 = 5;
 #[derive(Debug)]
 pub struct Thumbnail {
     dim: SheetDimensions,
-    parent: RefCell<Box<dyn Backend>>,
+    parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
-    focus_position: Cell<i32>,
+    parent_focus_pos: Cell<i32>,
     sort: Cell<Sort>,
 }
 
 impl Thumbnail {
-    pub fn new(sheet_size: Allocation, position: (Target, i32), size: i32) -> Option<Self> {
+    pub fn new(parent: TParent, sheet_size: Allocation, size: i32) -> Self {
         let width = sheet_size.width();
         let height = sheet_size.height();
 
@@ -56,19 +60,23 @@ impl Thumbnail {
         let capacity_x = (usable_width + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
         let capacity_y = (usable_height + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
 
-        if capacity_x == 0 || capacity_y == 0 {
-            return None;
-        }
-
-        let separator_x = (usable_width - capacity_x * size) / capacity_x;
-        let separator_y = (usable_height - capacity_y * size) / capacity_y;
+        let separator_x = if capacity_x > 0 {
+            (usable_width - capacity_x * size) / capacity_x
+        } else {
+            0
+        };
+        let separator_y = if capacity_y > 0 {
+            (usable_height - capacity_y * size) / capacity_y
+        } else {
+            0
+        };
 
         let offset_x =
             MARGIN + (usable_width - capacity_x * (size + separator_x) + separator_x) / 2;
         let offset_y =
             MARGIN + (usable_height - capacity_y * (size + separator_y) + separator_y) / 2;
 
-        Some(Thumbnail {
+        Thumbnail {
             dim: SheetDimensions {
                 size,
                 width,
@@ -80,11 +88,11 @@ impl Thumbnail {
                 offset_x,
                 offset_y,
             },
-            parent: RefCell::new(<dyn Backend>::none()),
-            parent_target: position.0,
-            focus_position: position.1.into(),
+            parent_backend: RefCell::new(parent.backend), // <dyn Backend>::none()
+            parent_target: parent.target,
+            parent_focus_pos: parent.focus_pos.into(),
             sort: Default::default(),
-        })
+        }
     }
 
     pub fn capacity(&self) -> i32 {
@@ -92,11 +100,16 @@ impl Thumbnail {
     }
 
     pub fn focus_page(&self) -> Target {
-        Target::Index(self.focus_position.get() as u64 / self.capacity() as u64)
+        let capacity = self.capacity();
+        if capacity > 0 {
+            Target::Index(self.parent_focus_pos.get() as u64 / capacity as u64)
+        } else {
+            Target::First
+        }
     }
 
     pub fn sheet(&self, page: i32) -> Vec<TTask> {
-        let backend = self.parent.borrow();
+        let backend = self.parent_backend.borrow();
         let store = backend.store();
 
         let mut res = Vec::<TTask>::new();
@@ -119,14 +132,7 @@ impl Thumbnail {
                             category: source.category,
                             reference: source.reference.clone(),
                         };
-                        let task = TTask::new(
-                            id,
-                            self.dim.size as u32,
-                            x,
-                            y,
-                            source,
-                            annotation,
-                        );
+                        let task = TTask::new(id, self.dim.size as u32, x, y, source, annotation);
                         res.push(task);
                     }
                     if !cursor.next() {
@@ -154,12 +160,20 @@ impl Backend for Thumbnail {
     }
 
     fn store(&self) -> ListStore {
-        let parent_store = self.parent.borrow().store();
-        let num_items = parent_store.iter_n_children(None);
-        let pages = 1 + ((num_items - 1) / self.capacity()) as u32;
         let store = Columns::store();
+        let capacity = self.capacity();
+        let pages = if capacity > 0 {
+            let parent_store = self.parent_backend.borrow().store();
+            let num_items = parent_store.iter_n_children(None);
+            if num_items > 0 {
+                1 + ((num_items - 1) / capacity) as u32
+            } else {
+                1
+            }
+        } else {
+            1
+        };
         let cat = Category::Image;
-
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
             store.insert_with_values(
@@ -177,16 +191,19 @@ impl Backend for Thumbnail {
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         Some((
-            self.parent.replace(<dyn Backend>::none()),
+            self.parent_backend.replace(<dyn Backend>::none()),
             self.parent_target.clone(),
         ))
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
         let page = cursor.index() as i32;
-        let focus_page = self.focus_position.get() / self.capacity();
-        if focus_page != page {
-            self.focus_position.set(page * self.capacity());
+        let capacity = self.capacity();
+        if capacity > 0 {
+            let focus_page = self.parent_focus_pos.get() / capacity;
+            if focus_page != page {
+                self.parent_focus_pos.set(page * capacity);
+            }
         }
         let caption = format!("{} of {}", page + 1, cursor.store_size());
         let image = match thumbnail_sheet(self.dim.width, self.dim.height, MARGIN, &caption) {
@@ -196,24 +213,16 @@ impl Backend for Thumbnail {
                 Default::default()
             }
         };
-
         let command = TCommand::new(image.id(), page, self.sheet(page), self.dim.clone());
         let _ = params
             .sender
             .send_blocking(Message::Command(command.into()));
-
         image
-    }
-
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
     }
 
     fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(pos) = self.dim.abs_position(current.index() as i32, x, y) {
-            let backend = self.parent.borrow();
+            let backend = self.parent_backend.borrow();
             let store = backend.store();
             if let Some(iter) = store.iter_nth_child(None, pos) {
                 let cursor = Cursor::new(store, iter, pos);
@@ -221,23 +230,23 @@ impl Backend for Thumbnail {
                 drop(backend);
                 match source {
                     TReference::FileReference(src) => Some((
-                        self.parent.replace(<dyn Backend>::none()),
+                        self.parent_backend.replace(<dyn Backend>::none()),
                         Target::Name(src.filename()),
                     )),
                     TReference::ZipReference(src) => Some((
-                        self.parent.replace(<dyn Backend>::none()),
+                        self.parent_backend.replace(<dyn Backend>::none()),
                         Target::Index(src.index()),
                     )),
                     TReference::MarReference(src) => Some((
-                        self.parent.replace(<dyn Backend>::none()),
+                        self.parent_backend.replace(<dyn Backend>::none()),
                         Target::Index(src.index()),
                     )),
                     TReference::RarReference(src) => Some((
-                        self.parent.replace(<dyn Backend>::none()),
+                        self.parent_backend.replace(<dyn Backend>::none()),
                         Target::Name(src.selection()),
                     )),
                     TReference::DocReference(src) => Some((
-                        self.parent.replace(<dyn Backend>::none()),
+                        self.parent_backend.replace(<dyn Backend>::none()),
                         Target::Index(src.index()),
                     )),
                     TReference::None => None,
@@ -258,7 +267,11 @@ impl Backend for Thumbnail {
         self.sort.get()
     }
 
-    fn position(&self) -> (Target, i32) {
-        (self.parent_target.clone(), self.focus_position.get())
+    fn get_thumb_parent(&self) -> TParent {
+        TParent {
+            backend: self.parent_backend.replace(<dyn Backend>::none()),
+            target: self.parent_target.clone(),
+            focus_pos: self.parent_focus_pos.get(),
+        }
     }
 }

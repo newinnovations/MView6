@@ -376,12 +376,10 @@ impl ObjectImpl for MViewWindowImp {
                     // match path::absolute(filename) {
                     match fs::canonicalize(filename) {
                         Ok(abs_path) => this.navigate_to(&abs_path),
-                        Err(_) => {
-                            this.set_backend(<dyn Backend>::current_dir(), Target::First, false)
-                        }
+                        Err(_) => this.set_backend(<dyn Backend>::current_dir(), Target::First),
                     }
                 } else {
-                    this.set_backend(<dyn Backend>::current_dir(), Target::First, false);
+                    this.set_backend(<dyn Backend>::current_dir(), Target::First);
                 }
                 ControlFlow::Break
             }

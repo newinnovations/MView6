@@ -26,23 +26,28 @@ use crate::{
 };
 use gtk4::ListStore;
 use std::{
-    cell::{Cell, RefCell}, fs, io, path::{Path, PathBuf}, time::UNIX_EPOCH
+    cell::{Cell, RefCell},
+    fs, io,
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
 };
 
 use super::{Backend, Target};
 
 pub struct Bookmarks {
     store: ListStore,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
+    parent_backend: RefCell<Box<dyn Backend>>,
+    parent_target: Target,
 }
 
 impl Bookmarks {
-    pub fn new() -> Self {
+    pub fn new(parent_backend: Box<dyn Backend>, parent_target: Target) -> Self {
         Bookmarks {
             store: Self::create_store(),
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
+            parent_backend: parent_backend.into(),
+            parent_target,
         }
     }
 
@@ -113,7 +118,10 @@ impl Backend for Bookmarks {
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
-        None
+        Some((
+            self.parent_backend.replace(<dyn Backend>::none()),
+            self.parent_target.clone(),
+        ))
     }
 
     fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
@@ -125,10 +133,6 @@ impl Backend for Bookmarks {
             Category::Folder
         };
         draw_text(&cat.name(), &folder, cat.colors())
-    }
-
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        self.parent.replace(parent);
     }
 
     fn set_sort(&self, sort: &Sort) {

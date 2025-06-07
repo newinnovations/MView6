@@ -24,11 +24,18 @@ use image::DynamicImage;
 use crate::{
     backends::{
         archive_mar::TMarReference, archive_rar::TRarReference, archive_zip::TZipReference,
-        document::TDocReference, filesystem::TFileReference,
+        document::TDocReference, filesystem::TFileReference, Backend,
     },
     category::Category,
+    file_view::Target,
     image::colors::Color,
 };
+
+pub struct TParent {
+    pub backend: Box<dyn Backend>,
+    pub target: Target,
+    pub focus_pos: i32,
+}
 
 #[derive(Debug, Clone)]
 pub enum TReference {
@@ -130,14 +137,7 @@ pub struct TTask {
 }
 
 impl TTask {
-    pub fn new(
-        id: i32,
-        size: u32,
-        x: i32,
-        y: i32,
-        source: TEntry,
-        annotation: Annotation,
-    ) -> Self {
+    pub fn new(id: i32, size: u32, x: i32, y: i32, source: TEntry, annotation: Annotation) -> Self {
         TTask {
             id,
             size,

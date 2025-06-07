@@ -42,7 +42,13 @@ impl MViewWindowImp {
             Key::d => {
                 self.show_files_widget(true);
                 if !self.backend.borrow().is_bookmarks() {
-                    self.set_backend(<dyn Backend>::bookmarks(), Target::First, true);
+                    let backend = self.backend.replace(<dyn Backend>::none());
+                    let target = if let Some(cursor) = w.file_view.current() {
+                        backend.entry(&cursor).into()
+                    } else {
+                        Target::First
+                    };
+                    self.set_backend(<dyn Backend>::bookmarks(backend, target), Target::First);
                 }
             }
             Key::t => {

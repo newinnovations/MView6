@@ -66,7 +66,7 @@ impl MViewWindowImp {
                 if let Some(sort) = force_sort {
                     new_backend.set_sort(&sort);
                 }
-                self.set_backend(new_backend, Target::First, true);
+                self.set_backend(new_backend, Target::First);
             }
         }
     }
@@ -75,7 +75,7 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if let Some((new_backend, target)) = backend.leave() {
             drop(backend);
-            self.set_backend(new_backend, target, false);
+            self.set_backend(new_backend, target);
         }
     }
 
@@ -91,7 +91,7 @@ impl MViewWindowImp {
         dbg!(filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
         self.open_container.set(category.is_container());
-        self.set_backend(new_backend, Target::Name(filename.to_string()), false);
+        self.set_backend(new_backend, Target::Name(filename.to_string()));
     }
 
     pub fn hop(&self, direction: Direction) {

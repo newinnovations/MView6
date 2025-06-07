@@ -146,7 +146,7 @@ impl ImageSaver {
     pub fn save_thumbnail(thumbnail_path: &Path, image: &DynamicImage) {
         if let Some(thumbnail_dir) = thumbnail_path.parent() {
             if !thumbnail_dir.exists() {
-                if let Err(error) = fs::create_dir_all(&thumbnail_dir) {
+                if let Err(error) = fs::create_dir_all(thumbnail_dir) {
                     println!("Failed to create thumbnail directory: {:?}", error);
                     return;
                 }

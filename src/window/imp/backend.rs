@@ -28,21 +28,13 @@ use crate::{
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: Target, set_parent: bool) {
+    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: Target) {
         let skip_loading = self.skip_loading.get();
         self.skip_loading.set(true);
 
         let w = self.widgets();
-        let parent_backend = self.backend.replace(new_backend);
+        self.backend.replace(new_backend);
         let new_backend = self.backend.borrow();
-
-        if set_parent {
-            // dbg!(new_backend.class_name(), parent_backend.class_name());
-            parent_backend.set_sort(&self.current_sort.get());
-            if !parent_backend.is_bookmarks() {
-                new_backend.set_parent(parent_backend);
-            }
-        }
 
         let new_sort = match new_backend.sort() {
             Sort::Sorted(sort) => {
@@ -94,19 +86,12 @@ impl MViewWindowImp {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if backend.is_thumbnail() {
-            if let Some(thumbnail) = Thumbnail::new(
-                w.image_view.allocation(),
-                backend.position(),
-                self.thumbnail_size.get(),
-            ) {
-                if let Some((parent_backend, _)) = backend.leave() {
-                    drop(backend);
-                    self.backend.replace(parent_backend);
-                    let focus_page = thumbnail.focus_page();
-                    let new_backend = <dyn Backend>::thumbnail(thumbnail);
-                    self.set_backend(new_backend, focus_page, true);
-                }
-            }
+            let parent = backend.get_thumb_parent();
+            drop(backend);
+            let thumbnail =
+                Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
+            let focus_page = thumbnail.focus_page();
+            self.set_backend(<dyn Backend>::thumbnail(thumbnail), focus_page);
         }
     }
 }

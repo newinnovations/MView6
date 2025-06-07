@@ -230,9 +230,6 @@ impl Backend for FileSystem {
         )
     }
 
-    fn set_parent(&self, _parent: Box<dyn Backend>) {
-    }
-
     fn set_sort(&self, sort: &Sort) {
         // println!("fs::set_sort: {} {}", self.directory, sort);
         self.sort.set(*sort)

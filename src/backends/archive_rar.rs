@@ -24,7 +24,7 @@ use human_bytes::human_bytes;
 use image::DynamicImage;
 use sha2::{Digest, Sha256};
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     path::{Path, PathBuf},
 };
 use unrar::{error::UnrarError, Archive, UnrarResult};
@@ -48,7 +48,6 @@ use super::{
 pub struct RarArchive {
     filename: PathBuf,
     store: ListStore,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
@@ -57,7 +56,6 @@ impl RarArchive {
         RarArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Default::default(),
         }
     }
@@ -126,12 +124,6 @@ impl Backend for RarArchive {
             &cursor.name(),
             TReference::RarReference(TRarReference::new(self, &cursor.name())),
         )
-    }
-
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
     }
 
     fn set_sort(&self, sort: &Sort) {

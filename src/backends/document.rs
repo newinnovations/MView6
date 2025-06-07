@@ -22,7 +22,7 @@ use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
 use mupdf::{Colorspace, Matrix};
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     path::{Path, PathBuf},
 };
 
@@ -71,7 +71,6 @@ pub struct Document {
     filename: PathBuf,
     store: ListStore,
     last_page: u32,
-    parent: RefCell<Box<dyn Backend>>,
     sort: Cell<Sort>,
 }
 
@@ -82,7 +81,6 @@ impl Document {
             filename: filename.into(),
             store,
             last_page,
-            parent: RefCell::new(<dyn Backend>::none()),
             sort: Sort::sort_on_category().into(),
         }
     }
@@ -144,12 +142,6 @@ impl Backend for Document {
             &cursor.name(),
             TReference::DocReference(TDocReference::new(self, cursor.index())),
         )
-    }
-
-    fn set_parent(&self, parent: Box<dyn Backend>) {
-        if self.parent.borrow().is_none() {
-            self.parent.replace(parent);
-        }
     }
 
     fn set_sort(&self, sort: &Sort) {
