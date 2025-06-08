@@ -24,10 +24,9 @@ use super::MViewWindowImp;
 use crate::{
     backends::{Backend, ImageParams},
     category::Category,
-    file_view::{Columns, Direction, FileView, Filter, Sort, Target},
+    file_view::{Direction, Filter, Target},
 };
-use glib::subclass::types::ObjectSubclassExt;
-use gtk4::{SortColumn, TreePath, TreeViewColumn};
+use gtk4::{TreePath, TreeViewColumn};
 
 impl MViewWindowImp {
     pub(super) fn on_cursor_changed(&self) {
@@ -43,7 +42,6 @@ impl MViewWindowImp {
                 w.info_view.update(&image);
                 if self.backend.borrow().is_thumbnail() {
                     w.image_view.set_image_pre(image);
-                    // w.image_view.set_image_post();
                 } else {
                     w.image_view.set_image(image);
                 }
@@ -53,19 +51,16 @@ impl MViewWindowImp {
 
     pub(super) fn on_row_activated(&self, _path: &TreePath, _column: Option<&TreeViewColumn>) {
         println!("on_row_activated");
-        self.dir_enter(None);
+        self.dir_enter();
     }
 
-    pub fn dir_enter(&self, force_sort: Option<Sort>) {
+    pub fn dir_enter(&self) {
         let w = self.widgets();
         if let Some(current) = w.file_view.current() {
             let backend = self.backend.borrow();
             let new_backend = backend.enter(&current);
             drop(backend);
             if let Some(new_backend) = new_backend {
-                if let Some(sort) = force_sort {
-                    new_backend.set_sort(&sort);
-                }
                 self.set_backend(new_backend, Target::First);
             }
         }
@@ -95,7 +90,6 @@ impl MViewWindowImp {
     }
 
     pub fn hop(&self, direction: Direction) {
-        let active_sort = self.current_sort.get();
         let w = self.widgets();
 
         // goto and navigate in parent
@@ -103,19 +97,8 @@ impl MViewWindowImp {
         self.dir_leave();
         w.file_view.navigate(direction, Filter::Container, 1);
 
-        // enter dir with remembered sort
+        // enter dir
         self.skip_loading.set(false);
-        self.dir_enter(Some(active_sort));
-    }
-
-    pub fn change_sort(&self, file_view: &FileView, sort_key: Columns) {
-        let backend = self.backend.borrow();
-        if !backend.is_thumbnail() {
-            if let Some(current) = file_view.current() {
-                let target: Target = backend.entry(&current).into();
-                current.set_sort_column(SortColumn::Index(sort_key as u32));
-                file_view.goto(&target, &self.obj());
-            }
-        }
+        self.dir_enter();
     }
 }

@@ -30,7 +30,7 @@ use crate::{
         thumbnail::{model::TParent, Thumbnail},
         Backend,
     },
-    file_view::{Sort, Target},
+    file_view::Target,
     image::provider::ImageLoader,
 };
 
@@ -205,7 +205,7 @@ impl MViewWindowImp {
                 Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
             let focus_page = thumbnail.focus_page();
             let thumbnail = <dyn Backend>::thumbnail(thumbnail);
-            thumbnail.set_sort(&Sort::sort_on_category());
+            // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
             self.set_backend(thumbnail, focus_page);
             self.show_info_widget(false);
         } else if backend.is_thumbnail() {

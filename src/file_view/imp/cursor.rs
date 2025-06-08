@@ -19,13 +19,13 @@
 
 use glib::object::IsA;
 use gtk4::{
-    prelude::{TreeModelExt, TreeModelExtManual, TreeSortableExtManual},
-    ListStore, SortColumn, SortType, TreeIter, TreeModel, TreePath,
+    prelude::{TreeModelExt, TreeModelExtManual},
+    ListStore, TreeIter, TreeModel, TreePath,
 };
 
 use crate::category::Category;
 
-use super::model::{Columns, Direction, Filter};
+use super::model::{Column, Direction, Filter};
 
 pub struct Cursor {
     pub store: ListStore,
@@ -80,29 +80,11 @@ impl Cursor {
         self.store.set(
             &self.iter,
             &[
-                (Columns::Cat as u32, &new_category.id()),
-                (Columns::Icon as u32, &new_category.icon()),
-                (Columns::Name as u32, &new_filename),
+                (Column::Cat as u32, &new_category.id()),
+                (Column::Icon as u32, &new_category.icon()),
+                (Column::Name as u32, &new_filename),
             ],
         );
-    }
-
-    pub fn set_sort_column(&self, new_column: SortColumn) {
-        let current_sort = self.store.sort_column_id();
-        let new_direction = match current_sort {
-            Some((current_column, current_direction)) => {
-                if current_column.eq(&new_column) {
-                    match current_direction {
-                        SortType::Ascending => SortType::Descending,
-                        _ => SortType::Ascending,
-                    }
-                } else {
-                    SortType::Ascending
-                }
-            }
-            None => SortType::Ascending,
-        };
-        self.store.set_sort_column_id(new_column, new_direction);
     }
 
     pub fn navigate(&self, direction: Direction, filter: Filter, count: u32) -> Option<TreePath> {
@@ -160,38 +142,38 @@ pub trait TreeModelMviewExt: IsA<TreeModel> {
 
 impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
     fn name(&self, iter: &TreeIter) -> String {
-        self.get_value(iter, Columns::Name as i32)
+        self.get_value(iter, Column::Name as i32)
             .get::<String>()
             .unwrap_or_default()
     }
     fn folder(&self, iter: &TreeIter) -> String {
-        self.get_value(iter, Columns::Folder as i32)
+        self.get_value(iter, Column::Folder as i32)
             .get::<String>()
             .unwrap_or_default()
     }
     fn category_id(&self, iter: &TreeIter) -> u32 {
-        self.get_value(iter, Columns::Cat as i32)
+        self.get_value(iter, Column::Cat as i32)
             .get::<u32>()
             .unwrap_or(Category::Unsupported.id())
     }
     fn category(&self, iter: &TreeIter) -> Category {
-        match self.get_value(iter, Columns::Cat as i32).get::<u32>() {
+        match self.get_value(iter, Column::Cat as i32).get::<u32>() {
             Ok(id) => Category::from(id),
             Err(_) => Default::default(),
         }
     }
     fn index(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Columns::Index as i32)
+        self.get_value(iter, Column::Index as i32)
             .get::<u64>()
             .unwrap_or(0)
     }
     fn modified(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Columns::Modified as i32)
+        self.get_value(iter, Column::Modified as i32)
             .get::<u64>()
             .unwrap_or(0)
     }
     fn size(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Columns::Size as i32)
+        self.get_value(iter, Column::Size as i32)
             .get::<u64>()
             .unwrap_or(0)
     }

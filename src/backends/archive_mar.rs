@@ -21,7 +21,6 @@ use super::{Image, ImageParams};
 use gtk4::ListStore;
 use image::DynamicImage;
 use std::{
-    cell::Cell,
     fs,
     io::{BufReader, ErrorKind, Read, Result, Seek, SeekFrom},
     path::{Path, PathBuf},
@@ -31,7 +30,7 @@ use std::{
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::{
         draw::draw_error,
         provider::internal::{InternalImageLoader, InternalReader},
@@ -72,7 +71,6 @@ impl MarEntry {
 pub struct MarArchive {
     filename: PathBuf,
     store: ListStore,
-    sort: Cell<Sort>,
 }
 
 impl MarArchive {
@@ -80,13 +78,12 @@ impl MarArchive {
         MarArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            sort: Default::default(),
         }
     }
 
     fn create_store(filename: &Path) -> ListStore {
         println!("create_store MarArchive {:?}", filename);
-        let store = Columns::store();
+        let store = Column::empty_store();
         match list_mar(filename, &store) {
             Ok(()) => println!("OK"),
             Err(e) => println!("ERROR {:?}", e),
@@ -134,14 +131,6 @@ impl Backend for MarArchive {
             TReference::MarReference(TMarReference::new(self, cursor.index())),
         )
     }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
-    }
 }
 
 fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Image> {
@@ -186,12 +175,12 @@ fn list_mar(mar_file: &Path, store: &ListStore) -> Result<()> {
         store.insert_with_values(
             None,
             &[
-                (Columns::Cat as u32, &cat.id()),
-                (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &entry.filename),
-                (Columns::Size as u32, &file_size),
-                (Columns::Modified as u32, &entry.date),
-                (Columns::Index as u32, &entry.offset),
+                (Column::Cat as u32, &cat.id()),
+                (Column::Icon as u32, &cat.icon()),
+                (Column::Name as u32, &entry.filename),
+                (Column::Size as u32, &file_size),
+                (Column::Modified as u32, &entry.date),
+                (Column::Index as u32, &entry.offset),
             ],
         );
     }

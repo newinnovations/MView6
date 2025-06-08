@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use super::{Image, ImageParams};
 use gtk4::ListStore;
 
-use crate::file_view::{Columns, Cursor, Sort};
+use crate::file_view::{Column, Cursor};
 
 use super::{Backend, Target};
 
@@ -55,7 +55,7 @@ impl Backend for NoneBackend {
     }
 
     fn store(&self) -> ListStore {
-        Columns::store()
+        Column::empty_store()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -64,11 +64,5 @@ impl Backend for NoneBackend {
 
     fn image(&self, _: &Cursor, _: &ImageParams) -> Image {
         Image::default()
-    }
-
-    fn set_sort(&self, _sort: &Sort) {}
-
-    fn sort(&self) -> Sort {
-        Default::default()
     }
 }

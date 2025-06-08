@@ -23,6 +23,7 @@ mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
+mod sort;
 
 use crate::{
     backends::{
@@ -46,7 +47,9 @@ use gtk4::{
 };
 use std::{
     cell::{Cell, OnceCell, RefCell},
+    collections::HashMap,
     env, fs,
+    path::PathBuf,
 };
 
 #[derive(Debug)]
@@ -89,6 +92,7 @@ pub struct MViewWindowImp {
     thumbnail_size: Cell<i32>,
     current_sort: Cell<Sort>,
     page_mode: Cell<PageMode>,
+    sorting_store: RefCell<HashMap<PathBuf, Sort>>,
 }
 
 #[glib::object_subclass]
@@ -271,12 +275,6 @@ impl ObjectImpl for MViewWindowImp {
                 }
             ),
         );
-
-        // let menu_button = MenuButton::new();
-        // menu_button.set_has_frame(false);
-        // menu_button.set_menu_model(Some(&menu));
-        // menu_button.set_visible(false);
-        // hbox.append(&menu_button);
 
         image_view.add_context_menu(menu);
 

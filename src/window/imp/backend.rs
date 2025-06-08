@@ -36,30 +36,34 @@ impl MViewWindowImp {
         self.backend.replace(new_backend);
         let new_backend = self.backend.borrow();
 
-        let new_sort = match new_backend.sort() {
-            Sort::Sorted(sort) => {
-                let sort = Sort::Sorted(sort);
-                self.current_sort.set(sort);
+        let mut sorting_store = self.sorting_store.borrow_mut();
+        let can_be_sorted = new_backend.can_be_sorted();
+
+        let new_sort = if can_be_sorted {
+            let path = new_backend.path();
+            if let Some(sort) = sorting_store.get(&path) {
                 sort
+            } else {
+                sorting_store.insert(path, self.current_sort.get());
+                &self.current_sort.get()
             }
-            Sort::Unsorted => {
-                let sort = self.current_sort.get();
-                new_backend.set_sort(&sort);
-                sort
-            }
+        } else {
+            &Sort::sort_on_category()
         };
 
         let new_store = new_backend.store();
         match new_sort {
-            Sort::Sorted((column, order)) => new_store.set_sort_column_id(column, order),
+            Sort::Sorted((column, order)) => new_store.set_sort_column_id(*column, *order),
             Sort::Unsorted => (),
         };
+
+        drop(sorting_store); // set_backend may call set_backend again via file_view.goto when auto opening containers
 
         new_store.connect_sort_column_changed(clone!(
             #[weak(rename_to = this)]
             self,
             move |model| {
-                Sort::on_sort_column_changed(model, &this.current_sort);
+                this.on_sort_column_changed(model);
             }
         ));
 
@@ -78,6 +82,7 @@ impl MViewWindowImp {
 
         self.update_layout();
         w.file_view.set_model(Some(&new_store));
+        w.file_view.set_sortable(can_be_sorted);
         self.skip_loading.set(skip_loading);
         w.file_view.goto(&goto, &self.obj());
     }

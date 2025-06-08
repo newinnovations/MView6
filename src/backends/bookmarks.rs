@@ -21,12 +21,12 @@ use super::{Image, ImageParams};
 use crate::{
     category::Category,
     config::config,
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::draw::draw_text,
 };
 use gtk4::ListStore;
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     fs, io,
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
@@ -36,7 +36,6 @@ use super::{Backend, Target};
 
 pub struct Bookmarks {
     store: ListStore,
-    sort: Cell<Sort>,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
 }
@@ -45,7 +44,6 @@ impl Bookmarks {
     pub fn new(parent_backend: Box<dyn Backend>, parent_target: Target) -> Self {
         Bookmarks {
             store: Self::create_store(),
-            sort: Default::default(),
             parent_backend: parent_backend.into(),
             parent_target,
         }
@@ -72,12 +70,12 @@ impl Bookmarks {
             store.insert_with_values(
                 None,
                 &[
-                    (Columns::Cat as u32, &cat.id()),
-                    (Columns::Icon as u32, &cat.icon()),
-                    (Columns::Name as u32, &entry.name),
-                    (Columns::Folder as u32, &entry.folder),
-                    (Columns::Size as u32, &file_size),
-                    (Columns::Modified as u32, &modified),
+                    (Column::Cat as u32, &cat.id()),
+                    (Column::Icon as u32, &cat.icon()),
+                    (Column::Name as u32, &entry.name),
+                    (Column::Folder as u32, &entry.folder),
+                    (Column::Size as u32, &file_size),
+                    (Column::Modified as u32, &modified),
                 ],
             );
         }
@@ -85,7 +83,7 @@ impl Bookmarks {
     }
 
     fn create_store() -> ListStore {
-        let store = Columns::store();
+        let store = Column::empty_store();
         match Self::read_directory(&store) {
             Ok(()) => (),
             Err(e) => {
@@ -133,13 +131,5 @@ impl Backend for Bookmarks {
             Category::Folder
         };
         draw_text(&cat.name(), &folder, cat.colors())
-    }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
     }
 }

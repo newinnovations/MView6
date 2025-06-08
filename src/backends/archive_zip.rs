@@ -23,7 +23,6 @@ use gtk4::ListStore;
 use human_bytes::human_bytes;
 use image::DynamicImage;
 use std::{
-    cell::Cell,
     fs,
     io::{BufReader, Read},
     path::{Path, PathBuf},
@@ -33,7 +32,7 @@ use zip::result::ZipResult;
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
@@ -49,7 +48,6 @@ use super::{
 pub struct ZipArchive {
     filename: PathBuf,
     store: ListStore,
-    sort: Cell<Sort>,
 }
 
 impl ZipArchive {
@@ -57,13 +55,12 @@ impl ZipArchive {
         ZipArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            sort: Default::default(),
         }
     }
 
     fn create_store(filename: &Path) -> ListStore {
         println!("create_store ZipArchive {:?}", filename);
-        let store = Columns::store();
+        let store = Column::empty_store();
         match list_zip(filename, &store) {
             Ok(()) => println!("OK"),
             Err(e) => println!("ERROR {:?}", e),
@@ -130,14 +127,6 @@ impl Backend for ZipArchive {
             &cursor.name(),
             TReference::ZipReference(TZipReference::new(self, cursor.index())),
         )
-    }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
     }
 }
 
@@ -209,12 +198,12 @@ fn list_zip(zip_file: &Path, store: &ListStore) -> ZipResult<()> {
         store.insert_with_values(
             None,
             &[
-                (Columns::Cat as u32, &cat.id()),
-                (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &name),
-                (Columns::Size as u32, &file_size),
-                (Columns::Modified as u32, &modified),
-                (Columns::Index as u32, &index),
+                (Column::Cat as u32, &cat.id()),
+                (Column::Icon as u32, &cat.icon()),
+                (Column::Name as u32, &name),
+                (Column::Size as u32, &file_size),
+                (Column::Modified as u32, &modified),
+                (Column::Index as u32, &index),
             ],
         );
     }

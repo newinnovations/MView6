@@ -29,7 +29,7 @@ use super::{Backend, Image, ImageParams, Target};
 use crate::{
     backends::thumbnail::model::TParent,
     category::Category,
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::draw::thumbnail_sheet,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
@@ -46,7 +46,6 @@ pub struct Thumbnail {
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
     parent_focus_pos: Cell<i32>,
-    sort: Cell<Sort>,
 }
 
 impl Thumbnail {
@@ -91,7 +90,6 @@ impl Thumbnail {
             parent_backend: RefCell::new(parent.backend), // <dyn Backend>::none()
             parent_target: parent.target,
             parent_focus_pos: parent.focus_pos.into(),
-            sort: Default::default(),
         }
     }
 
@@ -160,7 +158,7 @@ impl Backend for Thumbnail {
     }
 
     fn store(&self) -> ListStore {
-        let store = Columns::store();
+        let store = Column::empty_store();
         let capacity = self.capacity();
         let pages = if capacity > 0 {
             let parent_store = self.parent_backend.borrow().store();
@@ -179,10 +177,10 @@ impl Backend for Thumbnail {
             store.insert_with_values(
                 None,
                 &[
-                    (Columns::Cat as u32, &cat.id()),
-                    (Columns::Icon as u32, &cat.icon()),
-                    (Columns::Name as u32, &name),
-                    (Columns::Index as u32, &page),
+                    (Column::Cat as u32, &cat.id()),
+                    (Column::Icon as u32, &cat.icon()),
+                    (Column::Name as u32, &name),
+                    (Column::Index as u32, &page),
                 ],
             );
         }
@@ -257,14 +255,6 @@ impl Backend for Thumbnail {
         } else {
             None
         }
-    }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
     }
 
     fn get_thumb_parent(&self) -> TParent {

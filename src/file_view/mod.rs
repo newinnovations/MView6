@@ -29,7 +29,7 @@ use gtk4::{
 };
 pub use imp::{
     cursor::{Cursor, TreeModelMviewExt},
-    model::{Columns, Direction, Filter, Target},
+    model::{Column, Direction, Filter, Target},
     sort::Sort,
 };
 
@@ -89,7 +89,7 @@ impl FileView {
     ///
     /// Gets called via:
     /// - MViewWindowImp::set_backend(.. goto: &target ..)
-    /// - On change of sort (keys 1-4) with Target::First (change to current selection?)
+    /// - On change of sort (keys 1-4) with target is current selection
     ///
     /// In all cases the result is ignored
     ///
@@ -121,7 +121,7 @@ impl FileView {
                                 self.set_cursor(&tp, None::<&TreeViewColumn>, false);
                                 window.open_container.set(false);
                                 window.skip_loading.set(false);
-                                window.dir_enter(None);
+                                window.dir_enter();
                             } else {
                                 // this is the final goto: delay navigation so the file_view can render on screen
                                 // before executing set_cursor
@@ -180,6 +180,14 @@ impl FileView {
     pub fn set_unsorted(&self) {
         if let Some(store) = self.store() {
             store.set_unsorted();
+        }
+    }
+
+    pub fn set_sortable(&self, sortable: bool) {
+        self.set_headers_clickable(sortable);
+        for (i, column) in self.columns().iter().enumerate() {
+            column.set_clickable(sortable);
+            column.set_sort_column_id(if sortable { i as i32 } else { -1 });
         }
     }
 

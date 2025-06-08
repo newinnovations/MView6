@@ -21,14 +21,13 @@ use super::{Image, ImageParams};
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Columns, Cursor, Direction, Sort},
+    file_view::{Column, Cursor, Direction},
     image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
 };
 use gtk4::ListStore;
 use image::DynamicImage;
 use regex::Regex;
 use std::{
-    cell::Cell,
     fs::{metadata, read_dir, rename},
     io,
     path::{Path, PathBuf},
@@ -43,7 +42,6 @@ use super::{
 pub struct FileSystem {
     directory: PathBuf,
     store: ListStore,
-    sort: Cell<Sort>,
 }
 
 impl FileSystem {
@@ -51,7 +49,6 @@ impl FileSystem {
         FileSystem {
             directory: directory.into(),
             store: Self::create_store(directory),
-            sort: Default::default(),
         }
     }
 
@@ -90,11 +87,11 @@ impl FileSystem {
             store.insert_with_values(
                 None,
                 &[
-                    (Columns::Cat as u32, &cat.id()),
-                    (Columns::Icon as u32, &cat.icon()),
-                    (Columns::Name as u32, &filename),
-                    (Columns::Size as u32, &file_size),
-                    (Columns::Modified as u32, &modified),
+                    (Column::Cat as u32, &cat.id()),
+                    (Column::Icon as u32, &cat.icon()),
+                    (Column::Name as u32, &filename),
+                    (Column::Size as u32, &file_size),
+                    (Column::Modified as u32, &modified),
                 ],
             );
         }
@@ -102,7 +99,7 @@ impl FileSystem {
     }
 
     fn create_store(directory: &Path) -> ListStore {
-        let store = Columns::store();
+        let store = Column::empty_store();
         match Self::read_directory(&store, directory) {
             Ok(()) => (),
             Err(e) => {
@@ -228,15 +225,6 @@ impl Backend for FileSystem {
             name,
             TReference::FileReference(TFileReference::new(&self.directory, name)),
         )
-    }
-
-    fn set_sort(&self, sort: &Sort) {
-        // println!("fs::set_sort: {} {}", self.directory, sort);
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
     }
 }
 

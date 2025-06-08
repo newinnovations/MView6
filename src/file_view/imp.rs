@@ -44,7 +44,7 @@ use gtk4::{
 use human_bytes::human_bytes;
 
 use cursor::TreeModelMviewExt;
-use model::Columns;
+use model::Column;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -87,10 +87,10 @@ impl ObjectImpl for FileViewImp {
         let col_category = TreeViewColumn::new();
         col_category.pack_start(&renderer, true);
         // column.set_title("Cat");
-        col_category.add_attribute(&renderer, "icon-name", Columns::Icon as i32);
+        col_category.add_attribute(&renderer, "icon-name", Column::Icon as i32);
         col_category.set_sizing(TreeViewColumnSizing::Fixed);
         col_category.set_fixed_width(30);
-        col_category.set_sort_column_id(Columns::Cat as i32);
+        col_category.set_sort_column_id(Column::Cat as i32);
         instance.append_column(&col_category);
 
         // Column for file/direcory
@@ -102,10 +102,10 @@ impl ObjectImpl for FileViewImp {
         col_name.pack_start(&renderer_txt, true);
         col_name.set_title("Name");
         // column.add_attribute(&renderer_icon, "icon-name", Columns::Icon as i32);
-        col_name.add_attribute(&renderer_txt, "text", Columns::Name as i32);
+        col_name.add_attribute(&renderer_txt, "text", Column::Name as i32);
         col_name.set_sizing(TreeViewColumnSizing::Fixed);
         col_name.set_fixed_width(300);
-        col_name.set_sort_column_id(Columns::Name as i32);
+        col_name.set_sort_column_id(Column::Name as i32);
         instance.append_column(&col_name);
 
         // Column for size
@@ -115,10 +115,10 @@ impl ObjectImpl for FileViewImp {
         col_size.pack_start(&renderer, true);
         col_size.set_title("Size");
         col_size.set_alignment(1.0);
-        col_size.add_attribute(&renderer, "text", Columns::Size as i32);
+        col_size.add_attribute(&renderer, "text", Column::Size as i32);
         col_size.set_sizing(TreeViewColumnSizing::Fixed);
         col_size.set_fixed_width(90);
-        col_size.set_sort_column_id(Columns::Size as i32);
+        col_size.set_sort_column_id(Column::Size as i32);
         col_size.set_cell_data_func(&renderer, |_col, renderer, model, iter| {
             let size = model.size(iter);
             let modified_text = if size > 0 {
@@ -141,7 +141,7 @@ impl ObjectImpl for FileViewImp {
         } else {
             142
         });
-        col_date.set_sort_column_id(Columns::Modified as i32);
+        col_date.set_sort_column_id(Column::Modified as i32);
         col_date.set_cell_data_func(&renderer, |_col, renderer, model, iter| {
             let modified = model.modified(iter);
             let modified_text = if modified > 0 {

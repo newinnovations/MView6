@@ -25,7 +25,7 @@ use gtk4::{gdk::Key, prelude::GtkWindowExt};
 use crate::{
     backends::{document::PageMode, Backend, ImageParams},
     config::{contrast, contrast_delta},
-    file_view::{Columns, Direction, Filter, Target},
+    file_view::{Column, Direction, Filter, Target},
     image::{view::ZoomMode, Image, ImageData},
 };
 
@@ -81,7 +81,7 @@ impl MViewWindowImp {
                 w.image_view.rotate(90);
             }
             Key::Return | Key::KP_Enter => {
-                self.dir_enter(None);
+                self.dir_enter();
             }
             Key::BackSpace | Key::KP_Delete | Key::KP_Decimal => {
                 self.dir_leave();
@@ -174,16 +174,16 @@ impl MViewWindowImp {
                 dbg!(contrast());
             }
             Key::_1 => {
-                self.change_sort(&w.file_view, Columns::Cat);
+                self.change_sort(Column::Cat);
             }
             Key::_2 => {
-                self.change_sort(&w.file_view, Columns::Name);
+                self.change_sort(Column::Name);
             }
             Key::_3 => {
-                self.change_sort(&w.file_view, Columns::Size);
+                self.change_sort(Column::Size);
             }
             Key::_4 => {
-                self.change_sort(&w.file_view, Columns::Modified);
+                self.change_sort(Column::Modified);
             }
             Key::p => {
                 match self.page_mode.get() {

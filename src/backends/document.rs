@@ -21,15 +21,12 @@ use super::{Image, ImageParams};
 use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
 use mupdf::{Colorspace, Matrix};
-use std::{
-    cell::Cell,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::{
     category::Category,
     error::{MviewError, MviewResult},
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::{draw::draw_error, provider::gdk::GdkImageLoader},
     profile::performance::Performance,
 };
@@ -71,7 +68,6 @@ pub struct Document {
     filename: PathBuf,
     store: ListStore,
     last_page: u32,
-    sort: Cell<Sort>,
 }
 
 impl Document {
@@ -81,12 +77,11 @@ impl Document {
             filename: filename.into(),
             store,
             last_page,
-            sort: Sort::sort_on_category().into(),
         }
     }
 
     fn create_store(filename: &Path) -> (ListStore, u32) {
-        let store = Columns::store();
+        let store = Column::empty_store();
         match list_pages(filename, &store) {
             Ok(last_page) => (store, last_page),
             Err(e) => {
@@ -142,14 +137,6 @@ impl Backend for Document {
             &cursor.name(),
             TReference::DocReference(TDocReference::new(self, cursor.index())),
         )
-    }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
     }
 }
 
@@ -283,10 +270,10 @@ fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<u32> {
             store.insert_with_values(
                 None,
                 &[
-                    (Columns::Cat as u32, &cat.id()),
-                    (Columns::Icon as u32, &cat.icon()),
-                    (Columns::Name as u32, &page),
-                    (Columns::Index as u32, &i),
+                    (Column::Cat as u32, &cat.id()),
+                    (Column::Icon as u32, &cat.icon()),
+                    (Column::Name as u32, &page),
+                    (Column::Index as u32, &i),
                 ],
             );
         }

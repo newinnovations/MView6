@@ -40,30 +40,31 @@ pub enum Filter {
 
 #[derive(Debug)]
 #[repr(u32)]
-pub enum Columns {
+pub enum Column {
+    // First 4 need to be in the order on screen
     Cat = 0,
-    Icon,
     Name,
     Size,
     Modified,
     Index,
+    Icon,
     Folder,
 }
 
-impl Columns {
-    pub fn store() -> ListStore {
+impl Column {
+    pub fn empty_store() -> ListStore {
         let col_types: [glib::Type; 7] = [
             glib::Type::U32,
             glib::Type::STRING,
+            glib::Type::U64,
+            glib::Type::U64,
+            glib::Type::U64,
             glib::Type::STRING,
-            glib::Type::U64,
-            glib::Type::U64,
-            glib::Type::U64,
             glib::Type::STRING,
         ];
         let store = ListStore::new(&col_types);
         store.set_sort_func(
-            gtk4::SortColumn::Index(Columns::Cat as u32),
+            gtk4::SortColumn::Index(Column::Cat as u32),
             |model, iter1, iter2| {
                 let cat1 = model.category_id(iter1);
                 let cat2 = model.category_id(iter2);

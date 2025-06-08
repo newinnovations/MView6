@@ -17,11 +17,11 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{cell::Cell, fmt::Display};
+use std::fmt::Display;
 
-use gtk4::{prelude::TreeSortableExtManual, ListStore, SortColumn, SortType};
+use gtk4::{SortColumn, SortType};
 
-use super::model::Columns;
+use super::model::Column;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Sort {
@@ -45,24 +45,7 @@ impl Sort {
     }
 
     pub fn sort_on_category() -> Self {
-        Sort::new(SortColumn::Index(Columns::Cat as u32), SortType::Ascending)
-    }
-
-    pub fn on_sort_column_changed(model: &ListStore, current_sort: &Cell<Sort>) {
-        let previous_sort = current_sort.get();
-        if let Some((new_column, new_order)) = model.sort_column_id() {
-            current_sort.set(Sort::new(new_column, new_order));
-            if let Sort::Sorted((previous_column, _)) = previous_sort {
-                if !previous_column.eq(&new_column) {
-                    if let SortColumn::Index(4) = &new_column {
-                        model.set_sort_column_id(
-                            SortColumn::Index(Columns::Modified as u32),
-                            SortType::Descending,
-                        )
-                    }
-                }
-            }
-        }
+        Sort::new(SortColumn::Index(Column::Cat as u32), SortType::Ascending)
     }
 
     pub fn to_str(col: &SortColumn, order: &SortType) -> String {

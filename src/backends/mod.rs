@@ -35,7 +35,7 @@ use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
     backends::thumbnail::model::TParent,
-    file_view::{Cursor, Direction, Sort, Target},
+    file_view::{Cursor, Direction, Target},
     image::Image,
 };
 
@@ -99,10 +99,9 @@ pub trait Backend {
     fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
-    // fn set_parent(&self, parent: Box<dyn Backend>) {}
-    fn set_sort(&self, sort: &Sort);
-    fn sort(&self) -> Sort;
-
+    fn can_be_sorted(&self) -> bool {
+        !(self.is_thumbnail() || self.is_doc())
+    }
     // Only implemented by thumbnail backed, dummy here
     fn get_thumb_parent(&self) -> TParent {
         TParent {
@@ -111,14 +110,6 @@ pub trait Backend {
             focus_pos: 0,
         }
     }
-
-    // For thumbnail
-    // fn position(&self) -> (Target, i32) {
-    //     (Target::First, 0)
-    // }
-    // fn thumbnail_parent(&self) -> i32 {
-    //     0
-    // }
 }
 
 impl std::fmt::Debug for dyn Backend {

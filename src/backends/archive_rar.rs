@@ -23,16 +23,13 @@ use gtk4::ListStore;
 use human_bytes::human_bytes;
 use image::DynamicImage;
 use sha2::{Digest, Sha256};
-use std::{
-    cell::Cell,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Columns, Cursor, Sort},
+    file_view::{Column, Cursor},
     image::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
@@ -48,7 +45,6 @@ use super::{
 pub struct RarArchive {
     filename: PathBuf,
     store: ListStore,
-    sort: Cell<Sort>,
 }
 
 impl RarArchive {
@@ -56,12 +52,11 @@ impl RarArchive {
         RarArchive {
             filename: filename.into(),
             store: Self::create_store(filename),
-            sort: Default::default(),
         }
     }
 
     fn create_store(filename: &Path) -> ListStore {
-        let store = Columns::store();
+        let store = Column::empty_store();
         match list_rar(filename, &store) {
             Ok(()) => (),
             Err(e) => println!("ERROR {:?}", e),
@@ -125,14 +120,6 @@ impl Backend for RarArchive {
             TReference::RarReference(TRarReference::new(self, &cursor.name())),
         )
     }
-
-    fn set_sort(&self, sort: &Sort) {
-        self.sort.set(*sort)
-    }
-
-    fn sort(&self) -> Sort {
-        self.sort.get()
-    }
 }
 
 fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
@@ -178,11 +165,11 @@ fn list_rar(rar_file: &Path, store: &ListStore) -> UnrarResult<()> {
         store.insert_with_values(
             None,
             &[
-                (Columns::Cat as u32, &cat.id()),
-                (Columns::Icon as u32, &cat.icon()),
-                (Columns::Name as u32, &name),
-                (Columns::Size as u32, &file_size),
-                (Columns::Modified as u32, &modified),
+                (Column::Cat as u32, &cat.id()),
+                (Column::Icon as u32, &cat.icon()),
+                (Column::Name as u32, &name),
+                (Column::Size as u32, &file_size),
+                (Column::Modified as u32, &modified),
             ],
         );
     }
