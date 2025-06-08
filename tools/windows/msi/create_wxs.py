@@ -63,7 +63,7 @@ def create_component_element(parent_element, file_id, relative_path, source_path
     component = ET.SubElement(
         parent_element,
         "Component",
-        {"Id": f"Comp_{file_id}", "Guid": "*"},
+        {"Id": f"Comp_{file_id}", "Guid": "*", "Win64": "yes"},
     )
 
     ET.SubElement(
@@ -98,7 +98,12 @@ def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
     ET.SubElement(
         product,
         "Package",
-        {"InstallerVersion": "200", "Compressed": "yes", "InstallScope": "perMachine"},
+        {
+            "InstallerVersion": "200",
+            "Compressed": "yes",
+            "InstallScope": "perMachine",
+            "Platform": "x64",
+        },
     )
 
     ET.SubElement(product, "MediaTemplate", {"EmbedCab": "yes"})
@@ -121,7 +126,7 @@ def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
 
     # Add Program Files folder
     program_files = ET.SubElement(
-        directory_root, "Directory", {"Id": "ProgramFilesFolder"}
+        directory_root, "Directory", {"Id": "ProgramFiles64Folder"}
     )
 
     # Add Start Menu Programs folder for shortcut
@@ -149,7 +154,7 @@ def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
     shortcut_component = ET.SubElement(
         app_menu_dir,
         "Component",
-        {"Id": "ApplicationShortcut", "Guid": "*"},
+        {"Id": "ApplicationShortcut", "Guid": "*", "Win64": "yes"},
     )
 
     # Reference the shortcut component in the feature
