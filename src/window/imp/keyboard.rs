@@ -48,7 +48,7 @@ impl MViewWindowImp {
                     } else {
                         Target::First
                     };
-                    self.set_backend(<dyn Backend>::bookmarks(backend, target), Target::First);
+                    self.set_backend(<dyn Backend>::bookmarks(backend, target), &Target::First);
                 }
             }
             Key::t => {

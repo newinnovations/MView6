@@ -93,6 +93,7 @@ pub struct MViewWindowImp {
     current_sort: Cell<Sort>,
     page_mode: Cell<PageMode>,
     sorting_store: RefCell<HashMap<PathBuf, Sort>>,
+    target_store: RefCell<HashMap<PathBuf, Target>>,
 }
 
 #[glib::object_subclass]
@@ -374,10 +375,10 @@ impl ObjectImpl for MViewWindowImp {
                     // match path::absolute(filename) {
                     match fs::canonicalize(filename) {
                         Ok(abs_path) => this.navigate_to(&abs_path),
-                        Err(_) => this.set_backend(<dyn Backend>::current_dir(), Target::First),
+                        Err(_) => this.set_backend(<dyn Backend>::current_dir(), &Target::First),
                     }
                 } else {
-                    this.set_backend(<dyn Backend>::current_dir(), Target::First);
+                    this.set_backend(<dyn Backend>::current_dir(), &Target::First);
                 }
                 ControlFlow::Break
             }

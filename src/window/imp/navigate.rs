@@ -38,9 +38,13 @@ impl MViewWindowImp {
                     sender: &w.sender,
                     page_mode: &self.page_mode.get(),
                 };
-                let image = self.backend.borrow().image(&current, &params);
+                let backend = self.backend.borrow();
+                self.target_store
+                    .borrow_mut()
+                    .insert(backend.path(), backend.entry(&current).into());
+                let image = backend.image(&current, &params);
                 w.info_view.update(&image);
-                if self.backend.borrow().is_thumbnail() {
+                if backend.is_thumbnail() {
                     w.image_view.set_image_pre(image);
                 } else {
                     w.image_view.set_image(image);
@@ -61,7 +65,11 @@ impl MViewWindowImp {
             let new_backend = backend.enter(&current);
             drop(backend);
             if let Some(new_backend) = new_backend {
-                self.set_backend(new_backend, Target::First);
+                let target_store = self.target_store.borrow();
+                let target = target_store
+                    .get(&new_backend.path())
+                    .unwrap_or(&Target::First);
+                self.set_backend(new_backend, target);
             }
         }
     }
@@ -70,7 +78,7 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if let Some((new_backend, target)) = backend.leave() {
             drop(backend);
-            self.set_backend(new_backend, target);
+            self.set_backend(new_backend, &target);
         }
     }
 
@@ -86,7 +94,7 @@ impl MViewWindowImp {
         dbg!(filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
         self.open_container.set(category.is_container());
-        self.set_backend(new_backend, Target::Name(filename.to_string()));
+        self.set_backend(new_backend, &Target::Name(filename.to_string()));
     }
 
     pub fn hop(&self, direction: Direction) {

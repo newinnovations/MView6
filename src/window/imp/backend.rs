@@ -28,7 +28,7 @@ use crate::{
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: Target) {
+    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: &Target) {
         let skip_loading = self.skip_loading.get();
         self.skip_loading.set(true);
 
@@ -84,7 +84,7 @@ impl MViewWindowImp {
         w.file_view.set_model(Some(&new_store));
         w.file_view.set_sortable(can_be_sorted);
         self.skip_loading.set(skip_loading);
-        w.file_view.goto(&goto, &self.obj());
+        w.file_view.goto(goto, &self.obj());
     }
 
     pub fn update_thumbnail_backend(&self) {
@@ -96,7 +96,7 @@ impl MViewWindowImp {
             let thumbnail =
                 Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
             let focus_page = thumbnail.focus_page();
-            self.set_backend(<dyn Backend>::thumbnail(thumbnail), focus_page);
+            self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page);
         }
     }
 }

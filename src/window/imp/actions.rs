@@ -206,7 +206,7 @@ impl MViewWindowImp {
             let focus_page = thumbnail.focus_page();
             let thumbnail = <dyn Backend>::thumbnail(thumbnail);
             // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
-            self.set_backend(thumbnail, focus_page);
+            self.set_backend(thumbnail, &focus_page);
             self.show_info_widget(false);
         } else if backend.is_thumbnail() {
             drop(backend);
