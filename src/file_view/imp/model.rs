@@ -83,11 +83,12 @@ impl Column {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Target {
     First,
     Name(String),
     Index(u64),
+    Last,
 }
 
 impl From<TReference> for Target {

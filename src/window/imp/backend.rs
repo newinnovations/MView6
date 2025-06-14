@@ -99,4 +99,15 @@ impl MViewWindowImp {
             self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page);
         }
     }
+
+    pub fn reload(&self, goto: &Target) -> bool {
+        let backend = self.backend.borrow();
+        if let Some(new_backend) = backend.reload() {
+            drop(backend);
+            self.set_backend(new_backend, goto);
+            true
+        } else {
+            false
+        }
+    }
 }

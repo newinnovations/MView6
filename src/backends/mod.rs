@@ -102,13 +102,17 @@ pub trait Backend {
     fn can_be_sorted(&self) -> bool {
         !(self.is_thumbnail() || self.is_doc())
     }
-    // Only implemented by thumbnail backed, dummy here
+    // Only implemented by thumbnail backend, dummy here
     fn get_thumb_parent(&self) -> TParent {
         TParent {
             backend: <dyn Backend>::none(),
             target: Target::First,
             focus_pos: 0,
         }
+    }
+    // Only implemented by filesystem backend, dummy here
+    fn reload(&self) -> Option<Box<dyn Backend>> {
+        None
     }
 }
 

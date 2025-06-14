@@ -25,7 +25,7 @@ use glib::{
 use gtk4::{
     glib,
     prelude::{TreeModelExt, TreeSortableExtManual, TreeViewExt},
-    ListStore, TreeViewColumn,
+    ListStore, TreeIter, TreeViewColumn,
 };
 pub use imp::{
     cursor::{Cursor, TreeModelMviewExt},
@@ -81,71 +81,81 @@ impl FileView {
         }
     }
 
+    /// Helper for goto function
+    ///
+    fn goto_iter(&self, window: &MViewWindow, store: &ListStore, iter: &TreeIter) {
+        let tp = store.path(iter);
+        let window = window.imp();
+        let skip_loading = window.skip_loading.get();
+        if skip_loading {
+            // do not delay, we need the result now because the final goto which will come later
+            self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+        } else {
+            let open_container = window.open_container.get();
+            if open_container {
+                // do not delay, we need the result now because the final goto which will come later
+                window.skip_loading.set(true);
+                self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                window.open_container.set(false);
+                window.skip_loading.set(false);
+                window.dir_enter();
+            } else {
+                // this is the final goto: delay navigation so the file_view can render on screen
+                // before executing set_cursor
+                idle_add_local(clone!(
+                    #[weak(rename_to = this)]
+                    self,
+                    #[upgrade_or]
+                    ControlFlow::Break,
+                    move || {
+                        this.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                        ControlFlow::Break
+                    }
+                ));
+            }
+        }
+    }
+
     /// Goto an entry in the in list (files, pages, etc). We do this delayed using idle_add_local,
     /// so the file_view can render on screen before executing set_cursor. In some cases we go
     /// through several goto operations before reaching the final (with skip_loading and
     /// open_container), in those cases do not delay as the file_view does not yet contain the
     /// desired contents.
     ///
+    /// If not found, we will select the last item. Ignores empty lists.
+    ///
     /// Gets called via:
     /// - MViewWindowImp::set_backend(.. goto: &target ..)
-    /// - On change of sort (keys 1-4) with target is current selection
     ///
-    /// In all cases the result is ignored
-    ///
-    /// TODO:
-    /// - remove result ?
-    ///
-    pub fn goto(&self, target: &Target, window: &MViewWindow) -> bool {
+    pub fn goto(&self, target: &Target, window: &MViewWindow) {
         // println!("fileview::goto {:?}", target);
         if let Some(store) = self.store() {
-            if let Some(iter) = store.iter_first() {
-                loop {
-                    let found = match target {
-                        Target::First => true,
-                        Target::Name(filename) => *filename == store.name(&iter),
-                        Target::Index(index) => *index == store.index(&iter),
-                    };
-                    if found {
-                        let tp = store.path(&iter); //.unwrap_or_default();
-                        let window = window.imp();
-                        let skip_loading = window.skip_loading.get();
-                        if skip_loading {
-                            // do not delay, we need the result now because the final goto which will come later
-                            self.set_cursor(&tp, None::<&TreeViewColumn>, false);
-                        } else {
-                            let open_container = window.open_container.get();
-                            if open_container {
-                                // do not delay, we need the result now because the final goto which will come later
-                                window.skip_loading.set(true);
-                                self.set_cursor(&tp, None::<&TreeViewColumn>, false);
-                                window.open_container.set(false);
-                                window.skip_loading.set(false);
-                                window.dir_enter();
-                            } else {
-                                // this is the final goto: delay navigation so the file_view can render on screen
-                                // before executing set_cursor
-                                idle_add_local(clone!(
-                                    #[weak(rename_to = this)]
-                                    self,
-                                    #[upgrade_or]
-                                    ControlFlow::Break,
-                                    move || {
-                                        this.set_cursor(&tp, None::<&TreeViewColumn>, false);
-                                        ControlFlow::Break
-                                    }
-                                ));
-                            }
+            let n = store.iter_n_children(None);
+            if n < 1 {
+                return;
+            }
+            if *target != Target::Last {
+                if let Some(iter) = store.iter_first() {
+                    loop {
+                        let found = match target {
+                            Target::Name(filename) => *filename == store.name(&iter),
+                            Target::Index(index) => *index == store.index(&iter),
+                            _ => true,
+                        };
+                        if found {
+                            self.goto_iter(window, &store, &iter);
+                            return;
                         }
-                        return true;
-                    }
-                    if !store.iter_next(&iter) {
-                        return false;
+                        if !store.iter_next(&iter) {
+                            break;
+                        }
                     }
                 }
             }
+            if let Some(iter) = store.iter_nth_child(None, n - 1) {
+                self.goto_iter(window, &store, &iter);
+            }
         }
-        false
     }
 
     pub fn home(&self) {

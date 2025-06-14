@@ -160,10 +160,14 @@ impl MViewWindowImp {
                 w.file_view.navigate(Direction::Down, w.filter(), 25);
             }
             Key::Home => {
-                w.file_view.home();
+                if !self.reload(&Target::First) {
+                    w.file_view.home();
+                }
             }
             Key::End => {
-                w.file_view.end();
+                if !self.reload(&Target::Last) {
+                    w.file_view.end();
+                }
             }
             Key::F6 => {
                 contrast_delta(-1);

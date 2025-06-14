@@ -226,6 +226,14 @@ impl Backend for FileSystem {
             TReference::FileReference(TFileReference::new(&self.directory, name)),
         )
     }
+
+    fn reload(&self) -> Option<Box<dyn Backend>> {
+        let directory = &self.directory;
+        Some(Box::new(FileSystem {
+            directory: directory.into(),
+            store: Self::create_store(directory),
+        }))
+    }
 }
 
 #[derive(Debug, Clone)]
