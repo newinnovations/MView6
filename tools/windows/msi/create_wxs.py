@@ -85,12 +85,12 @@ def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
         wix,
         "Product",
         {
-            "Id": "69c966bc-c892-421f-a9d0-749e21a0745a",
+            "Id": "*",
             "Name": "MView6",
             "Language": "1033",
             "Version": version,
             "Manufacturer": "NewInnovations",
-            "UpgradeCode": str(uuid.uuid4()),
+            "UpgradeCode": "69c966bc-2192-161f-25d0-749e21a0745a",
         },
     )
 
@@ -113,6 +113,15 @@ def generate_wxs(root_folder, output_file="mview6.wxs", version="1.0.0.0"):
 
     # Add a Property to show icon in Add/Remove Programs
     ET.SubElement(product, "Property", Id="ARPPRODUCTICON", Value="MView6Icon")
+
+    # Support upgrade of older versions
+    ET.SubElement(
+        product,
+        "MajorUpgrade",
+        {
+            "DowngradeErrorMessage": "A later version of MView6 is already installed. Setup will now exit."
+        },
+    )
 
     # Create feature element
     feature = ET.SubElement(
