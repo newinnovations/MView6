@@ -197,18 +197,6 @@ impl ImageViewData {
         (width * zoom, height * zoom)
     }
 
-    pub fn center(&self) -> (f64, f64) {
-        let (w, h) = self.compute_scaled_size(self.zoom);
-        (w / 2.0 - self.xofs, h / 2.0 - self.yofs)
-    }
-
-    pub fn move_center_to(&mut self, center: (f64, f64)) {
-        let (cx, cy) = center;
-        let (w, h) = self.compute_scaled_size(self.zoom);
-        self.xofs = w / 2.0 - cx;
-        self.yofs = h / 2.0 - cy;
-    }
-
     pub fn image_coords(&self) -> (f64, f64, f64, f64) {
         let (scaled_width, scaled_height) = self.compute_scaled_size(self.zoom);
         (-self.xofs, -self.yofs, scaled_width, scaled_height)

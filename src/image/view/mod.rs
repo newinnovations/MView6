@@ -22,7 +22,6 @@ mod imp;
 
 use std::time::SystemTime;
 
-use data::QUALITY_HIGH;
 use gdk_pixbuf::Pixbuf;
 use gio::Menu;
 use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
@@ -165,12 +164,10 @@ impl ImageView {
 
     pub fn rotate(&self, angle: i32) {
         let mut p = self.imp().data.borrow_mut();
-        let center = p.center();
         p.rotation = (p.rotation + angle).rem_euclid(360);
         p.image.rotate(angle);
         p.create_surface();
-        p.move_center_to(center);
-        p.redraw(QUALITY_HIGH);
+        p.apply_zoom();
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {
