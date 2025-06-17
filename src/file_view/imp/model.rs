@@ -18,6 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use gtk4::{prelude::TreeSortableExtManual, ListStore};
+use serde::{Deserialize, Serialize};
 
 use super::cursor::TreeModelMviewExt;
 use crate::backends::thumbnail::{TEntry, TReference};
@@ -83,7 +84,7 @@ impl Column {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Target {
     First,
     Name(String),

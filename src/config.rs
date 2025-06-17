@@ -50,7 +50,6 @@ impl Config {
     fn config_dir() -> PathBuf {
         let mut dir = dirs::config_dir().unwrap_or_default();
         dir.push("mview6");
-        // dbg!(&dir);
         dir
     }
 

@@ -34,7 +34,7 @@ impl MViewWindowImp {
         let w = self.widgets();
         match e {
             Key::q => {
-                self.obj().close();
+                self.quit();
             }
             Key::h => {
                 self.show_help();

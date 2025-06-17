@@ -17,7 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::Path;
+use std::{
+    collections::HashMap,
+    fs::{create_dir_all, File},
+    io::{self, BufReader, BufWriter},
+    path::{Path, PathBuf},
+};
 
 use super::MViewWindowImp;
 
@@ -25,6 +30,7 @@ use crate::{
     backends::{Backend, ImageParams},
     category::Category,
     file_view::{Direction, Filter, Target},
+    window::imp::TargetTime,
 };
 use gtk4::{TreePath, TreeViewColumn};
 
@@ -39,9 +45,10 @@ impl MViewWindowImp {
                     page_mode: &self.page_mode.get(),
                 };
                 let backend = self.backend.borrow();
-                self.target_store
-                    .borrow_mut()
-                    .insert(backend.path(), backend.entry(&current).into());
+                self.target_store.borrow_mut().insert(
+                    backend.path(),
+                    TargetTime::new(&backend.entry(&current).into()),
+                );
                 let image = backend.image(&current, &params);
                 w.info_view.update(&image);
                 if backend.is_thumbnail() {
@@ -68,6 +75,7 @@ impl MViewWindowImp {
                 let target_store = self.target_store.borrow();
                 let target = target_store
                     .get(&new_backend.path())
+                    .map(|tt| &tt.target)
                     .unwrap_or(&Target::First);
                 self.set_backend(new_backend, target);
             }
@@ -108,5 +116,56 @@ impl MViewWindowImp {
         // enter dir
         self.skip_loading.set(false);
         self.dir_enter();
+    }
+
+    fn navigation_cache_file(create_dir: bool) -> io::Result<PathBuf> {
+        let mut path = dirs::config_dir().unwrap_or_default();
+        path.push("mview6");
+        if create_dir {
+            create_dir_all(&path)?;
+        }
+        path.push("navigation.json");
+        Ok(path)
+    }
+
+    pub fn save_navigation(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let target_store = self.target_store.borrow();
+
+        // Get all entries and sort by timestamp (most recent first)
+        let mut entries: Vec<_> = target_store.iter().collect();
+        entries.sort_by(|a, b| b.1.timestamp.cmp(&a.1.timestamp));
+
+        // Take only the N most recent entries
+        let recent_entries: HashMap<PathBuf, TargetTime> = entries
+            .into_iter()
+            .take(200)
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    TargetTime {
+                        target: v.target.clone(),
+                        timestamp: v.timestamp,
+                    },
+                )
+            })
+            .collect();
+
+        let file = File::create(Self::navigation_cache_file(true)?)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, &recent_entries)?;
+
+        Ok(())
+    }
+
+    /// Load entries from a JSON file
+    pub fn load_navigation(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let file = File::open(Self::navigation_cache_file(false)?)?;
+        let reader = BufReader::new(file);
+        let loaded_data: HashMap<PathBuf, TargetTime> = serde_json::from_reader(reader)?;
+
+        // Replace the current target_store with loaded data
+        *self.target_store.borrow_mut() = loaded_data;
+
+        Ok(())
     }
 }

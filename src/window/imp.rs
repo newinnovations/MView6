@@ -45,11 +45,13 @@ use gtk4::{
     glib::Propagation, prelude::*, subclass::prelude::*, EventControllerKey, HeaderBar, MenuButton,
     ScrolledWindow,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     cell::{Cell, OnceCell, RefCell},
     collections::HashMap,
     env, fs,
     path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 #[derive(Debug)]
@@ -82,6 +84,26 @@ impl MViewWidgets {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TargetTime {
+    pub target: Target,
+    // pub sort: Sort,
+    pub timestamp: u64,
+}
+
+impl TargetTime {
+    pub fn new(target: &Target) -> Self {
+        TargetTime {
+            target: target.clone(),
+            // sort: Sort::Unsorted,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct MViewWindowImp {
     widget_cell: OnceCell<MViewWidgets>,
@@ -93,7 +115,7 @@ pub struct MViewWindowImp {
     current_sort: Cell<Sort>,
     page_mode: Cell<PageMode>,
     sorting_store: RefCell<HashMap<PathBuf, Sort>>,
-    target_store: RefCell<HashMap<PathBuf, Target>>,
+    target_store: RefCell<HashMap<PathBuf, TargetTime>>,
 }
 
 #[glib::object_subclass]
@@ -166,6 +188,8 @@ impl MViewWindowImp {
 impl ObjectImpl for MViewWindowImp {
     fn constructed(&self) {
         self.parent_constructed();
+
+        _ = self.load_navigation();
 
         let args: Vec<String> = env::args().collect();
         let filename = if args.len() > 1 {
@@ -381,6 +405,18 @@ impl ObjectImpl for MViewWindowImp {
                     this.set_backend(<dyn Backend>::current_dir(), &Target::First);
                 }
                 ControlFlow::Break
+            }
+        ));
+
+        window.connect_close_request(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[upgrade_or]
+            Propagation::Proceed,
+            move |_| {
+                println!("Closing");
+                let _ = this.save_navigation();
+                Propagation::Proceed
             }
         ));
 
