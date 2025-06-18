@@ -55,7 +55,7 @@ impl MViewWindowImp {
         let previous_sort = self.current_sort.get();
         if let Some((new_column, new_order)) = model.sort_column_id() {
             self.current_sort.set(Sort::new(new_column, new_order));
-            let path = self.backend.borrow().path();
+            let path = self.backend.borrow().normalized_path();
             self.sorting_store
                 .borrow_mut()
                 .insert(path, self.current_sort.get());

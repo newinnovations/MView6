@@ -46,7 +46,7 @@ impl MViewWindowImp {
                 };
                 let backend = self.backend.borrow();
                 self.target_store.borrow_mut().insert(
-                    backend.path(),
+                    backend.normalized_path(),
                     TargetTime::new(&backend.entry(&current).into()),
                 );
                 let image = backend.image(&current, &params);
@@ -74,7 +74,7 @@ impl MViewWindowImp {
             if let Some(new_backend) = new_backend {
                 let target_store = self.target_store.borrow();
                 let target = target_store
-                    .get(&new_backend.path())
+                    .get(&new_backend.normalized_path())
                     .map(|tt| &tt.target)
                     .unwrap_or(&Target::First);
                 self.set_backend(new_backend, target);

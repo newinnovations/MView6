@@ -114,6 +114,25 @@ pub trait Backend {
     fn reload(&self) -> Option<Box<dyn Backend>> {
         None
     }
+    fn normalized_path(&self) -> PathBuf {
+        let path = self.path();
+        #[cfg(windows)]
+        {
+            // Remove the \\?\ prefix if present on Windows
+            let path_str = path.to_string_lossy();
+            if path_str.starts_with(r"\\?\") {
+                PathBuf::from(&path_str[4..])
+            } else {
+                path
+            }
+        }
+
+        #[cfg(not(windows))]
+        {
+            // On non-Windows systems, just return the path as-is
+            path
+        }
+    }
 }
 
 impl std::fmt::Debug for dyn Backend {

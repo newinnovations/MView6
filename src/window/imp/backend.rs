@@ -40,7 +40,7 @@ impl MViewWindowImp {
         let can_be_sorted = new_backend.can_be_sorted();
 
         let new_sort = if can_be_sorted {
-            let path = new_backend.path();
+            let path = new_backend.normalized_path();
             if let Some(sort) = sorting_store.get(&path) {
                 sort
             } else {
