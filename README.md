@@ -103,7 +103,7 @@ Example config file (location $HOME/.config/mview/mview6.json)
 
 ## Rotate image
 
-The rotation is not saved to image.
+Rotating the image does not change the file on disk.
 
 | Key(s)             | Function               |
 | ------------------ | ---------------------- |

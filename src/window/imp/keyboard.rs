@@ -78,10 +78,10 @@ impl MViewWindowImp {
                 self.widgets().set_action_bool("fullscreen", false);
             }
             Key::r => {
-                w.image_view.rotate(270);
+                self.rotate_image(270);
             }
             Key::R => {
-                w.image_view.rotate(90);
+                self.rotate_image(90);
             }
             Key::Return | Key::KP_Enter => {
                 self.dir_enter();

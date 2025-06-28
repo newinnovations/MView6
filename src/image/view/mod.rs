@@ -111,7 +111,7 @@ impl ImageView {
         self.imp().cancel_animation();
         p.image = image;
         // p.image.crop_to_max_size();
-        p.rotation = 0;
+        // p.rotation = 0;
         p.annotations = None;
         p.hover = None;
     }
@@ -159,24 +159,24 @@ impl ImageView {
         p.zoom.clone()
     }
 
-    // pub fn set_zoom(&self, zoom: ImageZoom) {
-    //     let mut p = self.imp().data.borrow_mut();
-    //     p.zoom = zoom;
-    //     p.redraw(QUALITY_HIGH);
-    // }
-
     pub fn clip(&self) -> Rect {
         let p = self.imp().data.borrow();
-        let x0 = -p.zoom.xofs as f32 / p.zoom.zoom as f32;
-        let y0 = -p.zoom.yofs as f32 / p.zoom.zoom as f32;
         let a = self.allocation();
-        let w = a.width() as f32 / p.zoom.zoom as f32;
-        let h = a.height() as f32 / p.zoom.zoom as f32;
-        Rect {
-            x0,
-            y0,
-            x1: x0 + w,
-            y1: y0 + h,
+        if let Ok(matrix) = p.zoom.matrix().try_invert() {
+            let (x1, y1) = matrix.transform_point(0.0, 0.0);
+            let (x2, y2) = matrix.transform_point(0.0, a.height() as f64);
+            let (x3, y3) = matrix.transform_point(a.width() as f64, 0.0);
+            let (x4, y4) = matrix.transform_point(a.width() as f64, a.height() as f64);
+            Rect {
+                x0: x1.min(x2).min(x3).min(x4) as f32,
+                y0: y1.min(y2).min(y3).min(y4) as f32,
+                x1: x1.max(x2).max(x3).max(x4) as f32,
+                y1: y1.max(y2).max(y3).max(y4) as f32,
+            }
+        } else {
+            Rect {
+                ..Default::default()
+            }
         }
     }
 
@@ -211,9 +211,10 @@ impl ImageView {
 
     pub fn rotate(&self, angle: i32) {
         let mut p = self.imp().data.borrow_mut();
-        p.rotation = (p.rotation + angle).rem_euclid(360);
-        p.image.rotate(angle);
-        p.create_surface();
+        p.zoom.rotation = (p.zoom.rotation + angle).rem_euclid(360);
+        dbg!(p.zoom.rotation);
+        // p.image.rotate(angle);
+        // p.create_surface();
         p.apply_zoom();
         p.redraw(QUALITY_HIGH); // FIXME: handle rotate during draw()
     }

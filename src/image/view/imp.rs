@@ -101,8 +101,6 @@ impl ImageViewImp {
         self.animation_timeout_id.replace(None);
         let mut p = self.data.borrow_mut();
         if p.image.animation_advance(SystemTime::now()) {
-            let rotation = p.rotation;
-            p.image.rotate(rotation);
             p.create_surface();
             self.schedule_animation(&p.image, start);
             p.redraw(QUALITY_LOW);
@@ -141,25 +139,36 @@ impl ImageViewImp {
          * This is especially necessary for SVGs where there might
          * be more image data available outside the image boundaries.
          */
-        context.rectangle(xofs, yofs, scaled_width, scaled_height);
-        context.clip();
+        // context.rectangle(xofs, yofs, scaled_width, scaled_height);
+        // context.clip();
         if let ImageData::Svg(handle) = &p.image.image_data {
-            let viewport = rsvg::Rectangle::new(xofs, yofs, scaled_width, scaled_height);
+            // let viewport = rsvg::Rectangle::new(xofs, yofs, scaled_width, scaled_height);
+            let (width, height) = p.image.size();
+            let viewport = rsvg::Rectangle::new(0.0, 0.0, width, height);
+            let matrix = p.zoom.matrix();
+            context.transform(matrix);
             handle.render_document(context, &viewport).unwrap();
         } else if let Some(surface) = &p.zoom_surface {
-            let _ = context.set_source_surface(surface, xofs.max(0.0), yofs.max(0.0));
+            let z = &p.zoom;
+            let matrix = z.clip_matrix(surface.width(), surface.height());
+            context.transform(matrix);
+            let _ = context.set_source_surface(surface, 0.0, 0.0);
             let _ = context.paint();
         } else {
             let z = &p.zoom;
-            context.scale(z.zoom, z.zoom);
+            let matrix = z.matrix();
+            let size = p.image.size();
+            context.transform(matrix);
+            context.rectangle(0.0, 0.0, size.0, size.1);
+            context.clip();
+
             if let Surfaces::Single(surface) = &p.surface {
-                let _ = context.set_source_surface(surface, xofs / z.zoom, yofs / z.zoom);
+                let _ = context.set_source_surface(surface, 0.0, 0.0);
             } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
-                let _ = context.set_source_surface(surface1, xofs / z.zoom, yofs / z.zoom + y1);
+                let _ = context.set_source_surface(surface1, 0.0, *y1);
                 context.source().set_filter(p.quality);
                 let _ = context.paint();
-                let _ =
-                    context.set_source_surface(surface2, w1 + xofs / z.zoom, yofs / z.zoom + y2);
+                let _ = context.set_source_surface(surface2, *w1, *y2);
             }
             context.source().set_filter(p.quality);
             let _ = context.paint();
@@ -205,7 +214,7 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.drag.is_none() && p.image.is_movable() {
             let (position_x, position_y) = position;
-            p.drag = Some((position_x - p.zoom.xofs, position_y - p.zoom.yofs));
+            p.drag = Some((position_x - p.zoom.off_x(), position_y - p.zoom.off_y()));
             self.obj().set_view_cursor(ViewCursor::Drag);
         }
     }
@@ -223,7 +232,7 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         p.mouse_position = (x, y);
         if let Some(annotations) = &p.annotations {
-            let index = annotations.index_at(x - p.zoom.xofs, y - p.zoom.yofs);
+            let index = annotations.index_at(x - p.zoom.off_x(), y - p.zoom.off_y());
             if index != p.hover {
                 // dbg!(index);
                 p.hover = index;
@@ -232,8 +241,7 @@ impl ImageViewImp {
             }
         }
         if let Some((drag_x, drag_y)) = p.drag {
-            p.zoom.xofs = x - drag_x;
-            p.zoom.yofs = y - drag_y;
+            p.zoom.set_offset(x - drag_x, y - drag_y);
             drop(p);
             self.obj().emit_by_name::<()>(SIGNAL_HQ_REDRAW, &[&true]);
         }

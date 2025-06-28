@@ -26,7 +26,7 @@ pub mod view;
 use animation::Animation;
 use cairo::ImageSurface;
 use exif::Exif;
-use gdk_pixbuf::{Pixbuf, PixbufRotation};
+use gdk_pixbuf::Pixbuf;
 use glib::translate::from_glib_full;
 use gtk4::gdk::ffi::gdk_pixbuf_get_from_surface;
 use rsvg::{prelude::HandleExt, Handle};
@@ -188,30 +188,6 @@ impl Image {
         match &self.tag {
             Some(t) => t.eq(tag),
             None => false,
-        }
-    }
-
-    pub fn rotate(&mut self, angle: i32) {
-        let rotation = match angle {
-            90 => PixbufRotation::Counterclockwise,
-            180 => PixbufRotation::Upsidedown,
-            270 => PixbufRotation::Clockwise,
-            _ => {
-                return;
-            }
-        };
-
-        match &self.image_data {
-            ImageData::None => (),
-            ImageData::Single(pixbuf) => {
-                self.image_data = pixbuf.rotate_simple(rotation).into();
-            }
-            ImageData::Dual(_, _) => {
-                println!("TODO: implement rotation for Dual")
-            }
-            ImageData::Svg(_) => {
-                println!("TODO: implement rotation for SVG")
-            }
         }
     }
 
