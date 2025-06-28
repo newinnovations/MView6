@@ -429,7 +429,15 @@ fn page_extract_clip(
 }
 
 fn open(path: &Path) -> Result<mupdf::Document, mupdf::Error> {
-    mupdf::Document::open(path)
+    #[cfg(windows)]
+    {
+        mupdf::Document::open(&path.to_string_lossy().to_string())
+    }
+
+    #[cfg(not(windows))]
+    {
+        mupdf::Document::open(path)
+    }
 }
 
 fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
