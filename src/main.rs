@@ -28,6 +28,7 @@ mod file_view;
 mod image;
 mod info_view;
 mod profile;
+mod util;
 mod window;
 
 use gtk4::{

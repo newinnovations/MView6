@@ -117,13 +117,13 @@ impl Image {
     }
 
     pub fn new_dual_pixbuf(
-        pixbuf1: Option<Pixbuf>,
-        pixbuf2: Option<Pixbuf>,
+        pixbuf_left: Option<Pixbuf>,
+        pixbuf_right: Option<Pixbuf>,
         exif: Option<Exif>,
     ) -> Self {
         Image {
             id: get_image_id(),
-            image_data: (pixbuf1, pixbuf2).into(),
+            image_data: (pixbuf_left, pixbuf_right).into(),
             animation: Animation::None,
             exif,
             zoom_mode: ZoomMode::NotSpecified,

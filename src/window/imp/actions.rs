@@ -146,6 +146,8 @@ impl MViewWindowImp {
         let w = self.widgets();
         w.set_action_string("zoom", zoom);
         w.image_view.set_zoom_mode(zoom.into());
+        w.image_view.apply_zoom();
+        self.hq_redraw();
     }
 
     pub fn change_page_mode(&self, page_mode: &str) {

@@ -20,7 +20,7 @@
 use std::{
     cell::{Cell, RefCell},
     sync::OnceLock,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use crate::{
@@ -30,12 +30,10 @@ use crate::{
         draw::transparency_background,
         Image, ImageData,
     },
+    util::remove_source_id,
 };
 use gio::prelude::StaticType;
-use glib::{
-    clone, ffi::g_source_remove, object::ObjectExt, result_from_gboolean, subclass::Signal,
-    BoolError, ControlFlow, Propagation, SourceId,
-};
+use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
     prelude::{DrawingAreaExtManual, GestureSingleExt, WidgetExt},
     subclass::prelude::*,
@@ -44,18 +42,17 @@ use gtk4::{
 use rsvg::prelude::HandleExt;
 
 use super::{
-    data::{ImageViewData, Surfaces, ZoomState, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
+    data::{ImageViewData, Surfaces, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
     ImageView, ViewCursor,
 };
 
-pub const SIGNAL_VIEW_RESIZED: &str = "view-resized";
+pub const SIGNAL_CANVAS_RESIZED: &str = "event-canvas-resized";
+pub const SIGNAL_HQ_REDRAW: &str = "event-hq-redraw";
 
 #[derive(Default)]
 pub struct ImageViewImp {
     pub(super) data: RefCell<ImageViewData>,
     animation_timeout_id: RefCell<Option<SourceId>>,
-    hq_redraw_timeout_id: RefCell<Option<SourceId>>,
-    resize_notify_timeout_id: RefCell<Option<SourceId>>,
     window_size: Cell<(i32, i32)>,
 }
 
@@ -64,10 +61,6 @@ impl ObjectSubclass for ImageViewImp {
     const NAME: &'static str = "ImageWindow";
     type Type = ImageView;
     type ParentType = gtk4::DrawingArea;
-}
-
-fn remove_source_id(id: SourceId) -> Result<(), BoolError> {
-    unsafe { result_from_gboolean!(g_source_remove(id.as_raw()), "Failed to remove source") }
 }
 
 impl ImageViewImp {
@@ -116,81 +109,6 @@ impl ImageViewImp {
         }
     }
 
-    fn cancel_hq_redraw(&self) {
-        if let Some(id) = self.hq_redraw_timeout_id.replace(None) {
-            if let Err(e) = remove_source_id(id) {
-                println!("remove_source_id: {}", e);
-            }
-        }
-    }
-
-    fn schedule_hq_redraw(&self) {
-        self.hq_redraw_timeout_id
-            .replace(Some(glib::timeout_add_local(
-                Duration::from_millis(100),
-                clone!(
-                    #[weak(rename_to = this)]
-                    self,
-                    #[upgrade_or]
-                    ControlFlow::Break,
-                    move || {
-                        this.hq_redraw_timeout_id.replace(None);
-                        let mut p = this.data.borrow_mut();
-                        p.redraw(QUALITY_HIGH);
-                        ControlFlow::Break
-                    }
-                ),
-            )));
-    }
-
-    fn cancel_resize_notify(&self) {
-        if let Some(id) = self.resize_notify_timeout_id.replace(None) {
-            if let Err(e) = remove_source_id(id) {
-                println!("remove_source_id: {}", e);
-            }
-        }
-    }
-
-    fn schedule_resize_notify(&self) {
-        self.resize_notify_timeout_id
-            .replace(Some(glib::timeout_add_local(
-                Duration::from_millis(100),
-                clone!(
-                    #[weak(rename_to = this)]
-                    self,
-                    #[upgrade_or]
-                    ControlFlow::Break,
-                    move || {
-                        this.resize_notify_timeout_id.replace(None);
-
-                        // let mut p = this.data.borrow_mut();
-                        // println!(
-                        //     "p.mouse_position {} {}",
-                        //     p.mouse_position.0, p.mouse_position.1
-                        // );
-                        // match this.obj().get_window_relative_cursor_position() {
-                        //     Ok(position) => {
-                        //         p.mouse_position = position;
-                        //         println!("position {} {}", position.0, position.1)
-                        //     }
-                        //     Err(err) => println!("error {}", err),
-                        // }
-
-                        // println!("notify of resize");
-                        let obj = this.obj();
-                        let allocation = obj.allocation();
-                        obj.emit_by_name::<()>(
-                            SIGNAL_VIEW_RESIZED,
-                            &[&allocation.width(), &allocation.height()],
-                        );
-                        // let mut p = this.data.borrow_mut();
-                        // p.redraw(QUALITY_HIGH);
-                        ControlFlow::Break
-                    }
-                ),
-            )));
-    }
-
     fn draw(&self, context: &cairo::Context) {
         let p = self.data.borrow();
 
@@ -228,20 +146,22 @@ impl ImageViewImp {
         if let ImageData::Svg(handle) = &p.image.image_data {
             let viewport = rsvg::Rectangle::new(xofs, yofs, scaled_width, scaled_height);
             handle.render_document(context, &viewport).unwrap();
+        } else if let Some(surface) = &p.zoom_surface {
+            let _ = context.set_source_surface(surface, xofs.max(0.0), yofs.max(0.0));
+            let _ = context.paint();
         } else {
-            context.scale(p.zoom, p.zoom);
-            if p.zoom_state() != ZoomState::NoZoom {
-                context.source().set_filter(p.quality);
-            }
+            let z = &p.zoom;
+            context.scale(z.zoom, z.zoom);
             if let Surfaces::Single(surface) = &p.surface {
-                let _ = context.set_source_surface(surface, xofs / p.zoom, yofs / p.zoom);
+                let _ = context.set_source_surface(surface, xofs / z.zoom, yofs / z.zoom);
             } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
-                let _ = context.set_source_surface(surface1, xofs / p.zoom, yofs / p.zoom + y1);
+                let _ = context.set_source_surface(surface1, xofs / z.zoom, yofs / z.zoom + y1);
+                context.source().set_filter(p.quality);
                 let _ = context.paint();
                 let _ =
-                    context.set_source_surface(surface2, w1 + xofs / p.zoom, yofs / p.zoom + y2);
+                    context.set_source_surface(surface2, w1 + xofs / z.zoom, yofs / z.zoom + y2);
             }
-
+            context.source().set_filter(p.quality);
             let _ = context.paint();
 
             if let Some(annotations) = &p.annotations {
@@ -285,7 +205,7 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.drag.is_none() && p.image.is_movable() {
             let (position_x, position_y) = position;
-            p.drag = Some((position_x + p.xofs, position_y + p.yofs));
+            p.drag = Some((position_x - p.zoom.xofs, position_y - p.zoom.yofs));
             self.obj().set_view_cursor(ViewCursor::Drag);
         }
     }
@@ -295,29 +215,27 @@ impl ImageViewImp {
         if p.drag.is_some() {
             p.drag = None;
             self.obj().set_view_cursor(ViewCursor::Normal);
-            p.redraw(QUALITY_HIGH);
+            // p.redraw(QUALITY_HIGH);
         }
     }
 
     fn motion_notify_event(&self, x: f64, y: f64) {
         let mut p = self.data.borrow_mut();
         p.mouse_position = (x, y);
-        let mut redraw = None;
         if let Some(annotations) = &p.annotations {
-            let index = annotations.index_at(x + p.xofs, y + p.yofs);
+            let index = annotations.index_at(x - p.zoom.xofs, y - p.zoom.yofs);
             if index != p.hover {
                 // dbg!(index);
                 p.hover = index;
-                redraw = Some(QUALITY_HIGH);
+                // redraw = Some(QUALITY_HIGH);
+                p.redraw(QUALITY_HIGH); // hq_redraw not needed, because annotation only apply to thumbnail sheets
             }
         }
         if let Some((drag_x, drag_y)) = p.drag {
-            p.xofs = drag_x - x;
-            p.yofs = drag_y - y;
-            redraw = Some(QUALITY_LOW);
-        }
-        if let Some(quality) = redraw {
-            p.redraw(quality);
+            p.zoom.xofs = x - drag_x;
+            p.zoom.yofs = y - drag_y;
+            drop(p);
+            self.obj().emit_by_name::<()>(SIGNAL_HQ_REDRAW, &[&true]);
         }
     }
 
@@ -325,24 +243,25 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.hover.is_some() {
             p.hover = None;
-            p.redraw(QUALITY_HIGH);
+            self.hq_redraw(true);
         }
     }
 
     fn scroll_event(&self, dy: f64) -> Propagation {
-        self.cancel_hq_redraw();
+        // self.cancel_hq_redraw();
         let mut p = self.data.borrow_mut();
         let mouse_position = p.mouse_position;
         if p.image.is_movable() {
             let zoom = if dy < -0.01 {
-                p.zoom * ZOOM_MULTIPLIER
+                p.zoom.zoom * ZOOM_MULTIPLIER
             } else if dy > 0.01 {
-                p.zoom / ZOOM_MULTIPLIER
+                p.zoom.zoom / ZOOM_MULTIPLIER
             } else {
-                p.zoom
+                p.zoom.zoom
             };
             p.update_zoom(zoom, mouse_position);
-            self.schedule_hq_redraw();
+            drop(p);
+            self.hq_redraw(true);
         }
         Propagation::Stop
     }
@@ -350,15 +269,24 @@ impl ImageViewImp {
     pub fn mouse_position(&self) -> (f64, f64) {
         self.data.borrow().mouse_position
     }
+
+    pub fn hq_redraw(&self, delayed: bool) {
+        self.obj().emit_by_name::<()>(SIGNAL_HQ_REDRAW, &[&delayed]);
+    }
 }
 
 impl ObjectImpl for ImageViewImp {
     fn signals() -> &'static [Signal] {
         static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
-            vec![Signal::builder(SIGNAL_VIEW_RESIZED)
-                .param_types([i32::static_type(), i32::static_type()])
-                .build()]
+            vec![
+                Signal::builder(SIGNAL_CANVAS_RESIZED)
+                    .param_types([i32::static_type(), i32::static_type()])
+                    .build(),
+                Signal::builder(SIGNAL_HQ_REDRAW)
+                    .param_types([bool::static_type()])
+                    .build(),
+            ]
         })
     }
 
@@ -433,12 +361,8 @@ impl DrawingAreaImpl for ImageViewImp {
         if current_size != (width, height) {
             // println!("view was resized to {width} {height}");
             self.window_size.set((width, height));
-            self.cancel_resize_notify();
-            let mut p = self.data.borrow_mut();
-            self.schedule_resize_notify();
-            p.apply_zoom();
-            // } else {
-            //     println!("spurious resize");
+            self.obj()
+                .emit_by_name::<()>(SIGNAL_CANVAS_RESIZED, &[&width, &height]);
         }
     }
 }

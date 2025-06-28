@@ -24,8 +24,8 @@ impl MViewWindowImp {
         let w = self.widgets();
         if let Some(current) = w.file_view.current() {
             let (x, y) = position;
-            let (x_offset, y_offset) = w.image_view.offset();
-            let (x, y) = (x + x_offset, y + y_offset);
+            let zoom = w.image_view.zoom();
+            let (x, y) = (x - zoom.xofs, y - zoom.yofs);
             let backend = self.backend.borrow();
             if let Some((new_backend, goto)) = backend.click(&current, x, y) {
                 drop(backend);

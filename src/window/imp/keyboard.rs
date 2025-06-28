@@ -20,7 +20,10 @@
 use super::MViewWindowImp;
 
 use glib::subclass::types::ObjectSubclassExt;
-use gtk4::{gdk::Key, prelude::GtkWindowExt};
+use gtk4::{
+    gdk::Key,
+    prelude::{GtkWindowExt, WidgetExt},
+};
 
 use crate::{
     backends::{document::PageMode, Backend, ImageParams},
@@ -201,6 +204,7 @@ impl MViewWindowImp {
                 let params = ImageParams {
                     sender: &w.sender,
                     page_mode: &self.page_mode.get(),
+                    allocation_height: self.obj().height(),
                 };
                 if let Some(current) = w.file_view.current() {
                     let image1 = self.backend.borrow().image(&current, &params);

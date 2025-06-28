@@ -24,7 +24,8 @@ human_bytes = { version = "0.4.3", features = ["fast"], default-features = false
 image = "0.25.6"
 image-webp = "0.2.1"
 kamadak-exif = "0.6.1"
-mupdf = { version = "0.5.0", features = ["sys-lib-libjpeg"]}
+# mupdf = { path = "../mupdf-rs", features = ["sys-lib-libjpeg"]}
+mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib-libjpeg"]}
 rsvg = { package = "librsvg-rebind", version = "0.1.0" }
 regex = "1.10.4"
 serde = { version = "1.0.204", features = ["derive"] }

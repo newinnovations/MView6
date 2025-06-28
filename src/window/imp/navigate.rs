@@ -32,7 +32,8 @@ use crate::{
     file_view::{Direction, Filter, Target},
     window::imp::TargetTime,
 };
-use gtk4::{TreePath, TreeViewColumn};
+use glib::subclass::types::ObjectSubclassExt;
+use gtk4::{prelude::WidgetExt, TreePath, TreeViewColumn};
 
 impl MViewWindowImp {
     pub(super) fn on_cursor_changed(&self) {
@@ -43,6 +44,7 @@ impl MViewWindowImp {
                 let params = ImageParams {
                     sender: &w.sender,
                     page_mode: &self.page_mode.get(),
+                    allocation_height: self.obj().height(),
                 };
                 let backend = self.backend.borrow();
                 self.target_store.borrow_mut().insert(

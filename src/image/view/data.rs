@@ -39,7 +39,7 @@ pub const MAX_ZOOM_FACTOR: f64 = 30.0;
 pub const MIN_ZOOM_FACTOR: f64 = 0.02;
 pub const ZOOM_MULTIPLIER: f64 = 1.05;
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
-pub const QUALITY_LOW: Filter = Filter::Nearest;
+pub const QUALITY_LOW: Filter = Filter::Fast;
 
 pub enum Surfaces {
     None,
@@ -53,21 +53,49 @@ impl Surfaces {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ImageZoom {
+    pub xofs: f64,
+    pub yofs: f64,
+    pub zoom: f64,
+}
+
+impl Default for ImageZoom {
+    fn default() -> Self {
+        Self {
+            xofs: 0.0,
+            yofs: 0.0,
+            zoom: 1.0,
+        }
+    }
+}
+
+impl ImageZoom {
+    pub fn state(&self) -> ZoomState {
+        if self.zoom > 1.0 + 1.0e-6 {
+            ZoomState::ZoomedIn
+        } else if self.zoom < 1.0 - 1.0e-6 {
+            ZoomState::ZoomedOut
+        } else {
+            ZoomState::NoZoom
+        }
+    }
+}
+
 pub struct ImageViewData {
     pub image: Image,
     pub zoom_mode: ZoomMode,
-    pub xofs: f64,
-    pub yofs: f64,
     pub rotation: i32,
     pub surface: Surfaces,
+    pub zoom_surface: Option<ImageSurface>,
     pub transparency_background: Option<ImageSurface>,
     pub view: Option<ImageView>,
-    pub zoom: f64,
     pub mouse_position: (f64, f64),
     pub drag: Option<(f64, f64)>,
     pub quality: cairo::Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
+    pub zoom: ImageZoom,
 }
 
 impl Default for ImageViewData {
@@ -75,18 +103,17 @@ impl Default for ImageViewData {
         Self {
             image: Image::default(),
             zoom_mode: ZoomMode::NotSpecified,
-            xofs: 0.0,
-            yofs: 0.0,
             rotation: 0,
             surface: Surfaces::None,
+            zoom_surface: None,
             transparency_background: None,
             view: None,
-            zoom: 1.0,
             mouse_position: (0.0, 0.0),
             drag: None,
             quality: QUALITY_HIGH,
             annotations: Default::default(),
             hover: None,
+            zoom: ImageZoom::default(),
         }
     }
 }
@@ -198,22 +225,13 @@ impl ImageViewData {
     }
 
     pub fn image_coords(&self) -> (f64, f64, f64, f64) {
-        let (scaled_width, scaled_height) = self.compute_scaled_size(self.zoom);
-        (-self.xofs, -self.yofs, scaled_width, scaled_height)
-    }
-
-    pub fn zoom_state(&self) -> ZoomState {
-        if self.zoom > 1.0 + 1.0e-6 {
-            ZoomState::ZoomedIn
-        } else if self.zoom < 1.0 - 1.0e-6 {
-            ZoomState::ZoomedOut
-        } else {
-            ZoomState::NoZoom
-        }
+        let (scaled_width, scaled_height) = self.compute_scaled_size(self.zoom.zoom);
+        (self.zoom.xofs, self.zoom.yofs, scaled_width, scaled_height)
     }
 
     pub fn redraw(&mut self, quality: Filter) {
         if let Some(view) = &self.view {
+            self.zoom_surface = None;
             self.quality = quality;
             view.queue_draw();
         }
@@ -260,29 +278,28 @@ impl ImageViewData {
                     zoom1
                 }
             };
-            self.zoom = zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
+            self.zoom.zoom = zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
 
-            self.xofs = ((self.zoom * src_width - allocation_width) / 2.0).round();
-            self.yofs = ((self.zoom * src_height - allocation_height) / 2.0).round();
+            self.zoom.xofs = ((allocation_width - self.zoom.zoom * src_width) / 2.0).round();
+            self.zoom.yofs = ((allocation_height - self.zoom.zoom * src_height) / 2.0).round();
         }
-        self.redraw(QUALITY_HIGH);
     }
 
     pub fn update_zoom(&mut self, zoom: f64, anchor: (f64, f64)) {
-        let old_zoom = self.zoom;
+        let old_zoom = self.zoom.zoom;
         let new_zoom = zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
         if new_zoom == old_zoom {
             return;
         }
         let (anchor_x, anchor_y) = anchor;
-        let view_cx = (self.xofs + anchor_x) / old_zoom;
-        let view_cy = (self.yofs + anchor_y) / old_zoom;
-        self.xofs = view_cx * new_zoom - anchor_x;
-        self.yofs = view_cy * new_zoom - anchor_y;
-        self.zoom = new_zoom;
+        let view_cx = (anchor_x - self.zoom.xofs) / old_zoom;
+        let view_cy = (anchor_y - self.zoom.yofs) / old_zoom;
+        self.zoom.xofs = anchor_x - view_cx * new_zoom;
+        self.zoom.yofs = anchor_y - view_cy * new_zoom;
+        self.zoom.zoom = new_zoom;
         if self.drag.is_some() {
-            self.drag = Some((anchor_x + self.xofs, anchor_y + self.yofs))
+            self.drag = Some((anchor_x - self.zoom.xofs, anchor_y - self.zoom.yofs))
         }
-        self.redraw(QUALITY_LOW);
+        // self.redraw(QUALITY_LOW);
     }
 }

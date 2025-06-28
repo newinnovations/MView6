@@ -27,16 +27,18 @@ use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
 use async_channel::Sender;
 use bookmarks::Bookmarks;
+use cairo::ImageSurface;
 use document::{Document, PageMode};
 use filesystem::FileSystem;
 use gtk4::ListStore;
+use mupdf::Rect;
 use none::NoneBackend;
 use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
     backends::thumbnail::model::TParent,
     file_view::{Cursor, Direction, Target},
-    image::Image,
+    image::{view::data::ImageZoom, Image},
 };
 
 mod archive_mar;
@@ -51,6 +53,7 @@ pub mod thumbnail;
 pub struct ImageParams<'a> {
     pub sender: &'a Sender<Message>,
     pub page_mode: &'a PageMode,
+    pub allocation_height: i32,
 }
 
 #[allow(unused_variables)]
@@ -132,6 +135,16 @@ pub trait Backend {
             // On non-Windows systems, just return the path as-is
             path
         }
+    }
+    fn image_zoom(
+        &self,
+        cursor: &Cursor,
+        params: &ImageParams,
+        current_height: f32,
+        clip: Rect,
+        zoom: ImageZoom,
+    ) -> Option<ImageSurface> {
+        None
     }
 }
 

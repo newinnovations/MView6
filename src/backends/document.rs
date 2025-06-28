@@ -18,16 +18,17 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use super::{Image, ImageParams};
+use cairo::ImageSurface;
 use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
-use mupdf::{Colorspace, Matrix};
+use mupdf::{Colorspace, Device, Matrix, Page, Pixmap, Rect};
 use std::path::{Path, PathBuf};
 
 use crate::{
     category::Category,
     error::{MviewError, MviewResult},
     file_view::{Column, Cursor},
-    image::{draw::draw_error, provider::gdk::GdkImageLoader},
+    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::data::ImageZoom},
     profile::performance::Performance,
 };
 
@@ -36,7 +37,9 @@ use super::{
     Backend,
 };
 
-#[derive(Clone, Copy, Debug, Default)]
+const MIN_DOC_HEIGHT: f32 = 32.0;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum PageMode {
     Single,
     #[default]
@@ -64,10 +67,16 @@ impl From<PageMode> for &str {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Pages {
+    Single(i32),
+    Dual(i32),
+}
+
 pub struct Document {
     filename: PathBuf,
     store: ListStore,
-    last_page: u32,
+    last_page: i32,
 }
 
 impl Document {
@@ -80,7 +89,7 @@ impl Document {
         }
     }
 
-    fn create_store(filename: &Path) -> (ListStore, u32) {
+    fn create_store(filename: &Path) -> (ListStore, i32) {
         let store = Column::empty_store();
         match list_pages(filename, &store) {
             Ok(last_page) => (store, last_page),
@@ -92,7 +101,7 @@ impl Document {
     }
 
     pub fn get_thumbnail(src: &TDocReference) -> MviewResult<DynamicImage> {
-        let image = extract_page_thumb(&src.filename, src.index as i32)?;
+        let image = extract_thumb(&src.filename, src.index as i32)?;
         let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
         Ok(image)
     }
@@ -122,9 +131,10 @@ impl Backend for Document {
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
         match extract_page(
             &self.filename,
-            cursor.index() as u32,
+            cursor.index() as i32,
             self.last_page,
             params.page_mode,
+            params.allocation_height,
         ) {
             Ok(image) => image,
             Err(error) => draw_error(error.to_string().into()),
@@ -138,6 +148,26 @@ impl Backend for Document {
             TReference::DocReference(TDocReference::new(self, cursor.index())),
         )
     }
+
+    fn image_zoom(
+        &self,
+        cursor: &Cursor,
+        params: &ImageParams,
+        current_height: f32,
+        clip: Rect,
+        zoom: ImageZoom,
+    ) -> Option<ImageSurface> {
+        extract_clip(
+            &self.filename,
+            cursor.index() as i32,
+            self.last_page,
+            params.page_mode,
+            current_height,
+            clip,
+            zoom.zoom as f32,
+        )
+        .ok()
+    }
 }
 
 //   Single(len=4)  DualOdd(len=6)   DualEven(len=7)
@@ -146,46 +176,54 @@ impl Backend for Document {
 //         2             3 4               4 5
 //         3              5                 6
 
-fn extract_page(
-    filename: &Path,
-    index: u32,
-    last_page: u32,
-    mode: &PageMode,
-) -> Result<Image, mupdf::Error> {
+fn pages(index: i32, last_page: i32, mode: &PageMode) -> Pages {
     match mode {
-        PageMode::Single => extract_page_single(filename, index),
+        PageMode::Single => Pages::Single(index),
         PageMode::DualEvenOdd => {
             if index == 0 {
-                extract_page_single(filename, index)
+                Pages::Single(index)
             } else {
                 let left = (index - 1) & !1 | 1;
                 if left == last_page {
-                    extract_page_single(filename, left)
+                    Pages::Single(left)
                 } else {
-                    extract_page_dual(filename, left)
+                    Pages::Dual(left)
                 }
             }
         }
         PageMode::DualOddEven => {
             let left = index & !1;
             if left == last_page {
-                extract_page_single(filename, left)
+                Pages::Single(left)
             } else {
-                extract_page_dual(filename, left)
+                Pages::Dual(left)
             }
         }
     }
 }
 
-fn extract_page_single(filename: &Path, index: u32) -> Result<Image, mupdf::Error> {
+fn extract_page(
+    filename: &Path,
+    index: i32,
+    last_page: i32,
+    mode: &PageMode,
+    allocation_height: i32,
+) -> MviewResult<Image> {
+    match pages(index, last_page, mode) {
+        Pages::Single(page) => extract_page_single(filename, page, allocation_height),
+        Pages::Dual(left) => extract_page_dual(filename, left, allocation_height),
+    }
+}
+
+fn extract_page_single(filename: &Path, index: i32, allocation_height: i32) -> MviewResult<Image> {
     let duration = Performance::start();
     let doc = open(filename)?;
-    let page = doc.load_page(index as i32)?;
-    let bounds = page.bounds()?;
-    let height = bounds.y1 - bounds.y0;
-    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
+
+    let (page, bounds) = open_page(&doc, index)?;
+    let zoom = allocation_height as f32 / bounds.height();
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
+
     let image = Image::new_pixbuf(
         Some(GdkImageLoader::pixbuf_from_rgb(
             pixmap.width(),
@@ -198,34 +236,31 @@ fn extract_page_single(filename: &Path, index: u32) -> Result<Image, mupdf::Erro
     Ok(image)
 }
 
-fn extract_page_dual(filename: &Path, index: u32) -> Result<Image, mupdf::Error> {
+fn extract_page_dual(filename: &Path, index: i32, allocation_height: i32) -> MviewResult<Image> {
     let duration = Performance::start();
     let doc = open(filename)?;
 
-    let page = doc.load_page(index as i32)?;
-    let bounds = page.bounds()?;
-    let height = bounds.y1 - bounds.y0;
-    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
-    let matrix = Matrix::new_scale(zoom, zoom);
-    let pixmap1 = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
+    let (page_left, bounds_left) = open_page(&doc, index)?;
+    let zoom_left = allocation_height as f32 / bounds_left.height();
+    let matrix_left = Matrix::new_scale(zoom_left, zoom_left);
+    let pixmap_left = page_left.to_pixmap(&matrix_left, &Colorspace::device_rgb(), false, false)?;
 
-    let page = doc.load_page(index as i32 + 1)?;
-    let bounds = page.bounds()?;
-    let height = bounds.y1 - bounds.y0;
-    let zoom = if height > 10.0 { 2160.0 / height } else { 3.0 };
-    let matrix = Matrix::new_scale(zoom, zoom);
-    let pixmap2 = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
+    let (page_right, bounds_right) = open_page(&doc, index + 1)?;
+    let zoom_right = allocation_height as f32 / bounds_right.height();
+    let matrix_right = Matrix::new_scale(zoom_right, zoom_right);
+    let pixmap_right =
+        page_right.to_pixmap(&matrix_right, &Colorspace::device_rgb(), false, false)?;
 
     let image = Image::new_dual_pixbuf(
         Some(GdkImageLoader::pixbuf_from_rgb(
-            pixmap1.width(),
-            pixmap1.height(),
-            pixmap1.samples(),
+            pixmap_left.width(),
+            pixmap_left.height(),
+            pixmap_left.samples(),
         )),
         Some(GdkImageLoader::pixbuf_from_rgb(
-            pixmap2.width(),
-            pixmap2.height(),
-            pixmap2.samples(),
+            pixmap_right.width(),
+            pixmap_right.height(),
+            pixmap_right.samples(),
         )),
         None,
     );
@@ -233,12 +268,11 @@ fn extract_page_dual(filename: &Path, index: u32) -> Result<Image, mupdf::Error>
     Ok(image)
 }
 
-fn extract_page_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
+fn extract_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
     let doc = open(filename)?;
-    let page = doc.load_page(index)?;
-    let bounds = page.bounds()?;
-    let height = bounds.y1 - bounds.y0;
-    let zoom = if height > 10.0 { 350.0 / height } else { 1.0 };
+
+    let (page, bounds) = open_page(&doc, index)?;
+    let zoom = 350.0 / bounds.height();
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
 
@@ -248,17 +282,157 @@ fn extract_page_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> 
         pixmap.samples().to_vec(),
     ) {
         Some(rgb_image) => Ok(DynamicImage::ImageRgb8(rgb_image)),
-        None => Err(MviewError::from(
-            "Could not create ImageBuffer from pdf thumb data",
-        )),
+        None => Err("Could not create ImageBuffer from pdf thumb data".into()),
+    }
+}
+
+fn extract_clip(
+    filename: &Path,
+    index: i32,
+    last_page: i32,
+    mode: &PageMode,
+    current_height: f32,
+    clip: Rect,
+    zoom: f32,
+) -> MviewResult<ImageSurface> {
+    match pages(index, last_page, mode) {
+        Pages::Single(page) => extract_clip_single(filename, page, current_height, clip, zoom),
+        Pages::Dual(left) => extract_clip_dual(filename, left, current_height, clip, zoom),
+    }
+}
+
+fn extract_clip_single(
+    filename: &Path,
+    index: i32,
+    current_height: f32,
+    clip: Rect,
+    zoom: f32,
+) -> MviewResult<ImageSurface> {
+    let duration = Performance::start();
+    let doc = open(filename)?;
+
+    let surface = if let Some(pixmap) = doc_extract_clip(&doc, index, current_height, clip, zoom)? {
+        Ok(GdkImageLoader::cairo_surface_from_rgb(
+            pixmap.width(),
+            pixmap.height(),
+            pixmap.samples(),
+        )?)
+    } else {
+        Err("empty clip".into())
+    };
+
+    duration.elapsed("clipped page");
+    surface
+}
+
+fn extract_clip_dual(
+    filename: &Path,
+    index: i32,
+    current_height: f32,
+    clip: Rect,
+    zoom: f32,
+) -> MviewResult<ImageSurface> {
+    let duration = Performance::start();
+    let doc = open(filename)?;
+
+    let (page_left, bounds_left) = open_page(&doc, index)?;
+    let offset_right = bounds_left.width() * current_height / bounds_left.height();
+    let clip_right = clip.translate(-offset_right, 0.0);
+
+    let pixmap_left = page_extract_clip(&page_left, bounds_left, current_height, clip, zoom)?;
+    let pixmap_right = doc_extract_clip(&doc, index + 1, current_height, clip_right, zoom)?;
+
+    let surface = match (pixmap_left, pixmap_right) {
+        (None, None) => return Err("empty clip".into()),
+        (Some(pixmap_left), None) => GdkImageLoader::cairo_surface_from_rgb(
+            pixmap_left.width(),
+            pixmap_left.height(),
+            pixmap_left.samples(),
+        )?,
+        (None, Some(pixmap_right)) => GdkImageLoader::cairo_surface_from_rgb(
+            pixmap_right.width(),
+            pixmap_right.height(),
+            pixmap_right.samples(),
+        )?,
+        (Some(pixmap_left), Some(pixmap_right)) => {
+            if pixmap_left.height() != pixmap_right.height() {
+                return Err("height mismatch".into());
+            }
+            GdkImageLoader::cairo_surface_from_dual_rgb(
+                pixmap_left.width(),
+                pixmap_right.width(),
+                pixmap_left.height(),
+                pixmap_left.samples(),
+                pixmap_right.samples(),
+            )?
+        }
+    };
+
+    duration.elapsed("clipped dual");
+    Ok(surface)
+}
+
+fn open_page(doc: &mupdf::Document, page_no: i32) -> MviewResult<(Page, Rect)> {
+    let page = doc.load_page(page_no)?;
+    let bounds = page.bounds()?;
+    if bounds.height() < MIN_DOC_HEIGHT {
+        return Err("page height too small".into());
+    }
+    Ok((page, bounds))
+}
+
+fn doc_extract_clip(
+    doc: &mupdf::Document,
+    page_no: i32,
+    current_height: f32,
+    clip: Rect,
+    zoom: f32,
+) -> MviewResult<Option<mupdf::Pixmap>> {
+    let (page, page_bounds) = open_page(doc, page_no)?;
+    page_extract_clip(&page, page_bounds, current_height, clip, zoom)
+}
+
+fn page_extract_clip(
+    page: &Page,
+    page_bounds: Rect,
+    current_height: f32,
+    clip: Rect,
+    zoom: f32,
+) -> MviewResult<Option<mupdf::Pixmap>> {
+    // use `current_height` to determine `current_zoom`
+    let current_zoom = current_height / page_bounds.height();
+    if current_zoom < 1e-3 {
+        return Err("current_zoom value out of range".into());
+    }
+
+    // Clip is zoomed by `current_zoom`: unzoom
+    let matrix = Matrix::new_scale(1.0 / current_zoom, 1.0 / current_zoom);
+    let clip = clip.transform(&matrix);
+
+    // Determine intersection between `clip`` and `page_bounds`
+    let intersect = page_bounds.intersect(&clip);
+
+    // New zoom is `zoom` * `current_zoom`
+    let matrix = Matrix::new_scale(zoom * current_zoom, zoom * current_zoom);
+    let intersect = intersect.transform(&matrix).round();
+
+    if intersect.is_empty() {
+        Ok(None) // clip intersection is empty
+    } else {
+        let mut pixmap = Pixmap::new_with_rect(&Colorspace::device_rgb(), intersect, false)?;
+        pixmap.clear_with(0xff)?;
+
+        let device = Device::from_pixmap(&pixmap)?;
+        page.run_contents(&device, &matrix)?;
+        Ok(Some(pixmap))
     }
 }
 
 fn open(path: &Path) -> Result<mupdf::Document, mupdf::Error> {
-    mupdf::Document::open(&path.to_string_lossy().to_string()) // FIXME: LOOK AT THIS
+    mupdf::Document::open(path)
 }
 
-fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<u32> {
+fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
     let duration = Performance::start();
     let doc = open(filename)?;
     let page_count = doc.page_count()? as u32;
@@ -278,7 +452,7 @@ fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<u32> {
             );
         }
         duration.elapsed("list_pages");
-        Ok(page_count - 1)
+        Ok(page_count as i32 - 1)
     } else {
         Err(MviewError::from("No pages in document"))
     }
