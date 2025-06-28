@@ -59,7 +59,7 @@ impl RarArchive {
         let store = Column::empty_store();
         match list_rar(filename, &store) {
             Ok(()) => (),
-            Err(e) => println!("ERROR {:?}", e),
+            Err(e) => println!("ERROR {e:?}"),
         };
         store
     }

@@ -160,7 +160,7 @@ pub fn handle_thumbnail_result(
                 }
             }
             Err(error) => {
-                println!("Thumbnail: failed to convert to pixbuf {:?}", error);
+                println!("Thumbnail: failed to convert to pixbuf {error:?}");
             }
         }
         if command.todo == 0 || (elapsed - command.last_update) > 0.3 {

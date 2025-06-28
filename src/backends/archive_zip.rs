@@ -59,11 +59,11 @@ impl ZipArchive {
     }
 
     fn create_store(filename: &Path) -> ListStore {
-        println!("create_store ZipArchive {:?}", filename);
+        println!("create_store ZipArchive {filename:?}");
         let store = Column::empty_store();
         match list_zip(filename, &store) {
             Ok(()) => println!("OK"),
-            Err(e) => println!("ERROR {:?}", e),
+            Err(e) => println!("ERROR {e:?}"),
         };
         store
     }

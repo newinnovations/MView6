@@ -53,7 +53,7 @@ impl Sort {
             "Sort({}, {})",
             match *col {
                 SortColumn::Default => "default".to_string(),
-                SortColumn::Index(i) => format!("{}", i),
+                SortColumn::Index(i) => format!("{i}"),
             },
             match *order {
                 SortType::Ascending => "asc",

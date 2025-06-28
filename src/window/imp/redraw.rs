@@ -106,7 +106,7 @@ impl MViewWindowImp {
     fn cancel_canvas_resized(&self) {
         if let Some(id) = self.canvas_resized_timeout_id.replace(None) {
             if let Err(e) = remove_source_id(id) {
-                println!("remove_source_id: {}", e);
+                println!("remove_source_id: {e}");
             }
         }
     }
@@ -152,7 +152,7 @@ impl MViewWindowImp {
     fn cancel_hq_redraw(&self) {
         if let Some(id) = self.hq_redraw_timeout_id.replace(None) {
             if let Err(e) = remove_source_id(id) {
-                println!("remove_source_id: {}", e);
+                println!("remove_source_id: {e}");
             }
         }
     }

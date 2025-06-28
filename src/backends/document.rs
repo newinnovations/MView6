@@ -94,7 +94,7 @@ impl Document {
         match list_pages(filename, &store) {
             Ok(last_page) => (store, last_page),
             Err(e) => {
-                println!("ERROR {:?}", e);
+                println!("ERROR {e:?}");
                 (store, 0)
             }
         }
@@ -444,7 +444,7 @@ fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
     let duration = Performance::start();
     let doc = open(filename)?;
     let page_count = doc.page_count()? as u32;
-    println!("Total pages: {}", page_count);
+    println!("Total pages: {page_count}");
     if page_count > 0 {
         let cat = Category::Image;
         for i in 0..page_count {

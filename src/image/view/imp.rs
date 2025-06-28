@@ -67,7 +67,7 @@ impl ImageViewImp {
     pub fn cancel_animation(&self) {
         if let Some(id) = self.animation_timeout_id.replace(None) {
             if let Err(e) = remove_source_id(id) {
-                println!("remove_source_id: {}", e);
+                println!("remove_source_id: {e}");
             }
         }
     }

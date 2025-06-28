@@ -82,11 +82,11 @@ impl MarArchive {
     }
 
     fn create_store(filename: &Path) -> ListStore {
-        println!("create_store MarArchive {:?}", filename);
+        println!("create_store MarArchive {filename:?}");
         let store = Column::empty_store();
         match list_mar(filename, &store) {
             Ok(()) => println!("OK"),
-            Err(e) => println!("ERROR {:?}", e),
+            Err(e) => println!("ERROR {e:?}"),
         };
         store
     }

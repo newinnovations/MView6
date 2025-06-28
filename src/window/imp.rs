@@ -410,7 +410,7 @@ impl ObjectImpl for MViewWindowImp {
             ControlFlow::Break,
             move || {
                 if let Some(filename) = &filename {
-                    println!("Opening {}", filename);
+                    println!("Opening {filename}");
                     // match path::absolute(filename) {
                     match fs::canonicalize(filename) {
                         Ok(abs_path) => this.navigate_to(&abs_path),

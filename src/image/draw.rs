@@ -33,15 +33,15 @@ pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Image
     match draw_impl(title, msg, colors) {
         Ok(image) => image,
         Err(e) => {
-            println!("Failed to draw text: {:?}", e);
+            println!("Failed to draw text: {e:?}");
             Image::default()
         }
     }
 }
 
 pub fn draw_error(error: MviewError) -> Image {
-    println!("{:#?}", error);
-    let msg = &format!("{:?}", error);
+    println!("{error:#?}");
+    let msg = &format!("{error:?}");
     match draw_impl(
         "error",
         msg,
@@ -49,7 +49,7 @@ pub fn draw_error(error: MviewError) -> Image {
     ) {
         Ok(image) => image,
         Err(e) => {
-            println!("Failed to draw text: {:?}", e);
+            println!("Failed to draw text: {e:?}");
             Image::default()
         }
     }

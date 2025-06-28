@@ -68,8 +68,8 @@ impl InfoView {
         let store = Columns::store();
 
         let (width, height) = image.size();
-        insert(&store, "width", &format!("{:.0} px", width));
-        insert(&store, "height", &format!("{:.0} px", height));
+        insert(&store, "width", &format!("{width:.0} px"));
+        insert(&store, "height", &format!("{height:.0} px"));
         insert(
             &store,
             "alpha channel",

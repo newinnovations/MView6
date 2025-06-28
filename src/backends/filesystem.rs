@@ -69,7 +69,7 @@ impl FileSystem {
             let metadata = match metadata(&path) {
                 Ok(m) => m,
                 Err(e) => {
-                    println!("{}: Err = {:?}", filename, e);
+                    println!("{filename}: Err = {e:?}");
                     continue;
                 }
             };
@@ -103,7 +103,7 @@ impl FileSystem {
         match Self::read_directory(&store, directory) {
             Ok(()) => (),
             Err(e) => {
-                println!("read_dir failed {:?}", e);
+                println!("read_dir failed {e:?}");
             }
         }
         store
@@ -212,7 +212,7 @@ impl Backend for FileSystem {
                 true
             }
             Err(e) => {
-                println!("Failed to rename {filename} to {new_filename}: {:?}", e);
+                println!("Failed to rename {filename} to {new_filename}: {e:?}");
                 false
             }
         }

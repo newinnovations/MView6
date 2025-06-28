@@ -87,7 +87,7 @@ impl Bookmarks {
         match Self::read_directory(&store) {
             Ok(()) => (),
             Err(e) => {
-                println!("read_dir failed {:?}", e);
+                println!("read_dir failed {e:?}");
             }
         }
         store

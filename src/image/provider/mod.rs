@@ -147,7 +147,7 @@ impl ImageSaver {
         if let Some(thumbnail_dir) = thumbnail_path.parent() {
             if !thumbnail_dir.exists() {
                 if let Err(error) = fs::create_dir_all(thumbnail_dir) {
-                    println!("Failed to create thumbnail directory: {:?}", error);
+                    println!("Failed to create thumbnail directory: {error:?}");
                     return;
                 }
             }
@@ -178,7 +178,7 @@ impl ImageSaver {
         };
 
         if let Err(error) = image.save_with_format(thumbnail_path, format) {
-            println!("Failed to write thumbnail: {:?}", error);
+            println!("Failed to write thumbnail: {error:?}");
         }
     }
 }

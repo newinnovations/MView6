@@ -70,7 +70,7 @@ pub fn dump_memory_usage() {
             dbg!(usage);
         }
         Err(error) => {
-            println!("{}", error);
+            println!("{error}");
         }
     }
 }

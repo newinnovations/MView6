@@ -218,7 +218,7 @@ impl InternalImageLoader {
         let mut mem_reader = Cursor::new(image.data());
         let res = GdkImageLoader::image_from_reader(&mut mem_reader);
         if let Err(e) = &res {
-            println!("Error {:?}", e);
+            println!("Error {e:?}");
         }
         res
     }
