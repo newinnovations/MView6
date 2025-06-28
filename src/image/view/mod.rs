@@ -22,6 +22,7 @@ mod imp;
 
 use std::time::SystemTime;
 
+use cairo::{Filter, ImageSurface};
 use gdk_pixbuf::Pixbuf;
 use gio::Menu;
 use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
@@ -34,11 +35,15 @@ use gtk4::{
     prelude::{GestureSingleExt, NativeExt, PopoverExt, WidgetExt},
     ApplicationWindow, GestureClick, PopoverMenu,
 };
+use mupdf::Rect;
 
-use crate::backends::thumbnail::model::Annotations;
+use crate::{
+    backends::thumbnail::model::Annotations,
+    image::view::data::{ImageZoom, QUALITY_HIGH},
+};
 
 use super::Image;
-pub use imp::SIGNAL_VIEW_RESIZED;
+pub use imp::{SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW};
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -118,13 +123,25 @@ impl ImageView {
         p.create_surface();
         self.imp().schedule_animation(&p.image, SystemTime::now());
         p.apply_zoom();
+        drop(p);
+        self.imp().hq_redraw(false);
+        // p.redraw(QUALITY_HIGH);
     }
+
+    // pub fn set_image_post_maintain_zoom(&self, annotations: Option<Annotations>) {
+    //     // dbg!(&annotations);
+    //     let mut p = self.imp().data.borrow_mut();
+    //     p.annotations = annotations;
+    //     p.create_surface();
+    //     self.imp().schedule_animation(&p.image, SystemTime::now());
+    //     p.redraw(QUALITY_HIGH);
+    // }
 
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
         p.create_surface();
-        // p.redraw(QUALITY_HIGH);
         p.apply_zoom();
+        p.redraw(QUALITY_HIGH); // hq_redraw not needed, because image_modified only used with thumbnail sheets
     }
 
     pub fn zoom_mode(&self) -> ZoomMode {
@@ -135,12 +152,38 @@ impl ImageView {
     pub fn set_zoom_mode(&self, mode: ZoomMode) {
         let mut p = self.imp().data.borrow_mut();
         p.zoom_mode = mode;
-        p.apply_zoom();
     }
 
-    pub fn offset(&self) -> (f64, f64) {
+    pub fn zoom(&self) -> ImageZoom {
         let p = self.imp().data.borrow();
-        (p.xofs, p.yofs)
+        p.zoom.clone()
+    }
+
+    // pub fn set_zoom(&self, zoom: ImageZoom) {
+    //     let mut p = self.imp().data.borrow_mut();
+    //     p.zoom = zoom;
+    //     p.redraw(QUALITY_HIGH);
+    // }
+
+    pub fn clip(&self) -> Rect {
+        let p = self.imp().data.borrow();
+        let x0 = -p.zoom.xofs as f32 / p.zoom.zoom as f32;
+        let y0 = -p.zoom.yofs as f32 / p.zoom.zoom as f32;
+        let a = self.allocation();
+        let w = a.width() as f32 / p.zoom.zoom as f32;
+        let h = a.height() as f32 / p.zoom.zoom as f32;
+        Rect {
+            x0,
+            y0,
+            x1: x0 + w,
+            y1: y0 + h,
+        }
+    }
+
+    pub fn set_zoomed_surface(&self, surface: ImageSurface) {
+        let mut p = self.imp().data.borrow_mut();
+        p.redraw(QUALITY_HIGH); // FIXME: handle the removal of existing surfaces better
+        p.zoom_surface = Some(surface);
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {
@@ -157,6 +200,10 @@ impl ImageView {
         self.imp().data.borrow().image.id()
     }
 
+    pub fn image_size(&self) -> (f64, f64) {
+        self.imp().data.borrow().image.size()
+    }
+
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
         let p = self.imp().data.borrow();
         p.image.draw_pixbuf(pixbuf, dest_x, dest_y);
@@ -168,6 +215,7 @@ impl ImageView {
         p.image.rotate(angle);
         p.create_surface();
         p.apply_zoom();
+        p.redraw(QUALITY_HIGH); // FIXME: handle rotate during draw()
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {
@@ -228,5 +276,16 @@ impl ImageView {
         let relative_x = relative_x.clamp(0.0, widget_bounds.width() as f64);
         let relative_y = relative_y.clamp(0.0, widget_bounds.height() as f64);
         Ok((relative_x, relative_y))
+    }
+
+    // redraw stuff
+    pub fn apply_zoom(&self) {
+        let mut p = self.imp().data.borrow_mut();
+        p.apply_zoom();
+    }
+
+    pub fn redraw(&self, quality: Filter) {
+        let mut p = self.imp().data.borrow_mut();
+        p.redraw(quality);
     }
 }

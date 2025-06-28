@@ -23,6 +23,7 @@ mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
+mod redraw;
 mod sort;
 
 use crate::{
@@ -35,12 +36,12 @@ use crate::{
         Backend,
     },
     file_view::{FileView, Filter, Sort, Target},
-    image::view::{ImageView, ZoomMode, SIGNAL_VIEW_RESIZED},
+    image::view::{ImageView, ZoomMode, SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW},
     info_view::InfoView,
 };
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
-use glib::{clone, closure_local, idle_add_local, ControlFlow};
+use glib::{clone, closure_local, idle_add_local, ControlFlow, SourceId};
 use gtk4::{
     glib::Propagation, prelude::*, subclass::prelude::*, EventControllerKey, HeaderBar, MenuButton,
     ScrolledWindow,
@@ -116,6 +117,9 @@ pub struct MViewWindowImp {
     page_mode: Cell<PageMode>,
     sorting_store: RefCell<HashMap<PathBuf, Sort>>,
     target_store: RefCell<HashMap<PathBuf, TargetTime>>,
+    canvas_resized_timeout_id: RefCell<Option<SourceId>>,
+    hq_redraw_timeout_id: RefCell<Option<SourceId>>,
+    current_height: Cell<i32>,
 }
 
 #[glib::object_subclass]
@@ -289,14 +293,25 @@ impl ObjectImpl for MViewWindowImp {
         image_view.add_controller(gesture_click);
 
         image_view.connect_closure(
-            SIGNAL_VIEW_RESIZED,
+            SIGNAL_CANVAS_RESIZED,
             false,
             closure_local!(
                 #[weak(rename_to = this)]
                 self,
-                move |_view: ImageView, _width: i32, _height: i32| {
-                    // println!("view was resized to {_width} {_height}");
-                    this.update_thumbnail_backend();
+                move |_view: ImageView, width: i32, height: i32| {
+                    this.event_canvas_resized(width, height);
+                }
+            ),
+        );
+
+        image_view.connect_closure(
+            SIGNAL_HQ_REDRAW,
+            false,
+            closure_local!(
+                #[weak(rename_to = this)]
+                self,
+                move |_view: ImageView, delayed: bool| {
+                    this.event_hq_redraw(delayed);
                 }
             ),
         );

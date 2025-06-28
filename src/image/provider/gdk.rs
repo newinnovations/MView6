@@ -27,6 +27,7 @@ use crate::{
     error::MviewResult,
     image::{animation::Animation, provider::ExifReader, Image},
 };
+use cairo::{Format, ImageSurface};
 use gdk_pixbuf::{Pixbuf, PixbufLoader};
 use glib::Bytes;
 use gtk4::prelude::{PixbufAnimationExt, PixbufAnimationExtManual, PixbufLoaderExt};
@@ -67,6 +68,55 @@ impl GdkImageLoader {
             width as i32,
             height as i32,
             3 * width as i32,
+        )
+    }
+
+    pub fn cairo_surface_from_rgb(
+        width: u32,
+        height: u32,
+        rgb: &[u8],
+    ) -> Result<ImageSurface, cairo::Error> {
+        let cairo_data: Vec<u8> = rgb
+            .chunks_exact(3)
+            .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255])
+            .collect();
+        ImageSurface::create_for_data(
+            cairo_data,
+            Format::ARgb32,
+            width as i32,
+            height as i32,
+            width as i32 * 4, // stride: bytes per row
+        )
+    }
+
+    pub fn cairo_surface_from_dual_rgb(
+        width_left: u32,
+        width_right: u32,
+        height: u32,
+        rgb_left: &[u8],
+        rgb_right: &[u8],
+    ) -> Result<ImageSurface, cairo::Error> {
+        let combined_width = width_left + width_right;
+        // Create iterator that alternates between left and right pixels row by row
+        let cairo_data: Vec<u8> = (0..height)
+            .flat_map(|row| {
+                let row_start_left = (row * width_left * 3) as usize;
+                let row_end_left = row_start_left + (width_left * 3) as usize;
+                let row_start_right = (row * width_right * 3) as usize;
+                let row_end_right = row_start_right + (width_right * 3) as usize;
+                // Combine left row + right row
+                rgb_left[row_start_left..row_end_left]
+                    .chunks_exact(3)
+                    .chain(rgb_right[row_start_right..row_end_right].chunks_exact(3))
+                    .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255]) // RGB -> BGRA
+            })
+            .collect();
+        ImageSurface::create_for_data(
+            cairo_data,
+            Format::ARgb32,
+            combined_width as i32,
+            height as i32,
+            combined_width as i32 * 4, // stride
         )
     }
 }
