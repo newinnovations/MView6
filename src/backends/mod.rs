@@ -38,7 +38,7 @@ use thumbnail::{Message, TEntry, Thumbnail};
 use crate::{
     backends::thumbnail::model::TParent,
     file_view::{Cursor, Direction, Target},
-    image::{view::data::ImageZoom, Image},
+    image::{view::ImageZoom, Image},
 };
 
 mod archive_mar;

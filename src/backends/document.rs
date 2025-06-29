@@ -28,7 +28,7 @@ use crate::{
     category::Category,
     error::{MviewError, MviewResult},
     file_view::{Column, Cursor},
-    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::data::ImageZoom},
+    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::ImageZoom},
     profile::performance::Performance,
 };
 
@@ -164,7 +164,7 @@ impl Backend for Document {
             params.page_mode,
             current_height,
             clip,
-            zoom.zoom as f32,
+            zoom.zoom_factor() as f32,
         )
         .ok()
     }

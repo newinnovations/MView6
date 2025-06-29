@@ -19,6 +19,7 @@
 
 pub mod data;
 mod imp;
+pub mod zoom;
 
 use std::time::SystemTime;
 
@@ -37,13 +38,12 @@ use gtk4::{
 };
 use mupdf::Rect;
 
-use crate::{
-    backends::thumbnail::model::Annotations,
-    image::view::data::{ImageZoom, QUALITY_HIGH},
-};
+use crate::backends::thumbnail::model::Annotations;
 
 use super::Image;
+pub use data::QUALITY_HIGH;
 pub use imp::{SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW};
+pub use zoom::{ImageZoom, ZoomMode};
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -53,40 +53,6 @@ glib::wrapper! {
 impl Default for ImageView {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[derive(Default, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Clone, Copy)]
-pub enum ZoomMode {
-    #[default]
-    NotSpecified,
-    NoZoom,
-    Fit,
-    Fill,
-    Max,
-}
-
-impl From<&str> for ZoomMode {
-    fn from(value: &str) -> Self {
-        match value {
-            "nozoom" => ZoomMode::NoZoom,
-            "fit" => ZoomMode::Fit,
-            "fill" => ZoomMode::Fill,
-            "max" => ZoomMode::Max,
-            _ => ZoomMode::NotSpecified,
-        }
-    }
-}
-
-impl From<ZoomMode> for &str {
-    fn from(value: ZoomMode) -> Self {
-        match value {
-            ZoomMode::NotSpecified => "",
-            ZoomMode::NoZoom => "nozoom",
-            ZoomMode::Fit => "fit",
-            ZoomMode::Fill => "fill",
-            ZoomMode::Max => "max",
-        }
     }
 }
 
@@ -110,8 +76,7 @@ impl ImageView {
         let mut p = self.imp().data.borrow_mut();
         self.imp().cancel_animation();
         p.image = image;
-        // p.image.crop_to_max_size();
-        // p.rotation = 0;
+        p.zoom.set_rotation(0);
         p.annotations = None;
         p.hover = None;
     }
@@ -127,15 +92,6 @@ impl ImageView {
         self.imp().hq_redraw(false);
         // p.redraw(QUALITY_HIGH);
     }
-
-    // pub fn set_image_post_maintain_zoom(&self, annotations: Option<Annotations>) {
-    //     // dbg!(&annotations);
-    //     let mut p = self.imp().data.borrow_mut();
-    //     p.annotations = annotations;
-    //     p.create_surface();
-    //     self.imp().schedule_animation(&p.image, SystemTime::now());
-    //     p.redraw(QUALITY_HIGH);
-    // }
 
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
@@ -162,16 +118,14 @@ impl ImageView {
     pub fn clip(&self) -> Rect {
         let p = self.imp().data.borrow();
         let a = self.allocation();
-        if let Ok(matrix) = p.zoom.matrix().try_invert() {
+        if let Ok(matrix) = p.zoom.transform_matrix().try_invert() {
             let (x1, y1) = matrix.transform_point(0.0, 0.0);
-            let (x2, y2) = matrix.transform_point(0.0, a.height() as f64);
-            let (x3, y3) = matrix.transform_point(a.width() as f64, 0.0);
-            let (x4, y4) = matrix.transform_point(a.width() as f64, a.height() as f64);
+            let (x2, y2) = matrix.transform_point(a.width() as f64, a.height() as f64);
             Rect {
-                x0: x1.min(x2).min(x3).min(x4) as f32,
-                y0: y1.min(y2).min(y3).min(y4) as f32,
-                x1: x1.max(x2).max(x3).max(x4) as f32,
-                y1: y1.max(y2).max(y3).max(y4) as f32,
+                x0: x1.min(x2) as f32,
+                y0: y1.min(y2) as f32,
+                x1: x1.max(x2) as f32,
+                y1: y1.max(y2) as f32,
             }
         } else {
             Rect {
@@ -211,12 +165,9 @@ impl ImageView {
 
     pub fn rotate(&self, angle: i32) {
         let mut p = self.imp().data.borrow_mut();
-        p.zoom.rotation = (p.zoom.rotation + angle).rem_euclid(360);
-        dbg!(p.zoom.rotation);
-        // p.image.rotate(angle);
-        // p.create_surface();
+        p.zoom.add_rotation(angle);
         p.apply_zoom();
-        p.redraw(QUALITY_HIGH); // FIXME: handle rotate during draw()
+        p.redraw(QUALITY_HIGH);
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {
@@ -286,7 +237,10 @@ impl ImageView {
     }
 
     pub fn redraw(&self, quality: Filter) {
-        let mut p = self.imp().data.borrow_mut();
-        p.redraw(quality);
+        // BorrowMutError: to reproduce press 'q' while hovering image in thumbnail sheet
+        match self.imp().data.try_borrow_mut() {
+            Ok(mut p) => p.redraw(quality),
+            Err(e) => eprintln!("Failed to redraw: {e}"),
+        }
     }
 }

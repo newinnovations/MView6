@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use cairo::{Context, Format, ImageSurface};
+use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use gdk_pixbuf::Pixbuf;
 use gtk4::gdk::pixbuf_get_from_surface;
 
@@ -63,11 +63,11 @@ fn draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResu
     context.color(Color::Black);
     context.paint()?;
 
-    // context.select_font_face("Arial", cairo::FontSlant::Normal, cairo::FontWeight::Normal);
-    // context.select_font_face("Ubuntu", cairo::FontSlant::Normal, cairo::FontWeight::Normal); //Bold);
+    // context.select_font_face("Arial", FontSlant::Normal, FontWeight::Normal);
+    // context.select_font_face("Ubuntu", FontSlant::Normal, FontWeight::Normal); //Bold);
     // "Liberation Sans"
 
-    context.select_font_face("Ubuntu", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
+    context.select_font_face("Ubuntu", FontSlant::Normal, FontWeight::Bold);
     context.set_font_size(85.0);
     let extends = context.text_extents(title)?;
     // dbg!(extends);
@@ -75,11 +75,7 @@ fn draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResu
     context.move_to((600.0 - extends.width() - extends.x_bearing()) / 2.0, 100.0);
     context.show_text(title)?;
 
-    context.select_font_face(
-        "Liberation Sans",
-        cairo::FontSlant::Normal,
-        cairo::FontWeight::Normal,
-    );
+    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
     let mut font_size = 70.0;
     let mut width;
     loop {
@@ -109,11 +105,7 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
 
     let mut logo_width = margin + logo(&context, 0, 0, 30.0, false)? as i32;
 
-    context.select_font_face(
-        "Liberation Sans",
-        cairo::FontSlant::Normal,
-        cairo::FontWeight::Normal,
-    );
+    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(20.0);
     let caption_width = context.text_extents(text)?.width() as i32;
 
@@ -138,11 +130,7 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
 }
 
 fn logo(context: &Context, x_right: i32, y: i32, size: f64, draw: bool) -> MviewResult<f64> {
-    context.select_font_face(
-        "Liberation Sans",
-        cairo::FontSlant::Normal,
-        cairo::FontWeight::Bold,
-    );
+    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Bold);
     context.set_font_size(size);
     let extends = context.text_extents("MView6")?;
     if draw {
@@ -166,22 +154,14 @@ pub fn text_thumb(message: TMessage) -> MviewResult<Pixbuf> {
 
     // logo(&context, width - offset_x, height - 15, 30.0)?;
 
-    context.select_font_face(
-        "Liberation Sans",
-        cairo::FontSlant::Normal,
-        cairo::FontWeight::Bold,
-    );
+    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Bold);
     context.set_font_size(20.0);
     let extends = context.text_extents(message.title())?;
     context.move_to((175.0 - extends.width()) / 2.0, 60.0);
     context.color(color_title);
     context.show_text(message.title())?;
 
-    context.select_font_face(
-        "Liberation Sans",
-        cairo::FontSlant::Normal,
-        cairo::FontWeight::Normal,
-    );
+    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(14.0);
     context.color(color_msg);
 
@@ -262,7 +242,7 @@ pub fn transparency_background() -> MviewResult<ImageSurface> {
     let context = Context::new(&surface)?;
 
     /* Use source operator to make fully transparent work */
-    context.set_operator(cairo::Operator::Source);
+    context.set_operator(Operator::Source);
 
     let check_size = check_size as f64;
 

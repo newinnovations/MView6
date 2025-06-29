@@ -28,10 +28,12 @@ use crate::{
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
+        view::zoom::ZOOM_MULTIPLIER,
         Image, ImageData,
     },
     util::remove_source_id,
 };
+use cairo::{Context, Extend, FillRule, Matrix, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
@@ -42,7 +44,7 @@ use gtk4::{
 use rsvg::prelude::HandleExt;
 
 use super::{
-    data::{ImageViewData, Surfaces, QUALITY_HIGH, QUALITY_LOW, ZOOM_MULTIPLIER},
+    data::{ImageViewData, Surfaces, QUALITY_HIGH, QUALITY_LOW},
     ImageView, ViewCursor,
 };
 
@@ -107,105 +109,114 @@ impl ImageViewImp {
         }
     }
 
-    fn draw(&self, context: &cairo::Context) {
+    fn draw(&self, context: &Context) {
         let p = self.data.borrow();
+        let z = &p.zoom;
 
-        let (xofs, yofs, scaled_width, scaled_height) = p.image_coords();
+        context.set_fill_rule(FillRule::EvenOdd);
 
-        /* Paint the background */
-        let allocation = self.obj().allocation();
-        context.rectangle(
-            0.0,
-            0.0,
-            allocation.width() as f64,
-            allocation.height() as f64,
-        );
+        let (matrix, size, alpha) = if let Some(surface) = &p.zoom_surface {
+            (
+                z.unscaled_transform_matrix(surface.width(), surface.height()),
+                (surface.width() as f64, surface.height() as f64),
+                false,
+            )
+        } else {
+            (z.transform_matrix(), p.image.size(), p.image.has_alpha())
+        };
+        context.transform(matrix);
 
-        // cr.set_source_rgba(0.0, 0.0, 0.0, 1.0);
-        context.color(Color::Black);
-        context.set_fill_rule(cairo::FillRule::EvenOdd);
-        let _ = context.fill();
+        let (width, height) = size;
 
-        if !p.surface.is_dual() && p.image.has_alpha() {
+        if let Ok((x1, y1, x2, y2)) = context.clip_extents() {
+            context.color(Color::Black);
+            // With FillRule::EvenOdd:
+            // * Areas covered by an odd number of shapes get filled
+            // * Areas covered by an even number of shapes don't get filled
+            // * The outer rectangle covers the entire area (1 = odd, so filled)
+            context.rectangle(x1, y1, x2 - x1, y2 - y1);
+            // * The inner rectangle overlaps part of the outer rectangle (1+1 = 2 = even, so not filled)
+            context.rectangle(2.0, 2.0, width - 4.0, height - 4.0);
+            // Result: black background with a transparent "hole" in the middle
+            let _ = context.fill();
+        }
+
+        if alpha {
             if let Some(transparency_background) = &p.transparency_background {
-                let _ = context.set_source_surface(transparency_background, xofs, yofs);
-                context.source().set_extend(cairo::Extend::Repeat);
-                context.rectangle(xofs, yofs, scaled_width, scaled_height);
+                // Create a pattern and scale it inversely to maintain 16x16 pixel size
+                let pattern = SurfacePattern::create(transparency_background);
+                let mut pattern_matrix = Matrix::identity();
+                // Cairo pattern matrix works opposite to intuition:
+                // When context is scaled 2x larger, pattern matrix must also scale 2x
+                // to sample the pattern more densely, keeping blocks at 16x16 pixels
+                pattern_matrix.scale(z.zoom_factor(), z.zoom_factor());
+                pattern.set_matrix(pattern_matrix);
+                pattern.set_extend(Extend::Repeat);
+                let _ = context.set_source(&pattern);
+                context.rectangle(0.0, 0.0, width, height);
                 let _ = context.fill();
             }
         }
 
-        /* Make sure the image is only drawn as large as needed.
-         * This is especially necessary for SVGs where there might
-         * be more image data available outside the image boundaries.
-         */
-        // context.rectangle(xofs, yofs, scaled_width, scaled_height);
-        // context.clip();
+        context.rectangle(0.0, 0.0, width, height);
         if let ImageData::Svg(handle) = &p.image.image_data {
-            // let viewport = rsvg::Rectangle::new(xofs, yofs, scaled_width, scaled_height);
+            context.clip();
             let (width, height) = p.image.size();
             let viewport = rsvg::Rectangle::new(0.0, 0.0, width, height);
-            let matrix = p.zoom.matrix();
-            context.transform(matrix);
             handle.render_document(context, &viewport).unwrap();
         } else if let Some(surface) = &p.zoom_surface {
-            let z = &p.zoom;
-            let matrix = z.clip_matrix(surface.width(), surface.height());
-            context.transform(matrix);
             let _ = context.set_source_surface(surface, 0.0, 0.0);
-            let _ = context.paint();
+            let _ = context.fill();
         } else {
-            let z = &p.zoom;
-            let matrix = z.matrix();
-            let size = p.image.size();
-            context.transform(matrix);
-            context.rectangle(0.0, 0.0, size.0, size.1);
-            context.clip();
-
             if let Surfaces::Single(surface) = &p.surface {
                 let _ = context.set_source_surface(surface, 0.0, 0.0);
             } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
                 let _ = context.set_source_surface(surface1, 0.0, *y1);
                 context.source().set_filter(p.quality);
-                let _ = context.paint();
+                let _ = context.fill();
+                context.rectangle(0.0, 0.0, width, height);
                 let _ = context.set_source_surface(surface2, *w1, *y2);
             }
             context.source().set_filter(p.quality);
-            let _ = context.paint();
+            let _ = context.fill();
+            self.draw_annotations(context);
+        }
+    }
 
-            if let Some(annotations) = &p.annotations {
-                let hover = annotations.get(p.hover);
-                if let Some(hover) = hover {
-                    context.set_source_rgba(1.0, 1.0, 1.0, 0.1);
-                    context.rectangle(
-                        xofs + hover.position.x,
-                        yofs + hover.position.y,
-                        hover.position.width,
-                        hover.position.height,
-                    );
-                    let _ = context.fill_preserve();
-                    context.set_source_rgb(0.7, 0.7, 0.0);
-                    context.set_line_width(3.0);
-                    let _ = context.stroke();
-                }
+    fn draw_annotations(&self, context: &Context) {
+        let p = self.data.borrow();
+        if let Some(annotations) = &p.annotations {
+            let hover = annotations.get(p.hover);
+            if let Some(hover) = hover {
+                context.set_source_rgba(1.0, 1.0, 1.0, 0.1);
+                context.rectangle(
+                    hover.position.x,
+                    hover.position.y,
+                    hover.position.width,
+                    hover.position.height,
+                );
+                let _ = context.fill_preserve();
+                context.set_source_rgb(0.7, 0.7, 0.0);
+                context.set_line_width(3.0);
+                let _ = context.stroke();
+            }
 
-                for annotation in &annotations.annotations {
-                    match annotation.category {
-                        Category::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
-                        Category::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
-                        _ => continue,
-                    };
-                    context.arc(
-                        xofs + annotation.position.x + annotation.position.width,
-                        yofs + annotation.position.y + annotation.position.height,
-                        if hover == Some(annotation) { 5.0 } else { 2.0 },
-                        0.0,
-                        2.0 * std::f64::consts::PI,
-                    );
-                    let _ = context.fill_preserve();
-                    context.set_line_width(2.0);
-                    let _ = context.stroke();
-                }
+            for annotation in &annotations.annotations {
+                match annotation.category {
+                    Category::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
+                    Category::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
+                    _ => continue,
+                };
+                context.arc(
+                    annotation.position.x + annotation.position.width,
+                    annotation.position.y + annotation.position.height,
+                    if hover == Some(annotation) { 5.0 } else { 2.0 },
+                    0.0,
+                    2.0 * std::f64::consts::PI,
+                );
+                let _ = context.fill_preserve();
+                context.set_line_width(2.0);
+                let _ = context.stroke();
             }
         }
     }
@@ -234,9 +245,7 @@ impl ImageViewImp {
         if let Some(annotations) = &p.annotations {
             let index = annotations.index_at(x - p.zoom.off_x(), y - p.zoom.off_y());
             if index != p.hover {
-                // dbg!(index);
                 p.hover = index;
-                // redraw = Some(QUALITY_HIGH);
                 p.redraw(QUALITY_HIGH); // hq_redraw not needed, because annotation only apply to thumbnail sheets
             }
         }
@@ -251,6 +260,7 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.hover.is_some() {
             p.hover = None;
+            drop(p);
             self.hq_redraw(true);
         }
     }
@@ -261,11 +271,11 @@ impl ImageViewImp {
         let mouse_position = p.mouse_position;
         if p.image.is_movable() {
             let zoom = if dy < -0.01 {
-                p.zoom.zoom * ZOOM_MULTIPLIER
+                p.zoom.zoom_factor() * ZOOM_MULTIPLIER
             } else if dy > 0.01 {
-                p.zoom.zoom / ZOOM_MULTIPLIER
+                p.zoom.zoom_factor() / ZOOM_MULTIPLIER
             } else {
-                p.zoom.zoom
+                p.zoom.zoom_factor()
             };
             p.update_zoom(zoom, mouse_position);
             drop(p);
@@ -358,7 +368,7 @@ impl WidgetImpl for ImageViewImp {
         self.obj().set_draw_func(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, context, _, _| this.draw(context)
+            move |_, context, _width, _height| this.draw(context)
         ));
     }
 }

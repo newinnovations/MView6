@@ -184,7 +184,11 @@ impl MViewWindowImp {
     }
 
     pub fn rotate_image(&self, angle: i32) {
-        self.widgets().image_view.rotate(angle);
+        let w = self.widgets();
+        let backend = self.backend.borrow();
+        if !backend.is_thumbnail() {
+            w.image_view.rotate(angle);
+        }
     }
 
     pub fn toggle_thumbnail_view(&self) {

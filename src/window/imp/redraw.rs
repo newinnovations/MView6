@@ -179,9 +179,9 @@ impl MViewWindowImp {
     /// zoomed documents. If we know for sure we will be handling non-documents
     /// we could use mage_view::redraw(QUALITY_HIGH). This is done is some places.
     pub fn hq_redraw(&self) {
-        let zoom = self.widgets().image_view.zoom().zoom;
+        let zoom = self.widgets().image_view.zoom();
         let backend = self.backend.borrow();
-        if backend.is_doc() && has_changed_by_percentage(1.0, zoom, 2.0) {
+        if backend.is_doc() && zoom.is_zoomed() {
             self.render_doc_zoom();
         } else {
             self.widgets().image_view.redraw(QUALITY_HIGH);
