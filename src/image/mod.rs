@@ -24,20 +24,19 @@ pub mod provider;
 pub mod view;
 
 use animation::Animation;
-use cairo::ImageSurface;
+use cairo::{Context, Format, ImageSurface};
 use exif::Exif;
 use gdk_pixbuf::Pixbuf;
-use glib::translate::from_glib_full;
-use gtk4::gdk::ffi::gdk_pixbuf_get_from_surface;
+use gtk4::gdk::prelude::GdkCairoContextExt;
 use rsvg::{prelude::HandleExt, Handle};
 use std::{
     cmp::max,
-    cmp::min,
     sync::atomic::{AtomicU32, Ordering},
 };
 use view::ZoomMode;
 
-pub const MAX_IMAGE_SIZE: i32 = 32767;
+use crate::image::provider::gdk::GdkImageLoader;
+
 static IMAGE_ID: AtomicU32 = AtomicU32::new(1);
 
 fn get_image_id() -> u32 {
@@ -49,27 +48,60 @@ fn get_image_id() -> u32 {
 pub enum ImageData {
     #[default]
     None,
-    Single(Pixbuf),
-    Dual(Pixbuf, Pixbuf),
+    Single(ImageSurface),
+    Dual(ImageSurface, ImageSurface),
     Svg(Handle),
 }
 
 impl From<Option<Pixbuf>> for ImageData {
     fn from(value: Option<Pixbuf>) -> Self {
-        match value {
-            Some(pixbuf) => ImageData::Single(pixbuf),
-            None => ImageData::None,
-        }
+        GdkImageLoader::surface_from_pixbuf_option(value.as_ref()).into()
     }
 }
 
 impl From<(Option<Pixbuf>, Option<Pixbuf>)> for ImageData {
     fn from(value: (Option<Pixbuf>, Option<Pixbuf>)) -> Self {
+        let (p1, p2) = value;
+        let s1 = GdkImageLoader::surface_from_pixbuf_option(p1.as_ref());
+        let s2 = GdkImageLoader::surface_from_pixbuf_option(p2.as_ref());
+        (s1, s2).into()
+    }
+}
+
+impl From<Option<ImageSurface>> for ImageData {
+    fn from(value: Option<ImageSurface>) -> Self {
         match value {
-            (Some(pixbuf), None) => ImageData::Single(pixbuf),
-            (None, Some(pixbuf)) => ImageData::Single(pixbuf),
-            (Some(pixbuf1), Some(pixbuf2)) => ImageData::Dual(pixbuf1, pixbuf2),
+            Some(surface) => ImageData::Single(surface),
+            None => ImageData::None,
+        }
+    }
+}
+
+impl From<(Option<ImageSurface>, Option<ImageSurface>)> for ImageData {
+    fn from(value: (Option<ImageSurface>, Option<ImageSurface>)) -> Self {
+        match value {
+            (Some(surface), None) => ImageData::Single(surface),
+            (None, Some(surface)) => ImageData::Single(surface),
+            (Some(surface1), Some(surface2)) => ImageData::Dual(surface1, surface2),
             (None, None) => ImageData::None,
+        }
+    }
+}
+
+impl ImageData {
+    pub fn offset(&self) -> (f64, f64, f64, f64) {
+        match self {
+            ImageData::Dual(surface_left, surface_right) => {
+                let width_left = surface_left.width() as f64;
+                let height_left = surface_left.height() as f64;
+                let height_right = surface_right.height() as f64;
+                if height_left > height_right {
+                    (0.0, 0.0, width_left, (height_left - height_right) / 2.0)
+                } else {
+                    (0.0, (height_right - height_left) / 2.0, width_left, 0.0)
+                }
+            }
+            _ => (0.0, 0.0, 0.0, 0.0),
         }
     }
 }
@@ -85,22 +117,24 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new_surface(surface: &ImageSurface, zoom_mode: ZoomMode) -> Self {
-        let pixbuf: Option<Pixbuf> = unsafe {
-            from_glib_full(gdk_pixbuf_get_from_surface(
-                surface.as_ref().to_raw_none(),
-                0,
-                0,
-                surface.width(),
-                surface.height(),
-            ))
-        };
+    pub fn new_surface(surface: ImageSurface, exif: Option<Exif>) -> Self {
         Image {
             id: get_image_id(),
-            image_data: pixbuf.into(),
+            image_data: ImageData::Single(surface),
+            animation: Animation::None,
+            exif,
+            zoom_mode: ZoomMode::NotSpecified,
+            tag: None,
+        }
+    }
+
+    pub fn new_surface_nozoom(surface: ImageSurface) -> Self {
+        Image {
+            id: get_image_id(),
+            image_data: ImageData::Single(surface),
             animation: Animation::None,
             exif: None,
-            zoom_mode,
+            zoom_mode: ZoomMode::NoZoom,
             tag: None,
         }
     }
@@ -131,16 +165,31 @@ impl Image {
         }
     }
 
+    pub fn new_dual_surface(
+        surface_left: Option<ImageSurface>,
+        surface_right: Option<ImageSurface>,
+        exif: Option<Exif>,
+    ) -> Self {
+        Image {
+            id: get_image_id(),
+            image_data: (surface_left, surface_right).into(),
+            animation: Animation::None,
+            exif,
+            zoom_mode: ZoomMode::NotSpecified,
+            tag: None,
+        }
+    }
+
     pub fn new_animation(animation: Animation) -> Self {
-        let pixbuf = match &animation {
+        let surface = match &animation {
             Animation::None => None,
-            Animation::Gdk(a) => Some(a.pixbuf()),
-            Animation::WebPFile(a) => a.pixbuf_get(0),
-            Animation::WebPMemory(a) => a.pixbuf_get(0),
+            Animation::Gdk(a) => GdkImageLoader::surface_from_pixbuf(&a.pixbuf()).ok(),
+            Animation::WebPFile(a) => a.surface_get(0),
+            Animation::WebPMemory(a) => a.surface_get(0),
         };
         Image {
             id: get_image_id(),
-            image_data: pixbuf.into(),
+            image_data: surface.into(),
             animation,
             exif: None,
             zoom_mode: ZoomMode::NotSpecified,
@@ -178,8 +227,10 @@ impl Image {
     pub fn has_alpha(&self) -> bool {
         match &self.image_data {
             ImageData::None => false,
-            ImageData::Single(pixbuf) => pixbuf.has_alpha(),
-            ImageData::Dual(pixbuf1, pixbuf2) => pixbuf1.has_alpha() || pixbuf2.has_alpha(),
+            ImageData::Single(pixbuf) => pixbuf.format() == Format::ARgb32,
+            ImageData::Dual(pixbuf1, pixbuf2) => {
+                pixbuf1.format() == Format::ARgb32 || pixbuf2.format() == Format::ARgb32
+            }
             ImageData::Svg(_handle) => true,
         }
     }
@@ -204,37 +255,32 @@ impl Image {
     }
 
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
-        if let ImageData::Single(my_pixbuf) = &self.image_data {
-            pixbuf.copy_area(
-                0,
-                0,
-                pixbuf.width(),
-                pixbuf.height(),
-                my_pixbuf,
-                dest_x,
-                dest_y,
-            );
-        }
-    }
-
-    pub fn crop_to_max_size(&mut self) {
-        if let ImageData::Single(pixbuf) = &self.image_data {
-            if pixbuf.width() > MAX_IMAGE_SIZE || pixbuf.height() > MAX_IMAGE_SIZE {
-                let new_width = min(pixbuf.width(), MAX_IMAGE_SIZE);
-                let new_height = min(pixbuf.height(), MAX_IMAGE_SIZE);
-                let new_pixpuf = Pixbuf::new(
-                    pixbuf.colorspace(),
-                    pixbuf.has_alpha(),
-                    pixbuf.bits_per_sample(),
-                    new_width,
-                    new_height,
-                );
-                if let Some(new_pixbuf) = &new_pixpuf {
-                    pixbuf.copy_area(0, 0, new_width, new_height, new_pixbuf, 0, 0);
-                }
-                self.image_data = new_pixpuf.into();
-                self.animation = Animation::None;
+        if let ImageData::Single(my_surface) = &self.image_data {
+            if let Ok(ctx) = Context::new(my_surface) {
+                ctx.set_source_pixbuf(pixbuf, dest_x as f64, dest_y as f64);
+                let _ = ctx.paint();
             }
         }
     }
+
+    // pub fn crop_to_max_size(&mut self) {
+    //     if let ImageData::Single(pixbuf) = &self.image_data {
+    //         if pixbuf.width() > MAX_IMAGE_SIZE || pixbuf.height() > MAX_IMAGE_SIZE {
+    //             let new_width = min(pixbuf.width(), MAX_IMAGE_SIZE);
+    //             let new_height = min(pixbuf.height(), MAX_IMAGE_SIZE);
+    //             let new_pixpuf = Pixbuf::new(
+    //                 pixbuf.colorspace(),
+    //                 pixbuf.has_alpha(),
+    //                 pixbuf.bits_per_sample(),
+    //                 new_width,
+    //                 new_height,
+    //             );
+    //             if let Some(new_pixbuf) = &new_pixpuf {
+    //                 pixbuf.copy_area(0, 0, new_width, new_height, new_pixbuf, 0, 0);
+    //             }
+    //             self.image_data = new_pixpuf.into();
+    //             self.animation = Animation::None;
+    //         }
+    //     }
+    // }
 }

@@ -210,10 +210,10 @@ impl MViewWindowImp {
                     let image1 = self.backend.borrow().image(&current, &params);
                     if current.next() {
                         let image2 = self.backend.borrow().image(&current, &params);
-                        if let (ImageData::Single(pixbuf), ImageData::Single(pixbuf2)) =
+                        if let (ImageData::Single(surface), ImageData::Single(surface2)) =
                             (image1.image_data, image2.image_data)
                         {
-                            let i2 = Image::new_dual_pixbuf(Some(pixbuf), Some(pixbuf2), None);
+                            let i2 = Image::new_dual_surface(Some(surface), Some(surface2), None);
                             w.info_view.update(&i2);
                             w.image_view.set_image(i2);
                         }

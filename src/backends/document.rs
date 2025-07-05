@@ -28,7 +28,7 @@ use crate::{
     category::Category,
     error::{MviewError, MviewResult},
     file_view::{Column, Cursor},
-    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::ImageZoom},
+    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::Zoom},
     profile::performance::Performance,
 };
 
@@ -155,7 +155,7 @@ impl Backend for Document {
         params: &ImageParams,
         current_height: f32,
         clip: Rect,
-        zoom: ImageZoom,
+        zoom: Zoom,
     ) -> Option<ImageSurface> {
         extract_clip(
             &self.filename,
@@ -224,12 +224,8 @@ fn extract_page_single(filename: &Path, index: i32, allocation_height: i32) -> M
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
 
-    let image = Image::new_pixbuf(
-        Some(GdkImageLoader::pixbuf_from_rgb(
-            pixmap.width(),
-            pixmap.height(),
-            pixmap.samples(),
-        )),
+    let image = Image::new_surface(
+        GdkImageLoader::surface_from_rgb(pixmap.width(), pixmap.height(), pixmap.samples())?,
         None,
     );
     duration.elapsed("single page");
@@ -251,17 +247,19 @@ fn extract_page_dual(filename: &Path, index: i32, allocation_height: i32) -> Mvi
     let pixmap_right =
         page_right.to_pixmap(&matrix_right, &Colorspace::device_rgb(), false, false)?;
 
-    let image = Image::new_dual_pixbuf(
-        Some(GdkImageLoader::pixbuf_from_rgb(
+    let image = Image::new_dual_surface(
+        GdkImageLoader::surface_from_rgb(
             pixmap_left.width(),
             pixmap_left.height(),
             pixmap_left.samples(),
-        )),
-        Some(GdkImageLoader::pixbuf_from_rgb(
+        )
+        .ok(),
+        GdkImageLoader::surface_from_rgb(
             pixmap_right.width(),
             pixmap_right.height(),
             pixmap_right.samples(),
-        )),
+        )
+        .ok(),
         None,
     );
     duration.elapsed("dual page");
@@ -312,7 +310,7 @@ fn extract_clip_single(
     let doc = open(filename)?;
 
     let surface = if let Some(pixmap) = doc_extract_clip(&doc, index, current_height, clip, zoom)? {
-        Ok(GdkImageLoader::cairo_surface_from_rgb(
+        Ok(GdkImageLoader::surface_from_rgb(
             pixmap.width(),
             pixmap.height(),
             pixmap.samples(),
@@ -344,12 +342,12 @@ fn extract_clip_dual(
 
     let surface = match (pixmap_left, pixmap_right) {
         (None, None) => return Err("empty clip".into()),
-        (Some(pixmap_left), None) => GdkImageLoader::cairo_surface_from_rgb(
+        (Some(pixmap_left), None) => GdkImageLoader::surface_from_rgb(
             pixmap_left.width(),
             pixmap_left.height(),
             pixmap_left.samples(),
         )?,
-        (None, Some(pixmap_right)) => GdkImageLoader::cairo_surface_from_rgb(
+        (None, Some(pixmap_right)) => GdkImageLoader::surface_from_rgb(
             pixmap_right.width(),
             pixmap_right.height(),
             pixmap_right.samples(),
@@ -358,7 +356,7 @@ fn extract_clip_dual(
             if pixmap_left.height() != pixmap_right.height() {
                 return Err("height mismatch".into());
             }
-            GdkImageLoader::cairo_surface_from_dual_rgb(
+            GdkImageLoader::surface_from_dual_rgb(
                 pixmap_left.width(),
                 pixmap_right.width(),
                 pixmap_left.height(),

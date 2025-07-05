@@ -1,8 +1,6 @@
 name: Release builds
 on:
   push:
-    branches:
-      - main
 jobs:
   build:
     name: Build
@@ -39,7 +37,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev librsvg2-dev
+          sudo apt-get install -y libgtk-4-dev librsvg2-dev libdav1d-dev
 
       - name: Install Windows build enviroment for MView6
         if: runner.os == 'Windows'
@@ -47,7 +45,9 @@ jobs:
           $WebClient = New-Object System.Net.WebClient
           $WebClient.DownloadFile("https://github.com/newinnovations/mview6-win-buildenv/releases/download/2025-05-07/mview6-win-buildenv.zip", "C:\mview6-win-buildenv.zip")
           7z x C:\mview6-win-buildenv.zip -oC:\gtk-build\gtk\x64
-          echo "C:\gtk-build\gtk\x64\release\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          vcpkg install dav1d:x64-windows
+          "PKG_CONFIG_PATH=C:/vcpkg/packages/dav1d_x64-windows/lib/pkgconfig" | Add-Content -Path $env:GITHUB_ENV
+          "C:\gtk-build\gtk\x64\release\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Rust
         uses: dtolnay/rust-toolchain@stable
@@ -102,6 +102,7 @@ jobs:
           cp target/release/MView6.exe mview6-windows/bin/.
           cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
           cp -r /c/gtk-build/gtk/x64/release/share/glib-2.0/schemas mview6-windows/share/glib-2.0/.
+          find /c/vcpkg/packages/dav1d_x64-windows -name "*.dll" -exec cp {} target/release/deps/. \;
           find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/release/deps/. \;
           bash tools/windows/getdlls.sh mview6-windows/bin/MView6.exe
           bash tools/windows/getdlls.sh target/release/deps/pixbufloader_svg.dll
@@ -121,6 +122,7 @@ jobs:
             mview6_*
 
       - name: Release
+        if: github.ref_name == 'main'
         uses: ncipollo/release-action@v1
         with:
           name: ${{ steps.date.outputs.today }}

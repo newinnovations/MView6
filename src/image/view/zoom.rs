@@ -104,7 +104,7 @@ pub enum ZoomState {
 /// - `screen_off_x/y`: Positions the image within the viewport
 /// - `image_off_x/y`: Corrects for coordinate system origin changes during rotation
 #[derive(Debug, Clone)]
-pub struct ImageZoom {
+pub struct Zoom {
     /// Current zoom factor (1.0 = original size)
     zoom: f64,
     /// Rotation angle in degrees (0, 90, 180, 270)
@@ -119,7 +119,7 @@ pub struct ImageZoom {
     image_off_y: f64,
 }
 
-impl Default for ImageZoom {
+impl Default for Zoom {
     fn default() -> Self {
         Self {
             zoom: 1.0,
@@ -132,8 +132,8 @@ impl Default for ImageZoom {
     }
 }
 
-impl ImageZoom {
-    /// Creates a new ImageZoom with default values
+impl Zoom {
+    /// Creates a new Zoom with default values
     pub fn new() -> Self {
         Self::default()
     }
@@ -193,7 +193,7 @@ impl ImageZoom {
     ///
     /// # Examples
     /// ```
-    /// let mut zoom = ImageZoom::new();
+    /// let mut zoom = Zoom::new();
     /// zoom.add_rotation(90);   // Now at 90 degrees
     /// zoom.add_rotation(90);   // Now at 180 degrees
     /// zoom.add_rotation(-90);  // Now at 90 degrees
@@ -465,7 +465,7 @@ mod tests {
 
     #[test]
     fn test_image_zoom_default() {
-        let zoom = ImageZoom::default();
+        let zoom = Zoom::default();
         assert_eq!(zoom.rotation, 0);
         assert_eq!(zoom.zoom, 1.0);
         assert_eq!(zoom.off_x(), 0.0);
@@ -475,7 +475,7 @@ mod tests {
 
     #[test]
     fn test_image_zoom_new_and_reset() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         zoom.zoom = 2.0;
         zoom.set_rotation(90);
         zoom.set_offset(10.0, 20.0);
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_zoom_state() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
 
         // Test NoZoom state
         zoom.zoom = 1.0;
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_rotation_normalization() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
 
         // Test basic 90-degree increments
         zoom.set_rotation(90);
@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_add_rotation() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
 
         // Test clockwise rotation
         zoom.add_rotation(90);
@@ -588,7 +588,7 @@ mod tests {
 
     #[test]
     fn test_offset_operations() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
 
         // Test basic offset setting
         zoom.set_offset(10.0, 20.0);
@@ -607,7 +607,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_no_zoom() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (100.0, 200.0);
         let viewport = test_rect(400, 300);
 
@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_fit() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
@@ -638,7 +638,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_fill() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
@@ -650,7 +650,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_max() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
@@ -662,7 +662,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_with_rotation() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (100.0, 200.0);
         let viewport = test_rect(400, 300);
 
@@ -692,7 +692,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_constraints() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let image_size = (100.0, 100.0);
         let viewport = test_rect(1, 1); // Very small viewport
 
@@ -711,7 +711,7 @@ mod tests {
 
     #[test]
     fn test_apply_zoom_invalid_dimensions() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let viewport = test_rect(400, 300);
 
         // Test zero dimensions
@@ -728,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_update_zoom() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         zoom.set_offset(100.0, 100.0);
         zoom.zoom = 1.0;
 
@@ -750,7 +750,7 @@ mod tests {
 
     #[test]
     fn test_update_zoom_constraints() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         let anchor = (100.0, 100.0);
 
         // Test minimum constraint
@@ -769,7 +769,7 @@ mod tests {
 
     #[test]
     fn test_transformation_matrix() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         zoom.zoom = 2.0;
         zoom.set_offset(10.0, 20.0);
 
@@ -816,7 +816,7 @@ mod tests {
 
     #[test]
     fn test_unscaled_transform_matrix() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         zoom.screen_off_x = 10.0;
         zoom.screen_off_y = 20.0;
 
@@ -880,7 +880,7 @@ mod tests {
 
     #[test]
     fn test_utility_methods() {
-        let mut zoom = ImageZoom::new();
+        let mut zoom = Zoom::new();
         zoom.zoom = 2.5;
         zoom.set_rotation(180);
 

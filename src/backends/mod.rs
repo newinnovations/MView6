@@ -38,7 +38,7 @@ use thumbnail::{Message, TEntry, Thumbnail};
 use crate::{
     backends::thumbnail::model::TParent,
     file_view::{Cursor, Direction, Target},
-    image::{view::ImageZoom, Image},
+    image::{view::Zoom, Image},
 };
 
 mod archive_mar;
@@ -142,7 +142,7 @@ pub trait Backend {
         params: &ImageParams,
         current_height: f32,
         clip: Rect,
-        zoom: ImageZoom,
+        zoom: Zoom,
     ) -> Option<ImageSurface> {
         None
     }

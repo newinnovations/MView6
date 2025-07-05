@@ -24,7 +24,7 @@ use gtk4::gdk::pixbuf_get_from_surface;
 use crate::{
     backends::thumbnail::TMessage,
     error::{MviewError, MviewResult},
-    image::{view::ZoomMode, Image},
+    image::Image,
 };
 
 use super::colors::{CairoColorExt, Color};
@@ -94,7 +94,7 @@ fn draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResu
 
     logo(&context, 595, 598, 25.0, true)?;
 
-    Ok(Image::new_surface(&surface, ZoomMode::NoZoom))
+    Ok(Image::new_surface_nozoom(surface))
 }
 
 pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Image> {
@@ -126,7 +126,7 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
         logo(&context, width - margin, height - margin, 30.0, true)?;
     }
 
-    Ok(Image::new_surface(&surface, ZoomMode::NoZoom))
+    Ok(Image::new_surface_nozoom(surface))
 }
 
 fn logo(context: &Context, x_right: i32, y: i32, size: f64, draw: bool) -> MviewResult<f64> {

@@ -17,20 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::slice;
-
-use cairo::{Filter, Format, ImageSurface};
-use gdk_pixbuf::{
-    ffi::{gdk_pixbuf_get_byte_length, gdk_pixbuf_read_pixels},
-    Pixbuf,
-};
-use glib::translate::ToGlibPtr;
+use cairo::{Filter, ImageSurface};
 use gtk4::prelude::WidgetExt;
 
 use crate::{
     backends::thumbnail::model::Annotations,
-    image::{view::zoom::ImageZoom, Image, ImageData},
-    profile::performance::Performance,
+    image::{view::zoom::Zoom, Image},
 };
 
 use super::{ImageView, ZoomMode};
@@ -38,23 +30,11 @@ use super::{ImageView, ZoomMode};
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
 pub const QUALITY_LOW: Filter = Filter::Fast;
 
-pub enum Surfaces {
-    None,
-    Single(ImageSurface),
-    Dual(ImageSurface, ImageSurface, f64, f64, f64),
-}
-
-// impl Surfaces {
-//     pub fn is_dual(&self) -> bool {
-//         matches!(self, Surfaces::Dual(_, _, _, _, _))
-//     }
-// }
-
 pub struct ImageViewData {
     pub image: Image,
+    pub zoom: Zoom,
     pub zoom_mode: ZoomMode,
-    pub surface: Surfaces,
-    pub zoom_surface: Option<ImageSurface>,
+    pub zoom_overlay: Option<ImageSurface>,
     pub transparency_background: Option<ImageSurface>,
     pub view: Option<ImageView>,
     pub mouse_position: (f64, f64),
@@ -62,17 +42,15 @@ pub struct ImageViewData {
     pub quality: Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
-    pub zoom: ImageZoom,
 }
 
 impl Default for ImageViewData {
     fn default() -> Self {
         Self {
             image: Image::default(),
+            zoom: Zoom::default(),
             zoom_mode: ZoomMode::NotSpecified,
-            // rotation: 0,
-            surface: Surfaces::None,
-            zoom_surface: None,
+            zoom_overlay: None,
             transparency_background: None,
             view: None,
             mouse_position: (0.0, 0.0),
@@ -80,100 +58,14 @@ impl Default for ImageViewData {
             quality: QUALITY_HIGH,
             annotations: Default::default(),
             hover: None,
-            zoom: ImageZoom::default(),
         }
     }
-}
-
-// https://users.rust-lang.org/t/converting-a-bgra-u8-to-rgb-u8-n-for-images/67938
-fn create_surface_single(p: &Pixbuf) -> Result<ImageSurface, cairo::Error> {
-    let duration = Performance::start();
-
-    let width = p.width() as usize;
-    let height = p.height() as usize;
-    let pixbuf_stride = p.rowstride() as usize;
-
-    let surface_stride = 4 * width;
-    let mut surface_data = vec![0_u8; height * surface_stride];
-
-    unsafe {
-        // gain access without the copy of pixbuf memory
-        let pixbuf_data_raw = gdk_pixbuf_read_pixels(p.to_glib_none().0);
-        let pixbuf_data_len = gdk_pixbuf_get_byte_length(p.to_glib_none().0);
-        let pixbuf_data = slice::from_raw_parts(pixbuf_data_raw, pixbuf_data_len);
-
-        if p.has_alpha() {
-            for (src_row, dst_row) in pixbuf_data
-                .chunks_exact(pixbuf_stride)
-                .zip(surface_data.chunks_exact_mut(surface_stride))
-            {
-                for (src, dst) in src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4)) {
-                    dst[0] = src[2];
-                    dst[1] = src[1];
-                    dst[2] = src[0];
-                    dst[3] = src[3];
-                }
-            }
-        } else {
-            for (src_row, dst_row) in pixbuf_data
-                .chunks_exact(pixbuf_stride)
-                .zip(surface_data.chunks_exact_mut(surface_stride))
-            {
-                for (src, dst) in src_row.chunks_exact(3).zip(dst_row.chunks_exact_mut(4)) {
-                    dst[0] = src[2];
-                    dst[1] = src[1];
-                    dst[2] = src[0];
-                    dst[3] = 255;
-                }
-            }
-        }
-    }
-
-    let surface = ImageSurface::create_for_data(
-        surface_data,
-        Format::ARgb32,
-        width as i32,
-        height as i32,
-        surface_stride as i32,
-    );
-
-    duration.elapsed("surface");
-
-    surface
 }
 
 impl ImageViewData {
-    pub(super) fn create_surface(&mut self) {
-        if let ImageData::Single(pixbuf) = &self.image.image_data {
-            if let Ok(surface) = create_surface_single(pixbuf) {
-                self.surface = Surfaces::Single(surface);
-            } else {
-                self.surface = Surfaces::None;
-            }
-        } else if let ImageData::Dual(pixbuf1, pixbuf2) = &self.image.image_data {
-            if let (Ok(surface1), Ok(surface2)) = (
-                create_surface_single(pixbuf1),
-                create_surface_single(pixbuf2),
-            ) {
-                let w1 = surface1.width() as f64;
-                let h1 = surface1.height() as f64;
-                let h2 = surface2.height() as f64;
-                if h1 > h2 {
-                    self.surface = Surfaces::Dual(surface1, surface2, w1, 0.0, (h1 - h2) / 2.0);
-                } else {
-                    self.surface = Surfaces::Dual(surface1, surface2, w1, (h2 - h1) / 2.0, 0.0);
-                }
-            } else {
-                self.surface = Surfaces::None;
-            }
-        } else {
-            self.surface = Surfaces::None;
-        }
-    }
-
     pub fn redraw(&mut self, quality: Filter) {
         if let Some(view) = &self.view {
-            self.zoom_surface = None;
+            self.zoom_overlay = None;
             self.quality = quality;
             view.queue_draw();
         }

@@ -43,7 +43,7 @@ use crate::backends::thumbnail::model::Annotations;
 use super::Image;
 pub use data::QUALITY_HIGH;
 pub use imp::{SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW};
-pub use zoom::{ImageZoom, ZoomMode};
+pub use zoom::{Zoom, ZoomMode};
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -85,7 +85,6 @@ impl ImageView {
         // dbg!(&annotations);
         let mut p = self.imp().data.borrow_mut();
         p.annotations = annotations;
-        p.create_surface();
         self.imp().schedule_animation(&p.image, SystemTime::now());
         p.apply_zoom();
         drop(p);
@@ -95,7 +94,6 @@ impl ImageView {
 
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
-        p.create_surface();
         p.apply_zoom();
         p.redraw(QUALITY_HIGH); // hq_redraw not needed, because image_modified only used with thumbnail sheets
     }
@@ -110,7 +108,7 @@ impl ImageView {
         p.zoom_mode = mode;
     }
 
-    pub fn zoom(&self) -> ImageZoom {
+    pub fn zoom(&self) -> Zoom {
         let p = self.imp().data.borrow();
         p.zoom.clone()
     }
@@ -137,7 +135,7 @@ impl ImageView {
     pub fn set_zoomed_surface(&self, surface: ImageSurface) {
         let mut p = self.imp().data.borrow_mut();
         p.redraw(QUALITY_HIGH); // FIXME: handle the removal of existing surfaces better
-        p.zoom_surface = Some(surface);
+        p.zoom_overlay = Some(surface);
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {
