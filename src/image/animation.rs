@@ -23,12 +23,13 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use gdk_pixbuf::{Pixbuf, PixbufAnimationIter};
+use cairo::ImageSurface;
+use gdk_pixbuf::PixbufAnimationIter;
 use image_webp::WebPDecoder;
 
 use crate::error::MviewResult;
 
-use super::{provider::webp::WebP, Image, ImageData};
+use super::{provider::webp::WebP, Image};
 
 #[derive(Default)]
 pub enum Animation {
@@ -41,7 +42,7 @@ pub enum Animation {
 
 pub(super) struct AnimationFrame {
     pub(super) delay_ms: u32,
-    pub(super) pixbuf: Pixbuf,
+    pub(super) surface: ImageSurface,
 }
 
 pub struct WebPAnimation<T> {
@@ -70,7 +71,7 @@ impl Image {
             Animation::None => false,
             Animation::Gdk(animation) => {
                 if animation.advance(current_time) {
-                    self.image_data = ImageData::Single(animation.pixbuf());
+                    self.image_data = Some(animation.pixbuf()).into();
                     true
                 } else {
                     false
@@ -78,14 +79,14 @@ impl Image {
             }
             Animation::WebPFile(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Single(pixbuf);
+                    self.image_data = Some(pixbuf).into();
                     true
                 }
                 None => false,
             },
             Animation::WebPMemory(animation) => match animation.advance(current_time) {
                 Some(pixbuf) => {
-                    self.image_data = ImageData::Single(pixbuf);
+                    self.image_data = Some(pixbuf).into();
                     true
                 }
                 None => false,
@@ -96,12 +97,12 @@ impl Image {
 
 impl<T: BufRead + Seek> WebPAnimation<T> {
     pub fn new(mut decoder: WebPDecoder<T>) -> MviewResult<Self> {
-        let (pixbuf, delay_ms) = WebP::read_frame(&mut decoder)?;
+        let (surface, delay_ms) = WebP::read_frame(&mut decoder)?;
         Ok(Self {
             decoder,
             index: 0,
             first_run: true,
-            frames: vec![AnimationFrame { delay_ms, pixbuf }],
+            frames: vec![AnimationFrame { delay_ms, surface }],
         })
     }
 
@@ -123,7 +124,7 @@ impl<T: BufRead + Seek> WebPAnimation<T> {
         }
     }
 
-    fn advance(&mut self, _current_time: SystemTime) -> Option<Pixbuf> {
+    fn advance(&mut self, _current_time: SystemTime) -> Option<ImageSurface> {
         self.index += 1;
         if self.index >= self.decoder.num_frames() {
             self.index = 0;
@@ -133,18 +134,18 @@ impl<T: BufRead + Seek> WebPAnimation<T> {
             if let Ok((pixbuf, delay_ms)) = WebP::read_frame(&mut self.decoder) {
                 self.frames.push(AnimationFrame {
                     delay_ms,
-                    pixbuf: pixbuf.clone(),
+                    surface: pixbuf.clone(),
                 });
                 Some(pixbuf)
             } else {
                 None
             }
         } else {
-            self.pixbuf_get(self.index as usize)
+            self.surface_get(self.index as usize)
         }
     }
 
-    pub fn pixbuf_get(&self, index: usize) -> Option<Pixbuf> {
-        self.frames.get(index).map(|frame| frame.pixbuf.clone())
+    pub fn surface_get(&self, index: usize) -> Option<ImageSurface> {
+        self.frames.get(index).map(|frame| frame.surface.clone())
     }
 }

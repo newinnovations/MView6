@@ -21,7 +21,7 @@ gio = { version = "0.20.0", features = ["v2_72"] }
 glib = { version = "0.20.0", features = ["v2_72"] }
 gtk4 = { version = "0.9", features = ["v4_6"] }
 human_bytes = { version = "0.4.3", features = ["fast"], default-features = false }
-image = "0.25.6"
+image = { version = "0.25.6", features = ["avif-native"] }
 image-webp = "0.2.1"
 kamadak-exif = "0.6.1"
 # mupdf = { path = "../mupdf-rs", features = ["sys-lib-libjpeg"]}

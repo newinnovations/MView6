@@ -23,10 +23,11 @@ use std::{
     path::Path,
 };
 
+use cairo::{Format, ImageSurface};
 use exif::Exif;
 use gdk_pixbuf::Pixbuf;
 use glib::Bytes;
-use image::{DynamicImage, GenericImageView, ImageReader};
+use image::{DynamicImage, GenericImageView, ImageReader, RgbImage, RgbaImage};
 
 use crate::{error::MviewResult, image::Image};
 
@@ -81,13 +82,19 @@ impl RsImageLoader {
         reader: ImageReader<T>,
         exif: Option<Exif>,
     ) -> MviewResult<Image> {
-        Ok(Image::new_pixbuf(Some(Self::pixbuf(reader)?), exif))
+        Ok(Image::new_surface(Self::surface(reader)?, exif))
     }
 
-    pub fn pixbuf<T: BufRead + Seek>(reader: ImageReader<T>) -> MviewResult<Pixbuf> {
+    // pub fn pixbuf<T: BufRead + Seek>(reader: ImageReader<T>) -> MviewResult<Pixbuf> {
+    //     let reader = reader.with_guessed_format()?;
+    //     let dynamic_image = reader.decode()?;
+    //     Self::dynimg_to_pixbuf(dynamic_image)
+    // }
+
+    pub fn surface<T: BufRead + Seek>(reader: ImageReader<T>) -> MviewResult<ImageSurface> {
         let reader = reader.with_guessed_format()?;
         let dynamic_image = reader.decode()?;
-        Self::dynimg_to_pixbuf(dynamic_image)
+        Self::dynimg_to_surface(&dynamic_image)
     }
 
     pub fn dynimg<T: BufRead + Seek>(reader: ImageReader<T>) -> MviewResult<DynamicImage> {
@@ -105,14 +112,16 @@ impl RsImageLoader {
         let rowstride;
 
         let image = match image.color() {
-            image::ColorType::L8 => DynamicImage::from(image.to_rgb8()),
-            image::ColorType::La8 => DynamicImage::from(image.to_rgba8()),
-            image::ColorType::L16 => DynamicImage::from(image.to_rgb8()),
-            image::ColorType::La16 => DynamicImage::from(image.to_rgba8()),
-            image::ColorType::Rgb16 => DynamicImage::from(image.to_rgb8()),
-            image::ColorType::Rgba16 => DynamicImage::from(image.to_rgba8()),
-            image::ColorType::Rgb32F => DynamicImage::from(image.to_rgb8()),
-            image::ColorType::Rgba32F => DynamicImage::from(image.to_rgba8()),
+            image::ColorType::L8
+            | image::ColorType::L16
+            | image::ColorType::Rgb16
+            | image::ColorType::Rgb32F => DynamicImage::from(image.to_rgb8()),
+
+            image::ColorType::La8
+            | image::ColorType::La16
+            | image::ColorType::Rgba16
+            | image::ColorType::Rgba32F => DynamicImage::from(image.to_rgba8()),
+
             _ => image,
         };
 
@@ -160,5 +169,108 @@ impl RsImageLoader {
         };
 
         pixbuf.scale_simple(thumb_width, thumb_height, gdk_pixbuf::InterpType::Bilinear)
+    }
+
+    pub fn dynimg_to_surface(image: &DynamicImage) -> MviewResult<ImageSurface> {
+        match image {
+            DynamicImage::ImageRgb8(rgb8) => Self::rgb8_to_surface(rgb8),
+            DynamicImage::ImageLuma8(_)
+            | DynamicImage::ImageLuma16(_)
+            | DynamicImage::ImageRgb16(_)
+            | DynamicImage::ImageRgb32F(_) => Self::rgb8_to_surface(&image.to_rgb8()),
+
+            DynamicImage::ImageRgba8(rgba8) => Self::rgba8_to_surface(rgba8),
+            DynamicImage::ImageLumaA8(_)
+            | DynamicImage::ImageLumaA16(_)
+            | DynamicImage::ImageRgba16(_)
+            | DynamicImage::ImageRgba32F(_) => Self::rgba8_to_surface(&image.to_rgba8()),
+
+            _ => Err(format!("Unsupported color space {:?}", image.color()).into()),
+        }
+    }
+
+    // pub fn rgb8_to_surface(img: &RgbImage) -> MviewResult<ImageSurface> {
+    //     let (width, height) = img.dimensions();
+    //     let mut surface = ImageSurface::create(Format::Rgb24, width as i32, height as i32)?;
+
+    //     {
+    //         let stride = surface.stride() as usize;
+    //         let mut data = surface.data().unwrap();
+
+    //         for y in 0..height as usize {
+    //             for x in 0..width as usize {
+    //                 let pixel = img.get_pixel(x as u32, y as u32);
+    //                 let offset = y * stride + x * 4; // Cairo RGB24 uses 4 bytes per pixel (BGRx)
+
+    //                 // Cairo expects BGR format for RGB24
+    //                 data[offset] = pixel[2]; // B
+    //                 data[offset + 1] = pixel[1]; // G
+    //                 data[offset + 2] = pixel[0]; // R
+    //                                              // data[offset + 3] = 0; // X (unused)
+    //             }
+    //         }
+    //     }
+
+    //     surface.mark_dirty();
+    //     Ok(surface)
+    // }
+
+    pub fn rgb8_to_surface(img: &RgbImage) -> MviewResult<ImageSurface> {
+        let (width, height) = img.dimensions();
+        let mut surface = ImageSurface::create(Format::Rgb24, width as i32, height as i32)?;
+        {
+            let img_stride = 3 * width as usize;
+            let surface_stride = surface.stride() as usize;
+            let mut surface_data = surface.data().unwrap();
+
+            for (src_row, dst_row) in img
+                .chunks_exact(img_stride)
+                .zip(surface_data.chunks_exact_mut(surface_stride))
+            {
+                for (src, dst) in src_row.chunks_exact(3).zip(dst_row.chunks_exact_mut(4)) {
+                    dst[0] = src[2]; // B
+                    dst[1] = src[1]; // G
+                    dst[2] = src[0]; // R
+                                     // dst[3] = 0; not used
+                }
+            }
+        }
+        surface.mark_dirty();
+        Ok(surface)
+    }
+
+    pub fn rgba8_to_surface(img: &RgbaImage) -> MviewResult<ImageSurface> {
+        let (width, height) = img.dimensions();
+        let mut surface = ImageSurface::create(Format::ARgb32, width as i32, height as i32)?;
+        {
+            let img_stride = 4 * width as usize;
+            let surface_stride = surface.stride() as usize;
+            let mut surface_data = surface.data().unwrap();
+
+            for (src_row, dst_row) in img
+                .chunks_exact(img_stride)
+                .zip(surface_data.chunks_exact_mut(surface_stride))
+            {
+                for (src, dst) in src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4)) {
+                    if src[3] == 0 {
+                        dst[0] = 0; // B
+                        dst[1] = 0; // G
+                        dst[2] = 0; // R
+                    } else if src[3] == 255 {
+                        dst[0] = src[2]; // B
+                        dst[1] = src[1]; // G
+                        dst[2] = src[0]; // R
+                    } else {
+                        let alpha = src[3] as f32 / 255.0;
+                        dst[0] = (src[2] as f32 * alpha) as u8; // B
+                        dst[1] = (src[1] as f32 * alpha) as u8; // G
+                        dst[2] = (src[0] as f32 * alpha) as u8; // R
+                    }
+                    dst[3] = src[3]; // A
+                }
+            }
+        }
+        surface.mark_dirty();
+        Ok(surface)
     }
 }

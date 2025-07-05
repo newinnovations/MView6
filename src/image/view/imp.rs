@@ -44,7 +44,7 @@ use gtk4::{
 use rsvg::prelude::HandleExt;
 
 use super::{
-    data::{ImageViewData, Surfaces, QUALITY_HIGH, QUALITY_LOW},
+    data::{ImageViewData, QUALITY_HIGH, QUALITY_LOW},
     ImageView, ViewCursor,
 };
 
@@ -103,7 +103,6 @@ impl ImageViewImp {
         self.animation_timeout_id.replace(None);
         let mut p = self.data.borrow_mut();
         if p.image.animation_advance(SystemTime::now()) {
-            p.create_surface();
             self.schedule_animation(&p.image, start);
             p.redraw(QUALITY_LOW);
         }
@@ -115,7 +114,7 @@ impl ImageViewImp {
 
         context.set_fill_rule(FillRule::EvenOdd);
 
-        let (matrix, size, alpha) = if let Some(surface) = &p.zoom_surface {
+        let (matrix, size, alpha) = if let Some(surface) = &p.zoom_overlay {
             (
                 z.unscaled_transform_matrix(surface.width(), surface.height()),
                 (surface.width() as f64, surface.height() as f64),
@@ -153,7 +152,7 @@ impl ImageViewImp {
                 pattern.set_matrix(pattern_matrix);
                 pattern.set_extend(Extend::Repeat);
                 let _ = context.set_source(&pattern);
-                context.rectangle(0.0, 0.0, width, height);
+                context.rectangle(1.0, 1.0, width - 2.0, height - 2.0);
                 let _ = context.fill();
             }
         }
@@ -164,18 +163,20 @@ impl ImageViewImp {
             let (width, height) = p.image.size();
             let viewport = rsvg::Rectangle::new(0.0, 0.0, width, height);
             handle.render_document(context, &viewport).unwrap();
-        } else if let Some(surface) = &p.zoom_surface {
+        } else if let Some(surface) = &p.zoom_overlay {
             let _ = context.set_source_surface(surface, 0.0, 0.0);
             let _ = context.fill();
         } else {
-            if let Surfaces::Single(surface) = &p.surface {
+            if let ImageData::Single(surface) = &p.image.image_data {
                 let _ = context.set_source_surface(surface, 0.0, 0.0);
-            } else if let Surfaces::Dual(surface1, surface2, w1, y1, y2) = &p.surface {
-                let _ = context.set_source_surface(surface1, 0.0, *y1);
+            } else if let ImageData::Dual(surface_left, surface_right) = &p.image.image_data {
+                let (off_x_left, off_y_left, off_x_right, off_y_right) =
+                    p.image.image_data.offset();
+                let _ = context.set_source_surface(surface_left, off_x_left, off_y_left);
                 context.source().set_filter(p.quality);
                 let _ = context.fill();
                 context.rectangle(0.0, 0.0, width, height);
-                let _ = context.set_source_surface(surface2, *w1, *y2);
+                let _ = context.set_source_surface(surface_right, off_x_right, off_y_right);
             }
             context.source().set_filter(p.quality);
             let _ = context.fill();
