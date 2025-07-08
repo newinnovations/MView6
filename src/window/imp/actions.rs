@@ -27,6 +27,7 @@ use gtk4::{
 
 use crate::{
     backends::{
+        document::{pdf_engine, set_pdf_engine, PdfEngine},
         thumbnail::{model::TParent, Thumbnail},
         Backend,
     },
@@ -156,6 +157,24 @@ impl MViewWindowImp {
         self.page_mode.set(page_mode.into());
         if self.backend.borrow().is_doc() {
             self.on_cursor_changed();
+        }
+    }
+
+    pub fn change_pdf_provider(&self, provider: &str) {
+        self.widgets().set_action_string("pdf", provider);
+        set_pdf_engine(provider.into());
+        let current_backend = self.backend.borrow();
+        if current_backend.is_doc() {
+            let path = current_backend.path();
+            drop(current_backend);
+            self.navigate_to(&path);
+        }
+    }
+
+    pub fn toggle_pdf_engine(&self) {
+        match pdf_engine() {
+            PdfEngine::MuPdf => self.change_pdf_provider(PdfEngine::Pdfium.into()),
+            PdfEngine::Pdfium => self.change_pdf_provider(PdfEngine::MuPdf.into()),
         }
     }
 

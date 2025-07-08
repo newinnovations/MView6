@@ -24,7 +24,7 @@ use image::DynamicImage;
 use crate::{
     backends::{
         archive_mar::TMarReference, archive_rar::TRarReference, archive_zip::TZipReference,
-        document::TDocReference, filesystem::TFileReference, Backend,
+        document::mupdf::TDocReference, filesystem::TFileReference, Backend,
     },
     category::Category,
     file_view::Target,

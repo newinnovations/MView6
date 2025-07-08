@@ -41,10 +41,18 @@ impl MViewWindowImp {
         rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::90"));
         rotate_submenu.append(Some("Rotate 180°"), Some("win.rotate::180"));
 
-        let page_submenu = Menu::new();
-        page_submenu.append(Some("Single"), Some("win.page::single"));
-        page_submenu.append(Some("Dual (1, 2-3, 4-5, ...)"), Some("win.page::deo"));
-        page_submenu.append(Some("Dual (1-2, 3-4, 5-6, ...)"), Some("win.page::doe"));
+        let page_section = Menu::new();
+        page_section.append(Some("Single"), Some("win.page::single"));
+        page_section.append(Some("Dual (1, 2-3, 4-5, ...)"), Some("win.page::deo"));
+        page_section.append(Some("Dual (1-2, 3-4, 5-6, ...)"), Some("win.page::doe"));
+
+        let pdf_provider_section = Menu::new();
+        pdf_provider_section.append(Some("MuPDF"), Some("win.pdf::mupdf"));
+        pdf_provider_section.append(Some("PDFium"), Some("win.pdf::pdfium"));
+
+        let pdf_submenu = Menu::new();
+        pdf_submenu.append_section(Some("Page mode"), &page_section);
+        pdf_submenu.append_section(Some("PDF backend"), &pdf_provider_section);
 
         let panes_submenu = Menu::new();
         panes_submenu.append(Some("Files"), Some("win.pane.files"));
@@ -66,7 +74,7 @@ impl MViewWindowImp {
         flag_section.append_submenu(Some("Thumbnails"), &thumbnail_submenu);
         flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
         flag_section.append_submenu(Some("Zoom"), &zoom_submenu);
-        flag_section.append_submenu(Some("Page mode"), &page_submenu);
+        flag_section.append_submenu(Some("PDF"), &pdf_submenu);
         flag_section.append_submenu(Some("Panes"), &panes_submenu);
 
         let bottom_section = Menu::new();
@@ -91,6 +99,7 @@ impl MViewWindowImp {
         self.add_action_int(&action_group, "rotate", 0, Self::rotate_image);
         self.add_action_string(&action_group, "zoom", "fill", Self::change_zoom);
         self.add_action_string(&action_group, "page", "deo", Self::change_page_mode);
+        self.add_action_string(&action_group, "pdf", "mupdf", Self::change_pdf_provider);
         self.add_action_bool(&action_group, "pane.files", true, Self::toggle_pane_files);
         self.add_action_bool(&action_group, "pane.info", false, Self::toggle_pane_info);
         self.add_action_bool(

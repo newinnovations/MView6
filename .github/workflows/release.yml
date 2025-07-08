@@ -38,12 +38,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-4-dev librsvg2-dev libdav1d-dev
+          wget https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-linux-x64.tgz
+          tar xf pdfium-linux-x64.tgz --strip-components=1 lib/libpdfium.so
+          rm -f pdfium-linux-x64.tgz
+          mkdir -p tools/linux/debian/usr/lib/mview6
+          mv libpdfium.so tools/linux/debian/usr/lib/mview6/.
 
       - name: Install Windows build enviroment for MView6
         if: runner.os == 'Windows'
         run: |
           $WebClient = New-Object System.Net.WebClient
           $WebClient.DownloadFile("https://github.com/newinnovations/mview6-win-buildenv/releases/download/2025-05-07/mview6-win-buildenv.zip", "C:\mview6-win-buildenv.zip")
+          $WebClient.DownloadFile("https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-win-x64.tgz", "C:\pdfium-win-x64.tgz")
+          tar xf C:\pdfium-win-x64.tgz -C C:\ --strip-components=1 bin/pdfium.dll
           7z x C:\mview6-win-buildenv.zip -oC:\gtk-build\gtk\x64
           vcpkg install dav1d:x64-windows
           "PKG_CONFIG_PATH=C:/vcpkg/packages/dav1d_x64-windows/lib/pkgconfig" | Add-Content -Path $env:GITHUB_ENV
@@ -100,6 +107,7 @@ jobs:
         run: |
           mkdir -p mview6-windows/bin mview6-windows/lib mview6-windows/share/glib-2.0
           cp target/release/MView6.exe mview6-windows/bin/.
+          cp /c/pdfium.dll mview6-windows/bin/.
           cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
           cp -r /c/gtk-build/gtk/x64/release/share/glib-2.0/schemas mview6-windows/share/glib-2.0/.
           find /c/vcpkg/packages/dav1d_x64-windows -name "*.dll" -exec cp {} target/release/deps/. \;

@@ -68,11 +68,11 @@ impl WebP {
         if decoder.has_alpha() {
             let mut img = RgbaImage::new(width, height);
             decoder.read_image(&mut img)?;
-            RsImageLoader::rgba8_to_surface(&img)
+            RsImageLoader::rgba8_image_to_surface(&img)
         } else {
             let mut img = RgbImage::new(width, height);
             decoder.read_image(&mut img)?;
-            RsImageLoader::rgb8_to_surface(&img)
+            RsImageLoader::rgb8_image_to_surface(&img)
         }
     }
 
@@ -83,11 +83,11 @@ impl WebP {
         let (surface, delay) = if decoder.has_alpha() {
             let mut img = RgbaImage::new(width, height);
             let delay = decoder.read_frame(&mut img)?;
-            (RsImageLoader::rgba8_to_surface(&img)?, delay)
+            (RsImageLoader::rgba8_image_to_surface(&img)?, delay)
         } else {
             let mut img = RgbImage::new(width, height);
             let delay = decoder.read_frame(&mut img)?;
-            (RsImageLoader::rgb8_to_surface(&img)?, delay)
+            (RsImageLoader::rgb8_image_to_surface(&img)?, delay)
         };
         Ok((surface, delay))
     }

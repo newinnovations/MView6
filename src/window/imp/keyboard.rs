@@ -180,6 +180,9 @@ impl MViewWindowImp {
                 contrast_delta(1);
                 dbg!(contrast());
             }
+            Key::F8 => {
+                self.toggle_pdf_engine();
+            }
             Key::_1 => {
                 self.change_sort(Column::Cat);
             }
