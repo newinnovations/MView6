@@ -30,6 +30,9 @@ use crate::{
 
 use super::MViewWindowImp;
 
+const DELAY_CANVAS_RESIZED: u64 = 100;
+const DELAY_HQ_REDRAW: u64 = 100;
+
 impl MViewWindowImp {
     /// 1. Canvas size changes
     ///
@@ -114,7 +117,7 @@ impl MViewWindowImp {
     fn schedule_canvas_resized(&self, height: i32) {
         self.canvas_resized_timeout_id
             .replace(Some(glib::timeout_add_local(
-                Duration::from_millis(100),
+                Duration::from_millis(DELAY_CANVAS_RESIZED),
                 clone!(
                     #[weak(rename_to = this)]
                     self,
@@ -160,7 +163,7 @@ impl MViewWindowImp {
     fn schedule_hq_redraw(&self) {
         self.hq_redraw_timeout_id
             .replace(Some(glib::timeout_add_local(
-                Duration::from_millis(500),
+                Duration::from_millis(DELAY_HQ_REDRAW),
                 clone!(
                     #[weak(rename_to = this)]
                     self,

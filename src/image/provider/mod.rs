@@ -20,6 +20,7 @@
 pub mod gdk;
 pub mod image_rs;
 pub mod internal;
+pub mod surface;
 pub mod webp;
 
 use crate::{category::Category, image::Image, profile::performance::Performance};

@@ -17,7 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Image, ImageParams};
 use cairo::ImageSurface;
 use gtk4::ListStore;
 use image::{DynamicImage, ImageBuffer, Rgb};
@@ -25,77 +24,43 @@ use mupdf::{Colorspace, Device, Matrix, Page, Pixmap, Rect};
 use std::path::{Path, PathBuf};
 
 use crate::{
+    backends::{
+        document::{pages, PageMode, Pages, MIN_DOC_HEIGHT},
+        thumbnail::{TEntry, TReference},
+        Backend, ImageParams,
+    },
     category::Category,
     error::{MviewError, MviewResult},
     file_view::{Column, Cursor},
-    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::Zoom},
+    image::{draw::draw_error, provider::gdk::GdkImageLoader, view::Zoom, Image},
     profile::performance::Performance,
 };
 
-use super::{
-    thumbnail::{TEntry, TReference},
-    Backend,
-};
-
-const MIN_DOC_HEIGHT: f32 = 32.0;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub enum PageMode {
-    Single,
-    #[default]
-    DualEvenOdd, // 1, 2-3, 4-5, ...
-    DualOddEven, // 1-2, 3-4, 5-6, ...
-}
-
-impl From<&str> for PageMode {
-    fn from(value: &str) -> Self {
-        match value {
-            "deo" => PageMode::DualEvenOdd,
-            "doe" => PageMode::DualOddEven,
-            _ => PageMode::Single,
-        }
-    }
-}
-
-impl From<PageMode> for &str {
-    fn from(value: PageMode) -> Self {
-        match value {
-            PageMode::Single => "single",
-            PageMode::DualEvenOdd => "deo",
-            PageMode::DualOddEven => "doe",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Pages {
-    Single(i32),
-    Dual(i32),
-}
-
-pub struct Document {
+pub struct DocMuPdf {
     filename: PathBuf,
+    document: MviewResult<mupdf::Document>,
     store: ListStore,
     last_page: i32,
 }
 
-impl Document {
+impl DocMuPdf {
     pub fn new(filename: &Path) -> Self {
-        let (store, last_page) = Self::create_store(filename);
-        Document {
+        let (store, document, last_page) = Self::create_store(filename);
+        DocMuPdf {
             filename: filename.into(),
+            document,
             store,
             last_page,
         }
     }
 
-    fn create_store(filename: &Path) -> (ListStore, i32) {
+    fn create_store(filename: &Path) -> (ListStore, MviewResult<mupdf::Document>, i32) {
         let store = Column::empty_store();
         match list_pages(filename, &store) {
-            Ok(last_page) => (store, last_page),
+            Ok((document, last_page)) => (store, Ok(document), last_page),
             Err(e) => {
                 println!("ERROR {e:?}");
-                (store, 0)
+                (store, Err(e), 0)
             }
         }
     }
@@ -107,7 +72,7 @@ impl Document {
     }
 }
 
-impl Backend for Document {
+impl Backend for DocMuPdf {
     fn class_name(&self) -> &str {
         "Document"
     }
@@ -129,16 +94,18 @@ impl Backend for Document {
     }
 
     fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
-        match extract_page(
-            &self.filename,
-            cursor.index() as i32,
-            self.last_page,
-            params.page_mode,
-            params.allocation_height,
-        ) {
-            Ok(image) => image,
-            Err(error) => draw_error(error.to_string().into()),
-        }
+        (|| {
+            let document = self.document.as_ref().map_err(|e| e.to_string())?;
+            extract_page(
+                document,
+                cursor.index() as i32,
+                self.last_page,
+                params.page_mode,
+                params.allocation_height,
+            )
+            .map_err(|e| e.to_string())
+        })()
+        .unwrap_or_else(|e| draw_error(e.into()))
     }
 
     fn entry(&self, cursor: &Cursor) -> TEntry {
@@ -157,8 +124,9 @@ impl Backend for Document {
         clip: Rect,
         zoom: Zoom,
     ) -> Option<ImageSurface> {
+        let document = self.document.as_ref().ok()?;
         extract_clip(
-            &self.filename,
+            document,
             cursor.index() as i32,
             self.last_page,
             params.page_mode,
@@ -170,56 +138,27 @@ impl Backend for Document {
     }
 }
 
-//   Single(len=4)  DualOdd(len=6)   DualEven(len=7)
-//         0              0                0 1
-//         1             1 2               2 3
-//         2             3 4               4 5
-//         3              5                 6
-
-fn pages(index: i32, last_page: i32, mode: &PageMode) -> Pages {
-    match mode {
-        PageMode::Single => Pages::Single(index),
-        PageMode::DualEvenOdd => {
-            if index == 0 {
-                Pages::Single(index)
-            } else {
-                let left = (index - 1) & !1 | 1;
-                if left == last_page {
-                    Pages::Single(left)
-                } else {
-                    Pages::Dual(left)
-                }
-            }
-        }
-        PageMode::DualOddEven => {
-            let left = index & !1;
-            if left == last_page {
-                Pages::Single(left)
-            } else {
-                Pages::Dual(left)
-            }
-        }
-    }
-}
-
 fn extract_page(
-    filename: &Path,
+    document: &mupdf::Document,
     index: i32,
     last_page: i32,
     mode: &PageMode,
     allocation_height: i32,
 ) -> MviewResult<Image> {
     match pages(index, last_page, mode) {
-        Pages::Single(page) => extract_page_single(filename, page, allocation_height),
-        Pages::Dual(left) => extract_page_dual(filename, left, allocation_height),
+        Pages::Single(page) => extract_page_single(document, page, allocation_height),
+        Pages::Dual(left) => extract_page_dual(document, left, allocation_height),
     }
 }
 
-fn extract_page_single(filename: &Path, index: i32, allocation_height: i32) -> MviewResult<Image> {
+fn extract_page_single(
+    doc: &mupdf::Document,
+    index: i32,
+    allocation_height: i32,
+) -> MviewResult<Image> {
     let duration = Performance::start();
-    let doc = open(filename)?;
 
-    let (page, bounds) = open_page(&doc, index)?;
+    let (page, bounds) = open_page(doc, index)?;
     let zoom = allocation_height as f32 / bounds.height();
     let matrix = Matrix::new_scale(zoom, zoom);
     let pixmap = page.to_pixmap(&matrix, &Colorspace::device_rgb(), false, false)?;
@@ -228,20 +167,23 @@ fn extract_page_single(filename: &Path, index: i32, allocation_height: i32) -> M
         GdkImageLoader::surface_from_rgb(pixmap.width(), pixmap.height(), pixmap.samples())?,
         None,
     );
-    duration.elapsed("single page");
+    duration.elapsed("mupdf single");
     Ok(image)
 }
 
-fn extract_page_dual(filename: &Path, index: i32, allocation_height: i32) -> MviewResult<Image> {
+fn extract_page_dual(
+    doc: &mupdf::Document,
+    index: i32,
+    allocation_height: i32,
+) -> MviewResult<Image> {
     let duration = Performance::start();
-    let doc = open(filename)?;
 
-    let (page_left, bounds_left) = open_page(&doc, index)?;
+    let (page_left, bounds_left) = open_page(doc, index)?;
     let zoom_left = allocation_height as f32 / bounds_left.height();
     let matrix_left = Matrix::new_scale(zoom_left, zoom_left);
     let pixmap_left = page_left.to_pixmap(&matrix_left, &Colorspace::device_rgb(), false, false)?;
 
-    let (page_right, bounds_right) = open_page(&doc, index + 1)?;
+    let (page_right, bounds_right) = open_page(doc, index + 1)?;
     let zoom_right = allocation_height as f32 / bounds_right.height();
     let matrix_right = Matrix::new_scale(zoom_right, zoom_right);
     let pixmap_right =
@@ -262,7 +204,7 @@ fn extract_page_dual(filename: &Path, index: i32, allocation_height: i32) -> Mvi
         .ok(),
         None,
     );
-    duration.elapsed("dual page");
+    duration.elapsed("mupdf dual");
     Ok(image)
 }
 
@@ -285,7 +227,7 @@ fn extract_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
 }
 
 fn extract_clip(
-    filename: &Path,
+    document: &mupdf::Document,
     index: i32,
     last_page: i32,
     mode: &PageMode,
@@ -294,22 +236,21 @@ fn extract_clip(
     zoom: f32,
 ) -> MviewResult<ImageSurface> {
     match pages(index, last_page, mode) {
-        Pages::Single(page) => extract_clip_single(filename, page, current_height, clip, zoom),
-        Pages::Dual(left) => extract_clip_dual(filename, left, current_height, clip, zoom),
+        Pages::Single(page) => extract_clip_single(document, page, current_height, clip, zoom),
+        Pages::Dual(left) => extract_clip_dual(document, left, current_height, clip, zoom),
     }
 }
 
 fn extract_clip_single(
-    filename: &Path,
+    doc: &mupdf::Document,
     index: i32,
     current_height: f32,
     clip: Rect,
     zoom: f32,
 ) -> MviewResult<ImageSurface> {
     let duration = Performance::start();
-    let doc = open(filename)?;
 
-    let surface = if let Some(pixmap) = doc_extract_clip(&doc, index, current_height, clip, zoom)? {
+    let surface = if let Some(pixmap) = doc_extract_clip(doc, index, current_height, clip, zoom)? {
         Ok(GdkImageLoader::surface_from_rgb(
             pixmap.width(),
             pixmap.height(),
@@ -319,26 +260,25 @@ fn extract_clip_single(
         Err("empty clip".into())
     };
 
-    duration.elapsed("clipped page");
+    duration.elapsed("mupdf clip:1");
     surface
 }
 
 fn extract_clip_dual(
-    filename: &Path,
+    doc: &mupdf::Document,
     index: i32,
     current_height: f32,
     clip: Rect,
     zoom: f32,
 ) -> MviewResult<ImageSurface> {
     let duration = Performance::start();
-    let doc = open(filename)?;
 
-    let (page_left, bounds_left) = open_page(&doc, index)?;
+    let (page_left, bounds_left) = open_page(doc, index)?;
     let offset_right = bounds_left.width() * current_height / bounds_left.height();
     let clip_right = clip.translate(-offset_right, 0.0);
 
     let pixmap_left = page_extract_clip(&page_left, bounds_left, current_height, clip, zoom)?;
-    let pixmap_right = doc_extract_clip(&doc, index + 1, current_height, clip_right, zoom)?;
+    let pixmap_right = doc_extract_clip(doc, index + 1, current_height, clip_right, zoom)?;
 
     let surface = match (pixmap_left, pixmap_right) {
         (None, None) => return Err("empty clip".into()),
@@ -366,7 +306,7 @@ fn extract_clip_dual(
         }
     };
 
-    duration.elapsed("clipped dual");
+    duration.elapsed("mupdf clip:2");
     Ok(surface)
 }
 
@@ -438,7 +378,7 @@ fn open(path: &Path) -> Result<mupdf::Document, mupdf::Error> {
     }
 }
 
-fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
+fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<(mupdf::Document, i32)> {
     let duration = Performance::start();
     let doc = open(filename)?;
     let page_count = doc.page_count()? as u32;
@@ -457,8 +397,8 @@ fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
                 ],
             );
         }
-        duration.elapsed("list_pages");
-        Ok(page_count as i32 - 1)
+        duration.elapsed("mupdf list");
+        Ok((doc, page_count as i32 - 1))
     } else {
         Err(MviewError::from("No pages in document"))
     }
@@ -466,12 +406,12 @@ fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<i32> {
 
 #[derive(Debug, Clone)]
 pub struct TDocReference {
-    filename: PathBuf,
-    index: u64,
+    pub filename: PathBuf, // FIXME: remove pub?
+    pub index: u64,
 }
 
 impl TDocReference {
-    pub fn new(backend: &Document, index: u64) -> Self {
+    pub fn new(backend: &DocMuPdf, index: u64) -> Self {
         TDocReference {
             filename: backend.filename.clone(),
             index,

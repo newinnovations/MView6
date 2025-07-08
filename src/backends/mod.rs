@@ -28,7 +28,6 @@ use archive_zip::ZipArchive;
 use async_channel::Sender;
 use bookmarks::Bookmarks;
 use cairo::ImageSurface;
-use document::{Document, PageMode};
 use filesystem::FileSystem;
 use gtk4::ListStore;
 use mupdf::Rect;
@@ -36,7 +35,10 @@ use none::NoneBackend;
 use thumbnail::{Message, TEntry, Thumbnail};
 
 use crate::{
-    backends::thumbnail::model::TParent,
+    backends::{
+        document::{mupdf::DocMuPdf, pdf_engine, pdfium::DocPdfium, PageMode, PdfEngine},
+        thumbnail::model::TParent,
+    },
     file_view::{Cursor, Direction, Target},
     image::{view::Zoom, Image},
 };
@@ -170,7 +172,11 @@ impl dyn Backend {
             Some("zip") => Box::new(ZipArchive::new(filename)),
             Some("rar") => Box::new(RarArchive::new(filename)),
             Some("mar") => Box::new(MarArchive::new(filename)),
-            Some("pdf") | Some("epub") => Box::new(Document::new(filename)),
+            Some("pdf") => match pdf_engine() {
+                PdfEngine::MuPdf => Box::new(DocMuPdf::new(filename)),
+                PdfEngine::Pdfium => Box::new(DocPdfium::new(filename)),
+            },
+            Some("epub") => Box::new(DocMuPdf::new(filename)),
             Some(_) | None => Box::new(FileSystem::new(filename)),
         }
     }

@@ -26,7 +26,11 @@ use std::{
 
 use crate::{
     error::MviewResult,
-    image::{animation::Animation, provider::ExifReader, Image},
+    image::{
+        animation::Animation,
+        provider::{surface::convert_rgba_pixel, ExifReader},
+        Image,
+    },
     profile::performance::Performance,
 };
 use cairo::{Format, ImageSurface};
@@ -137,21 +141,7 @@ impl GdkImageLoader {
                     .zip(surface_data.chunks_exact_mut(surface_stride))
                 {
                     for (src, dst) in src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4)) {
-                        if src[3] == 0 {
-                            dst[0] = 0; // B
-                            dst[1] = 0; // G
-                            dst[2] = 0; // R
-                        } else if src[3] == 255 {
-                            dst[0] = src[2]; // B
-                            dst[1] = src[1]; // G
-                            dst[2] = src[0]; // R
-                        } else {
-                            let alpha = src[3] as f32 / 255.0;
-                            dst[0] = (src[2] as f32 * alpha) as u8; // B
-                            dst[1] = (src[1] as f32 * alpha) as u8; // G
-                            dst[2] = (src[0] as f32 * alpha) as u8; // R
-                        }
-                        dst[3] = src[3]; // A
+                        convert_rgba_pixel(src, dst);
                     }
                 }
                 Format::ARgb32

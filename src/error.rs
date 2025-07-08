@@ -19,6 +19,7 @@
 
 use std::fmt;
 
+use pdfium_render::prelude::PdfiumError;
 use unrar::error::UnrarError;
 use zip::result::ZipError;
 
@@ -73,6 +74,8 @@ pub enum MviewError {
     Glib(glib::Error),
 
     MuPdf(mupdf::Error),
+
+    Pdfium(PdfiumError),
 }
 
 impl MviewError {
@@ -154,6 +157,12 @@ impl From<mupdf::Error> for MviewError {
     }
 }
 
+impl From<PdfiumError> for MviewError {
+    fn from(err: PdfiumError) -> MviewError {
+        MviewError::Pdfium(err)
+    }
+}
+
 impl fmt::Display for MviewError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
@@ -167,6 +176,7 @@ impl fmt::Display for MviewError {
             MviewError::WebP(err) => err.fmt(fmt),
             MviewError::Glib(err) => err.fmt(fmt),
             MviewError::MuPdf(err) => err.fmt(fmt),
+            MviewError::Pdfium(err) => err.fmt(fmt),
         }
     }
 }
