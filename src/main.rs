@@ -35,13 +35,6 @@ use gtk4::{
     gdk::Display, prelude::ApplicationExtManual, style_context_add_provider_for_display,
     CssProvider, IconTheme, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
-// use pdfium_render::prelude::Pdfium;
-// use std::{env, sync::OnceLock};
-
-// pub fn config<'a>() -> &'a Pdfium {
-//     static PDFIUM: OnceLock<Pdfium> = OnceLock::new();
-//     PDFIUM.get_or_init(|| read_config().unwrap_or_default())
-// }
 
 fn main() {
     gtk4::init().expect("Failed to initialize gtk");
@@ -60,6 +53,8 @@ fn main() {
 
     let icon_theme = IconTheme::for_display(&display);
     icon_theme.add_resource_path("/icons");
+
+    pdfium::set_library_location("/usr/lib/mview6");
 
     let app = application::MviewApplication::new();
 

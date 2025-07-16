@@ -17,9 +17,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt;
+use std::{error::Error, fmt};
 
-use pdfium_render::prelude::PdfiumError;
+use pdfium::PdfiumError;
 use unrar::error::UnrarError;
 use zip::result::ZipError;
 
@@ -180,5 +180,7 @@ impl fmt::Display for MviewError {
         }
     }
 }
+
+impl Error for MviewError {}
 
 pub type MviewResult<T> = Result<T, MviewError>;
