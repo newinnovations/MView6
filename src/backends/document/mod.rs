@@ -21,8 +21,6 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 pub mod mupdf;
 pub mod pdfium;
-mod pdfium_loader;
-mod pdfium_with;
 
 const MIN_DOC_HEIGHT: f32 = 32.0;
 
