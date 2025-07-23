@@ -20,7 +20,10 @@
 use cairo::ImageSurface;
 use gtk4::ListStore;
 use mupdf::{Matrix, Rect};
-use pdfium::{PdfiumBitmap, PdfiumBitmapFormat, PdfiumColor, PdfiumDocument, PdfiumMatrix, PdfiumPage};
+use pdfium::{
+    PdfiumBitmap, PdfiumBitmapFormat, PdfiumColor, PdfiumDocument, PdfiumMatrix, PdfiumPage,
+    PdfiumRenderFlags,
+};
 use std::path::{Path, PathBuf};
 
 use crate::{
@@ -188,7 +191,7 @@ fn page_to_surface(
         PdfiumBitmapFormat::Bgra,
         Some(PdfiumColor::WHITE),
         &matrix,
-        0,
+        PdfiumRenderFlags::empty(),
         None,
     )?;
     let lib = pdfium::lib();
@@ -334,7 +337,7 @@ fn page_extract_clip(
             PdfiumBitmapFormat::Bgra,
             Some(PdfiumColor::WHITE),
             &matrix,
-            0,
+            PdfiumRenderFlags::empty(),
             None,
         )?;
         Ok(Some(bitmap))

@@ -1,0 +1,134 @@
+#!/bin/bash
+
+# Pre-commit hook to check:
+# 1. Code formatting (cargo fmt)
+# 2. Clippy lints (cargo clippy)
+# 3. Tests (cargo test)
+# 4. Documentation (cargo doc)
+# Place this file in .git/hooks/pre-commit and make it executable
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to check code formatting
+check_formatting() {
+    # Check if cargo fmt would make changes
+    if ! cargo fmt --check > /dev/null 2>&1; then
+        echo -e "   ${RED}✗ Code is not formatted!${NC}"
+        echo -e "   ${YELLOW}Please run: cargo fmt${NC}"
+        return 1
+    fi
+
+    echo -e "   ${GREEN}✓ Code is properly formatted${NC}"
+    return 0
+}
+
+# Function to run clippy
+check_clippy() {
+    # Run clippy and capture output
+    if ! cargo clippy --all-targets --all-features -- -D warnings > /dev/null 2>&1; then
+        echo -e "   ${RED}✗ Clippy found issues!${NC}"
+        echo -e "   ${YELLOW}Please fix clippy warnings by running: cargo clippy --all-targets --all-features${NC}"
+        return 1
+    fi
+
+    echo -e "   ${GREEN}✓ Clippy is happy${NC}"
+    return 0
+}
+
+# Function to run tests
+check_tests() {
+    # Run tests and capture output
+    if ! cargo test --all-features > /dev/null 2>&1; then
+        echo -e "   ${RED}✗ Tests failed!${NC}"
+        echo -e "   ${YELLOW}Please fix failing tests by running: cargo test --all-features${NC}"
+        return 1
+    fi
+
+    echo -e "   ${GREEN}✓ All tests passed${NC}"
+    return 0
+}
+
+# Function to check documentation
+check_docs() {
+    # Check if docs can be built without warnings
+    if ! cargo doc --all-features --no-deps > /dev/null 2>&1; then
+        echo -e "   ${RED}✗ Documentation build failed!${NC}"
+        echo -e "   ${YELLOW}Please fix documentation issues by running: cargo doc --all-features --no-deps${NC}"
+        return 1
+    fi
+
+    echo -e "   ${GREEN}✓ Documentation builds successfully${NC}"
+    return 0
+}
+
+# Main check
+echo
+echo "Running pre-commit checks"
+echo "========================="
+echo
+
+# Check if there are any unstaged changes in tracked files
+if ! git diff-files --quiet; then
+    echo -e "${RED}Error: You have unstaged changes in tracked files.${NC}"
+    echo -e "${YELLOW}Unstaged changes detected in:${NC}"
+    git diff-files --name-only | sed 's/^/  /'
+    echo ""
+    echo -e "${YELLOW}Please stage all changes before committing:${NC}"
+    echo "  git add -u"
+    echo ""
+    # echo -e "${YELLOW}This prevents the cargo fmt loophole where formatted changes aren't staged.${NC}"
+    exit 1
+fi
+
+# Track if any checks failed
+failed=0
+
+# Check 1: Code formatting
+echo "1. Checking code formatting..."
+if ! check_formatting; then
+    failed=1
+fi
+
+echo
+
+# Check 2: Clippy
+echo "2. Running clippy..."
+if ! check_clippy; then
+    failed=1
+fi
+
+echo
+
+# Check 3: Tests
+echo "3. Running tests..."
+if ! check_tests; then
+    failed=1
+fi
+
+echo
+
+# Check 4: Documentation
+echo "4. Checking documentation..."
+if ! check_docs; then
+    failed=1
+fi
+
+echo
+echo "============================="
+
+if [[ $failed -eq 1 ]]; then
+    echo -e "${RED}Pre-commit checks failed!${NC}"
+    echo -e "${YELLOW}Please fix the issues above and try again.${NC}"
+    echo
+    exit 1
+else
+    echo -e "${GREEN}All pre-commit checks passed!${NC}"
+    echo
+    exit 0
+fi
