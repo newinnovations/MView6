@@ -1,10 +1,21 @@
 # MView6
 
-<img src="./resources/mview6.svg" height="100" align="right">
+<img src="./resources/mview6.svg" height="120" align="right">
 
-**A high-performance image and PDF viewer built with Rust and GTK4**
+![Built with Rust](https://img.shields.io/badge/built_with-Rust_and_GTK4-darkgreen?logo=rust)
+[![GitHub Actions Workflow Status][build-badge]][build-url]
+[![GitHub Release][release-badge]][release-url]
 
-MView6 is designed for professionals and enthusiasts who work with large image and document collections. It provides seamless browsing across directories and archives, combining powerful features with an intuitive interface optimized for efficient workflow management.
+[build-badge]: https://img.shields.io/github/actions/workflow/status/newinnovations/MView6/release.yml?logo=github
+[build-url]: https://github.com/newinnovations/MView6/actions/workflows/release.yml
+[release-badge]: https://img.shields.io/github/v/release/newinnovations/MView6?logo=github
+[release-url]: https://github.com/newinnovations/MView6/releases
+
+**A high-performance PDF and photo viewer built with Rust and GTK4**
+
+MView6 is designed for people who work with large photo and document collections.
+It provides seamless browsing across directories and archives, combining powerful features with an intuitive interface optimized for efficient operation.
+Built on modern, performance-focused technologies such as Rust and GTK4.
 
 ## Key Features
 
@@ -16,46 +27,32 @@ MView6 is designed for professionals and enthusiasts who work with large image a
 
 ### Image & Document Handling
 
-- Comprehensive format support including PDF, EPUB, JPEG, PNG, GIF, WebP (including animated), SVG, HEIC, AVIF and more
-- Advanced zoom controls with fit-to-window, actual size, and custom presets
-- Dual-page PDF view mode for natural book and magazine reading experience
-- Lossless rotation with 90-degree increments
+- Comprehensive image and document format support including
+  - PDF, EPUB
+  - JPEG, PNG, SVG, HEIC, AVIF
+  - Animated GIF and WEBP
+  - ... and more
+- Advanced zoom controls including max-scale, fit-to-window and actual size
+- Dual-page PDF view mode for reading books and magazines
+- Image and document rotation with 90-degree increments
 - Complete EXIF metadata display including camera settings and GPS data
 
 ### Navigation & Interface
 
-- Full keyboard navigation for hands-free operation
+- Full keyboard navigation
 - Intuitive mouse controls with scroll-wheel zooming and drag panning
 - Multi-size thumbnail view for quick collection overview
-- Smart position memory across directory changes
+- Keeps track of navigation positions across directory changes
 
 ### Organization Tools
 
-- Tagging system for favorites and deletion candidates
-- Real-time filtering options
+- Tagging images for favorites and deletion candidates
+- Sorting options on type, status, name and data
 - Thumbnail presentation
-
-## Use Cases
-
-**Document Reading** - Read PDFs, digital magazines, and e-books with dual-page layout that mimics physical publications for comfortable extended reading sessions.
-
-**Research and Reference** - Browse image collections for academic, creative, or professional reference with advanced filtering capabilities.
-
-**Photography Workflow** - Review and organize large photo collections with efficient batch processing and metadata analysis.
-
-**Digital Asset Management** - Navigate complex directory structures and archived assets with consistent performance.
-
-## Technical Architecture
-
-Built on modern, performance-focused technologies:
-
-- **Rust** - Memory-safe systems programming with zero-cost abstractions
-- **GTK4** - Native desktop integration with responsive UI components
-- **Optimized rendering pipeline** - Efficient memory usage and smooth performance with large images
 
 ## Installation
 
-Pre built binaries for Ubuntu and Windows can be downloaded from the Github [releases](https://github.com/newinnovations/MView6/releases) page.
+Pre built binaries for Ubuntu (.deb) and Windows (.msi) can be downloaded from the Github [releases](https://github.com/newinnovations/MView6/releases) page.
 
 ## Screenshots
 
@@ -63,9 +60,19 @@ Pre built binaries for Ubuntu and Windows can be downloaded from the Github [rel
 ![MView6 image information](./doc/mview6-info.png)
 ![MView6 thumbnails](./doc/mview6-thumbnails.png)
 
+## Use Cases
+
+**Document Reading** - Read PDFs, digital magazines, and e-books with single and dual-page layout.
+
+**Research and Reference** - Browse image collections for academic, creative, or professional reference.
+
+**Photography Workflow** - Review and organize large photo collections with metadata analysis.
+
+**Digital Asset Management** - Navigate complex directory structures and archived assets.
+
 ## Contributing
 
-MView6 is developed in Rust using GTK4. Contributions are welcome through pull requests and issue reports.
+MView6 is developed in Rust with GTK4. Contributions are welcome through pull requests and issue reports.
 
 ## License
 

@@ -3,7 +3,7 @@ name = "MView6"
 version = "6.0.0-dev"
 edition = "2021"
 authors = ["Martin van der Werff <github@newinnovations.nl>"]
-description = "Opiniated image and pdf browser written in Rust and GTK4"
+description = "High-performance PDF and photo viewer built with Rust and GTK4"
 repository = "https://github.com/newinnovations/mview6"
 license = "AGPL"
 
