@@ -96,8 +96,8 @@ jobs:
           arch: amd64
           depends: ${{ steps.debian.outputs.deps }}
           desc: |
-            MView6 image and pdf browser
-            MView6 is an opiniated image and pdf browser written in Rust and GTK4,
+            MView6 pdf and photo viewer
+            MView6 is a high-performance PDF and image viewer built with Rust and GTK4,
             supporting many modern image types like avif, heic and (animated) webp
           homepage: https://github.com/newinnovations/mview6
 
@@ -136,7 +136,7 @@ jobs:
           name: ${{ steps.date.outputs.today }}
           commit: ${{ github.sha }}
           tag: ${{ steps.date.outputs.today }}
-          body: "MView6: opiniated image and pdf browser written in Rust and GTK4 (${{ steps.date.outputs.today }})"
+          body: "MView6: high-performance PDF and image viewer built with Rust and GTK4 (${{ steps.date.outputs.today }})"
           makeLatest: true
           allowUpdates: true
           replacesArtifacts: true

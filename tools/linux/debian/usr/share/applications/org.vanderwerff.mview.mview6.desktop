@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=MView6
-Comment=MView6 is an opiniated image and pdf browser written in Rust and GTK4
+Comment=MView6 is a high-performance PDF and photo viewer built with Rust and GTK4
 TryExec=/usr/bin/mview6
 Exec=/usr/bin/mview6 %U
 Icon=org.vanderwerff.mview.mview6
