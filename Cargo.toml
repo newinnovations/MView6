@@ -27,7 +27,7 @@ kamadak-exif = "0.6.1"
 # mupdf = { path = "../mupdf-rs", features = ["sys-lib-libjpeg"]}
 mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib-libjpeg"]}
 # pdfium = { path = "../pdfium-rs" }
-pdfium = "0.6.3"
+pdfium = "0.6.6"
 rsvg = { package = "librsvg-rebind", version = "0.1.0" }
 regex = "1.10.4"
 serde = { version = "1.0.204", features = ["derive"] }

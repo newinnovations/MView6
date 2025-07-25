@@ -2,10 +2,12 @@
 
 <img src="./resources/mview6.svg" height="120" align="right">
 
-![Built with Rust](https://img.shields.io/badge/built_with-Rust_and_GTK4-darkgreen?logo=rust)
+[![Built with Rust][built-with-badge]][built-with-url]
 [![GitHub Actions Workflow Status][build-badge]][build-url]
 [![GitHub Release][release-badge]][release-url]
 
+[built-with-badge]: https://img.shields.io/badge/built_with-Rust,_GTK4_and_PDFium--rs-darkgreen?logo=rust
+[built-with-url]: https://github.com/newinnovations/pdfium-rs
 [build-badge]: https://img.shields.io/github/actions/workflow/status/newinnovations/MView6/release.yml?logo=github
 [build-url]: https://github.com/newinnovations/MView6/actions/workflows/release.yml
 [release-badge]: https://img.shields.io/github/v/release/newinnovations/MView6?logo=github

@@ -1787,9 +1787,9 @@ dependencies = [
 
 [[package]]
 name = "pdfium"
-version = "0.6.3"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "409574f2d1fc251a2fe5d33a4dd9a1ad7e177c959432a390003c7ee32331f7d8"
+checksum = "e4c11172f4d99004eb13dab72102b1ad67aece44d8dd630848718437051f5738"
 dependencies = [
  "bitflags 2.9.1",
  "image",
