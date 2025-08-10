@@ -20,10 +20,7 @@
 use cairo::ImageSurface;
 use gtk4::ListStore;
 use mupdf::{Matrix, Rect};
-use pdfium::{
-    PdfiumBitmap, PdfiumBitmapFormat, PdfiumColor, PdfiumDocument, PdfiumMatrix, PdfiumPage,
-    PdfiumRenderFlags,
-};
+use pdfium::{PdfiumBitmap, PdfiumDocument, PdfiumPage, PdfiumRenderConfig};
 use std::path::{Path, PathBuf};
 
 use crate::{
@@ -184,18 +181,11 @@ fn page_to_surface(
     }
     let zoom = height as f32 / bounds.height();
     let width = (bounds.width() * zoom) as i32;
-    let matrix = PdfiumMatrix::new_scale(zoom);
-    let bitmap = page.render_with_matrix(
-        width,
-        height,
-        PdfiumBitmapFormat::Bgra,
-        Some(PdfiumColor::WHITE),
-        &matrix,
-        PdfiumRenderFlags::empty(),
-        None,
-    )?;
-    let lib = pdfium::lib();
-    Surface::from_bgra8_bytes(width as u32, height as u32, bitmap.as_raw_bytes(&lib))
+    let config = PdfiumRenderConfig::new()
+        .with_size(width, height)
+        .with_scale(zoom);
+    let bitmap = page.render(&config)?;
+    Surface::from_bgra8_bytes(width as u32, height as u32, bitmap.as_raw_bytes())
 }
 
 fn extract_clip(
@@ -223,11 +213,10 @@ fn extract_clip_single(
     let duration = Performance::start();
     let page = document.page(index)?;
     let surface = if let Some(bitmap) = page_extract_clip(&page, current_height, clip, zoom)? {
-        let lib = pdfium::lib();
         Ok(Surface::from_bgra8_bytes(
             bitmap.width() as u32,
             bitmap.height() as u32,
-            bitmap.as_raw_bytes(&lib),
+            bitmap.as_raw_bytes(),
         )?)
     } else {
         Err("empty clip".into())
@@ -260,18 +249,17 @@ fn extract_clip_dual(
     let page_right = document.page(index + 1)?;
     let pixmap_right = page_extract_clip(&page_right, current_height, clip_right, zoom)?;
 
-    let lib = pdfium::lib();
     let surface = match (pixmap_left, pixmap_right) {
         (None, None) => return Err("empty clip".into()),
         (Some(pixmap_left), None) => Surface::from_bgra8_bytes(
             pixmap_left.width() as u32,
             pixmap_left.height() as u32,
-            pixmap_left.as_raw_bytes(&lib),
+            pixmap_left.as_raw_bytes(),
         )?,
         (None, Some(pixmap_right)) => Surface::from_bgra8_bytes(
             pixmap_right.width() as u32,
             pixmap_right.height() as u32,
-            pixmap_right.as_raw_bytes(&lib),
+            pixmap_right.as_raw_bytes(),
         )?,
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
@@ -280,10 +268,10 @@ fn extract_clip_dual(
             Surface::from_dual_bgra8_bytes(
                 pixmap_left.width() as u32,
                 pixmap_left.height() as u32,
-                pixmap_left.as_raw_bytes(&lib),
+                pixmap_left.as_raw_bytes(),
                 pixmap_right.width() as u32,
                 pixmap_right.height() as u32,
-                pixmap_right.as_raw_bytes(&lib),
+                pixmap_right.as_raw_bytes(),
             )?
         }
     };
@@ -329,18 +317,11 @@ fn page_extract_clip(
     if intersect.is_empty() {
         Ok(None) // clip intersection is empty
     } else {
-        let matrix =
-            PdfiumMatrix::new_scale_pan(new_zoom, -intersect.x0 as f32, -intersect.y0 as f32);
-        let bitmap = page.render_with_matrix(
-            intersect.width(),
-            intersect.height(),
-            PdfiumBitmapFormat::Bgra,
-            Some(PdfiumColor::WHITE),
-            &matrix,
-            PdfiumRenderFlags::empty(),
-            None,
-        )?;
-        Ok(Some(bitmap))
+        let config = PdfiumRenderConfig::new()
+            .with_size(intersect.width(), intersect.height())
+            .with_scale(new_zoom)
+            .with_pan(-intersect.x0 as f32, -intersect.y0 as f32);
+        Ok(Some(page.render(&config)?))
     }
 }
 
