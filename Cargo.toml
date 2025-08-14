@@ -12,14 +12,14 @@ LegalCopyright = "Copyright © 2024-2025 Martin van der Werff"
 
 [dependencies]
 async-channel = "2.3.1"
-cairo-rs = { version = "0.20", features = ["v1_16"] }
+cairo-rs = { version = "0.21", features = ["v1_16"] }
 chrono = "0.4.38"
 convert_case = "0.8.0"
 dirs = "6.0.0"
-gdk-pixbuf = { version = "0.20.0", features = ["v2_42"] }
-gio = { version = "0.20.0", features = ["v2_72"] }
-glib = { version = "0.20.0", features = ["v2_72"] }
-gtk4 = { version = "0.9", features = ["v4_6"] }
+gdk-pixbuf = { version = "0.21", features = ["v2_42"] }
+gio = { version = "0.21", features = ["v2_72"] }
+glib = { version = "0.21", features = ["v2_72"] }
+gtk4 = { version = "0.10", features = ["v4_6"] }
 human_bytes = { version = "0.4.3", features = ["fast"], default-features = false }
 image = { version = "0.25.6", features = ["avif-native"] }
 image-webp = "0.2.1"
@@ -28,8 +28,9 @@ kamadak-exif = "0.6.1"
 mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib-libjpeg"]}
 # pdfium = { path = "../pdfium-rs" }
 pdfium = "0.9"
-rsvg = { package = "librsvg-rebind", version = "0.1.0" }
+# rsvg = { package = "librsvg-rebind", version = "0.1.0" }
 regex = "1.10.4"
+resvg = "0.45.1"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 sha2 = "0.10.8"

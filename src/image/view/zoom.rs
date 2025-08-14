@@ -18,14 +18,18 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use cairo::Matrix;
-use gtk4::gdk::Rectangle;
 
-// Zoom factor constraints
+use crate::rect::{RectD, SizeD};
+
+/// Maximum allowed zoom factor
 pub const MAX_ZOOM_FACTOR: f64 = 30.0;
+/// Minimum allowed zoom factor
 pub const MIN_ZOOM_FACTOR: f64 = 0.02;
+/// Standard zoom increment/decrement multiplier for smooth zoom operations
 pub const ZOOM_MULTIPLIER: f64 = 1.05;
 
-// Floating point comparison epsilon for zoom state detection
+/// Floating point comparison epsilon for zoom state detection
+/// Used to handle floating-point precision issues when comparing zoom factors
 const ZOOM_EPSILON: f64 = 1.0e-6;
 
 /// Defines how an image should be (initially) positioned and scaled within the viewport.
@@ -55,6 +59,13 @@ pub enum ZoomMode {
 }
 
 impl From<&str> for ZoomMode {
+    /// Converts string literals to ZoomMode enum values
+    ///
+    /// # Arguments
+    /// * `value` - String slice containing the zoom mode name
+    ///
+    /// # Returns
+    /// * Corresponding ZoomMode enum value, or NotSpecified for unknown strings
     fn from(value: &str) -> Self {
         match value {
             "nozoom" => ZoomMode::NoZoom,
@@ -67,6 +78,13 @@ impl From<&str> for ZoomMode {
 }
 
 impl From<ZoomMode> for &str {
+    /// Converts ZoomMode enum values to their string representations
+    ///
+    /// # Arguments
+    /// * `value` - ZoomMode enum value to convert
+    ///
+    /// # Returns
+    /// * String slice representing the zoom mode, or empty string for NotSpecified
     fn from(value: ZoomMode) -> Self {
         match value {
             ZoomMode::NotSpecified => "",
@@ -110,35 +128,40 @@ pub struct Zoom {
     /// Rotation angle in degrees (0, 90, 180, 270)
     rotation: i32,
     /// Horizontal offset to center image in viewport
-    screen_off_x: f64,
+    offset_x: f64,
     /// Vertical offset to center image in viewport
-    screen_off_y: f64,
-    /// Horizontal offset correction for rotated coordinate systems
-    image_off_x: f64,
-    /// Vertical offset correction for rotated coordinate systems
-    image_off_y: f64,
+    offset_y: f64,
+    /// Original image dimensions (width, height) before any transformations
+    image_size: SizeD,
 }
 
 impl Default for Zoom {
+    /// Creates a Zoom instance with default values (no zoom, no rotation, no offset)
     fn default() -> Self {
         Self {
             zoom: 1.0,
-            rotation: 0,
-            screen_off_x: 0.0,
-            screen_off_y: 0.0,
-            image_off_x: 0.0,
-            image_off_y: 0.0,
+            rotation: Default::default(),
+            offset_x: Default::default(),
+            offset_y: Default::default(),
+            image_size: Default::default(),
         }
     }
 }
 
 impl Zoom {
     /// Creates a new Zoom with default values
+    ///
+    /// Equivalent to calling `Zoom::default()`
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Resets all zoom, rotation, and positioning to default values
+    ///
+    /// This effectively returns the image to its original state:
+    /// - Zoom factor: 1.0 (original size)
+    /// - Rotation: 0 degrees
+    /// - Offsets: 0.0 (no translation)
     pub fn reset(&mut self) {
         *self = Self::default();
     }
@@ -146,6 +169,9 @@ impl Zoom {
     /// Determines the current zoom state by comparing zoom factor to 1.0
     ///
     /// Uses floating-point epsilon comparison to handle precision issues.
+    ///
+    /// # Returns
+    /// * `ZoomState` indicating whether image is zoomed in, out, or at original size
     pub fn state(&self) -> ZoomState {
         if self.zoom > 1.0 + ZOOM_EPSILON {
             ZoomState::ZoomedIn
@@ -156,26 +182,29 @@ impl Zoom {
         }
     }
 
-    /// Returns the total horizontal offset (screen + image coordinate correction)
-    pub fn off_x(&self) -> f64 {
-        self.screen_off_x + self.image_off_x
+    /// Returns the horizontal offset used for positioning the image in the viewport
+    pub fn offset_x(&self) -> f64 {
+        self.offset_x
     }
 
-    /// Returns the total vertical offset (screen + image coordinate correction)
-    pub fn off_y(&self) -> f64 {
-        self.screen_off_y + self.image_off_y
+    /// Returns the vertical offset used for positioning the image in the viewport
+    pub fn offset_y(&self) -> f64 {
+        self.offset_y
     }
 
-    /// Sets the total offset, automatically separating screen and image components
+    /// Sets both horizontal and vertical offsets for image positioning
     ///
-    /// This method maintains the image coordinate correction while updating
-    /// the screen positioning offset.
+    /// # Arguments
+    /// * `off_x` - New horizontal offset in screen coordinates
+    /// * `off_y` - New vertical offset in screen coordinates
     pub fn set_offset(&mut self, off_x: f64, off_y: f64) {
-        self.screen_off_x = off_x - self.image_off_x;
-        self.screen_off_y = off_y - self.image_off_y;
+        self.offset_x = off_x;
+        self.offset_y = off_y;
     }
 
     /// Sets the rotation angle, constraining it to 90-degree increments (0, 90, 180, 270)
+    ///
+    /// Input values are automatically normalized to the nearest valid rotation angle.
     ///
     /// # Arguments
     /// * `rotation` - Rotation angle in degrees (will be rounded to nearest 90-degree increment)
@@ -206,6 +235,12 @@ impl Zoom {
     ///
     /// This ensures that rotation values are always compatible with the matrix
     /// calculations, which only handle these specific angles.
+    ///
+    /// # Arguments
+    /// * `rotation` - Input rotation angle in degrees
+    ///
+    /// # Returns
+    /// * Normalized rotation angle as one of: 0, 90, 180, or 270 degrees
     fn normalize_rotation(rotation: i32) -> i32 {
         // Round to nearest 90-degree increment, then normalize to 0-359 range
         let rounded = ((rotation as f64 / 90.0).round() as i32) * 90;
@@ -220,12 +255,43 @@ impl Zoom {
     /// - Translation (positioning offsets)
     ///
     /// The matrix transforms from image coordinates to screen coordinates.
+    ///
+    /// # Returns
+    /// * `Matrix` - Cairo transformation matrix ready for rendering operations
     pub fn transform_matrix(&self) -> Matrix {
         match self.rotation % 360 {
-            90 => Matrix::new(0.0, self.zoom, -self.zoom, 0.0, self.off_x(), self.off_y()),
-            180 => Matrix::new(-self.zoom, 0.0, 0.0, -self.zoom, self.off_x(), self.off_y()),
-            270 => Matrix::new(0.0, -self.zoom, self.zoom, 0.0, self.off_x(), self.off_y()),
-            _ => Matrix::new(self.zoom, 0.0, 0.0, self.zoom, self.off_x(), self.off_y()),
+            90 => Matrix::new(
+                0.0,
+                self.zoom,
+                -self.zoom,
+                0.0,
+                self.offset_x(),
+                self.offset_y(),
+            ),
+            180 => Matrix::new(
+                -self.zoom,
+                0.0,
+                0.0,
+                -self.zoom,
+                self.offset_x(),
+                self.offset_y(),
+            ),
+            270 => Matrix::new(
+                0.0,
+                -self.zoom,
+                self.zoom,
+                0.0,
+                self.offset_x(),
+                self.offset_y(),
+            ),
+            _ => Matrix::new(
+                self.zoom,
+                0.0,
+                0.0,
+                self.zoom,
+                self.offset_x(),
+                self.offset_y(),
+            ),
         }
     }
 
@@ -236,40 +302,118 @@ impl Zoom {
     /// built-in scaling. The matrix handles rotation and translation but omits the zoom scaling
     /// since the overlay content is already rendered at the correct scale.
     ///
-    /// The screen offsets are clamped to positive values to ensure proper positioning.
+    /// The screen offsets are clamped to positive values to ensure proper positioning. Negative
+    /// values will be handled during rendering of the high-resolution overlay by transposing
+    /// the source content in the target overlay by that amount. Which needs the overlay to be
+    /// positioned at the origin.
     ///
     /// # Arguments
-    /// * `width` - Image width in pixels
-    /// * `height` - Image height in pixels
-    pub fn unscaled_transform_matrix(&self, width: i32, height: i32) -> Matrix {
-        let screen_off_x = self.screen_off_x.max(0.0);
-        let screen_off_y = self.screen_off_y.max(0.0);
+    /// * `size` - overlay pixmap dimensions as SizeD (width, height)
+    ///
+    /// # Returns
+    /// * `Matrix` - Unscaled transformation matrix for overlay positioning
+    pub fn unscaled_transform_matrix(&self, size: SizeD) -> Matrix {
+        let i = self.image_rect_scaled_offset();
+        let x0 = i.x0.max(0.0);
+        let y0 = i.y0.max(0.0);
         match self.rotation % 360 {
-            90 => Matrix::new(
+            90 => Matrix::new(0.0, 1.0, -1.0, 0.0, x0 + size.height(), y0),
+            180 => Matrix::new(-1.0, 0.0, 0.0, -1.0, x0 + size.width(), y0 + size.height()),
+            270 => Matrix::new(0.0, -1.0, 1.0, 0.0, x0, y0 + size.width()),
+            _ => Matrix::new(1.0, 0.0, 0.0, 1.0, x0, y0),
+        }
+    }
+
+    /// Returns the image rectangle in its current rotation, but without scaling or offset
+    ///
+    /// This accounts for coordinate system changes due to rotation:
+    /// - 0°: Normal coordinates (0,0 to width,height)
+    /// - 90°: X becomes -Y, Y becomes X,
+    /// - 180°: Both X and Y are negated
+    /// - 270°: X becomes Y, Y becomes -X,
+    ///
+    /// # Returns
+    /// * `RectD` - Image bounds in rotated coordinate system
+    pub fn image_rect(&self) -> RectD {
+        match self.rotation % 360 {
+            90 => RectD::new(-self.image_size.height(), 0.0, 0.0, self.image_size.width()),
+            180 => RectD::new(
+                -self.image_size.width(),
+                -self.image_size.height(),
                 0.0,
-                1.0,
-                -1.0,
                 0.0,
-                screen_off_x + height as f64,
-                screen_off_y,
             ),
-            180 => Matrix::new(
-                -1.0,
-                0.0,
-                0.0,
-                -1.0,
-                screen_off_x + width as f64,
-                screen_off_y + height as f64,
-            ),
-            270 => Matrix::new(
-                0.0,
-                -1.0,
-                1.0,
-                0.0,
-                screen_off_x,
-                screen_off_y + width as f64,
-            ),
-            _ => Matrix::new(1.0, 0.0, 0.0, 1.0, screen_off_x, screen_off_y),
+            270 => RectD::new(0.0, -self.image_size.width(), self.image_size.height(), 0.0),
+            _ => RectD::new(0.0, 0.0, self.image_size.width(), self.image_size.height()),
+        }
+    }
+
+    /// Returns the image rectangle after applying zoom scaling but before offset positioning
+    ///
+    /// # Returns
+    /// * `RectD` - Image bounds with rotation and zoom applied
+    pub fn image_rect_scaled(&self) -> RectD {
+        self.image_rect().scale(self.zoom)
+    }
+
+    /// Returns the final image rectangle after all transformations (rotation, zoom, offset)
+    ///
+    /// This represents the actual screen position and size of the image.
+    ///
+    /// # Returns
+    /// * `RectD` - Final image bounds in screen coordinates
+    pub fn image_rect_scaled_offset(&self) -> RectD {
+        self.image_rect_scaled()
+            .translate(self.offset_x(), self.offset_y())
+    }
+
+    /// Calculates the intersection between the transformed image and the viewport
+    ///
+    /// This determines which portion of the image is actually visible on screen.
+    ///
+    /// # Arguments
+    /// * `viewport` - The visible area rectangle
+    ///
+    /// # Returns
+    /// * `RectD` - Intersection area between image and viewport
+    pub fn intersection(&self, viewport: &RectD) -> RectD {
+        self.image_rect_scaled_offset().intersect(viewport)
+    }
+
+    /// Calculates the required pixmap size for rendering the visible intersection
+    ///
+    /// For rotated images (90° and 270°), width and height are swapped to account
+    /// for the coordinate system transformation.
+    ///
+    /// # Arguments
+    /// * `intersection` - Visible area to be rendered
+    ///
+    /// # Returns
+    /// * `SizeD` - Required dimensions for the rendering pixmap
+    pub fn pixmap_size(&self, intersection: &RectD) -> SizeD {
+        match self.rotation_degrees() {
+            90 | 270 => SizeD::new(intersection.height(), intersection.width()),
+            _ => SizeD::new(intersection.width(), intersection.height()),
+        }
+    }
+
+    /// Calculates the offset within the source image for rendering the visible intersection
+    ///
+    /// This determines which part of the original image corresponds to the visible area,
+    /// accounting for rotation transformations.
+    ///
+    /// # Arguments
+    /// * `intersection` - Visible area being rendered
+    ///
+    /// # Returns
+    /// * `(f64, f64)` - Source image offset coordinates (x, y)
+    pub fn pixmap_offset(&self, intersection: &RectD) -> (f64, f64) {
+        let rect = self.image_rect_scaled_offset();
+        match self.rotation_degrees() {
+            270 => (intersection.y1 - rect.y1, rect.x0 - intersection.x0),
+            180 => (intersection.x1 - rect.x1, intersection.y1 - rect.y1),
+            90 => (rect.y0 - intersection.y0, intersection.x1 - rect.x1),
+            _ => (rect.x0 - intersection.x0, rect.y0 - intersection.y0),
         }
     }
 
@@ -290,17 +434,20 @@ impl Zoom {
     /// This method requires valid (positive) image dimensions. Zero or negative
     /// dimensions may cause division by zero or unexpected behavior and will
     /// not be accepted.
-    pub fn apply_zoom(&mut self, zoom_mode: ZoomMode, image_size: (f64, f64), viewport: Rectangle) {
-        let viewport_width = viewport.width() as f64;
-        let viewport_height = viewport.height() as f64;
+    pub fn apply_zoom(&mut self, zoom_mode: ZoomMode, image_size: SizeD, viewport: RectD) {
+        self.image_size = image_size;
 
         // Account for rotation when calculating effective image size
         // Rotations of 90° and 270° swap width and height
-        let (size_x, size_y) = self.effective_size(image_size);
+        let image_rect = self.image_rect();
 
         // Validate effective image dimensions
-        if size_x <= 0.0 || size_y <= 0.0 {
-            eprintln!("Warning: Invalid effective image dimensions ({size_x}, {size_y})");
+        if image_rect.width() <= 0.0 || image_rect.height() <= 0.0 {
+            eprintln!(
+                "Warning: Invalid effective image dimensions ({}, {})",
+                image_rect.width(),
+                image_rect.height()
+            );
             return;
         }
 
@@ -309,8 +456,8 @@ impl Zoom {
             1.0
         } else {
             // Calculate zoom factors for both dimensions
-            let zoom_x = viewport_width / size_x;
-            let zoom_y = viewport_height / size_y;
+            let zoom_x = viewport.width() / image_rect.width();
+            let zoom_y = viewport.height() / image_rect.height();
 
             match zoom_mode {
                 ZoomMode::Max => {
@@ -319,7 +466,9 @@ impl Zoom {
                 }
                 ZoomMode::Fit => {
                     // Fit: Use smaller zoom factor, but don't scale up small images
-                    if viewport_width > size_x && viewport_height > size_y {
+                    if viewport.width() > image_rect.width()
+                        && viewport.height() > image_rect.height()
+                    {
                         1.0
                     } else {
                         zoom_x.min(zoom_y)
@@ -335,25 +484,11 @@ impl Zoom {
         // Apply zoom constraints
         self.zoom = zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
 
-        // Calculate zoomed image dimensions
-        let size_x_zoomed = self.zoom * size_x;
-        let size_y_zoomed = self.zoom * size_y;
-
-        // Calculate image coordinate system offset correction for rotation
-        // Different rotations place the origin at different corners of the image
-        let (image_off_x, image_off_y) = match self.rotation {
-            90 => (size_x_zoomed, 0.0),            // Origin at top-right
-            180 => (size_x_zoomed, size_y_zoomed), // Origin at bottom-right
-            270 => (0.0, size_y_zoomed),           // Origin at bottom-left
-            _ => (0.0, 0.0),                       // Origin at top-left (default)
-        };
-
-        self.image_off_x = image_off_x;
-        self.image_off_y = image_off_y;
-
         // Center the image within the viewport
-        self.screen_off_x = ((viewport_width - size_x_zoomed) / 2.0).round();
-        self.screen_off_y = ((viewport_height - size_y_zoomed) / 2.0).round();
+        let (vp_center_x, vp_center_y) = viewport.center();
+        let (image_center_x, image_center_y) = self.image_rect_scaled().center();
+        self.offset_x = vp_center_x - image_center_x;
+        self.offset_y = vp_center_y - image_center_y;
     }
 
     /// Updates the zoom factor while maintaining a visual anchor point
@@ -383,12 +518,8 @@ impl Zoom {
         let (anchor_x, anchor_y) = anchor;
 
         // Calculate the point in image coordinates that corresponds to the anchor
-        let view_cx = (anchor_x - self.off_x()) / self.zoom;
-        let view_cy = (anchor_y - self.off_y()) / self.zoom;
-
-        // Scale the image coordinate offset corrections proportionally
-        self.image_off_x = self.image_off_x * new_zoom / self.zoom;
-        self.image_off_y = self.image_off_y * new_zoom / self.zoom;
+        let view_cx = (anchor_x - self.offset_x()) / self.zoom;
+        let view_cy = (anchor_y - self.offset_y()) / self.zoom;
 
         // Calculate new offsets so the anchor point remains visually stationary
         self.set_offset(anchor_x - view_cx * new_zoom, anchor_y - view_cy * new_zoom);
@@ -398,49 +529,47 @@ impl Zoom {
     }
 
     /// Returns the current zoom factor
+    ///
+    /// # Returns
+    /// * `f64` - Current zoom factor (1.0 = original size)
     pub fn zoom_factor(&self) -> f64 {
         self.zoom
     }
 
     /// Returns the current rotation angle in degrees
+    ///
+    /// # Returns
+    /// * `i32` - Rotation angle (0, 90, 180, or 270 degrees)
     pub fn rotation_degrees(&self) -> i32 {
         self.rotation
     }
 
     /// Checks if the image is currently rotated (not at 0 degrees)
+    ///
+    /// # Returns
+    /// * `bool` - True if image is rotated, false if at 0 degrees
     pub fn is_rotated(&self) -> bool {
         self.rotation % 360 != 0
     }
 
     /// Checks if the image is currently zoomed (not at 1.0 zoom factor)
-    pub fn is_zoomed(&self) -> bool {
-        self.state() != ZoomState::NoZoom
-    }
-
-    /// Returns the effective image dimensions after accounting for rotation
     ///
-    /// # Arguments
-    /// * `original_size` - Original image dimensions (width, height)
+    /// Uses epsilon comparison to handle floating-point precision issues.
     ///
     /// # Returns
-    /// Effective dimensions (width, height) after rotation
-    pub fn effective_size(&self, original_size: (f64, f64)) -> (f64, f64) {
-        let (width, height) = original_size;
-        match self.rotation % 360 {
-            90 | 270 => (height, width),
-            _ => (width, height),
-        }
+    /// * `bool` - True if image is zoomed in or out, false if at original size
+    pub fn is_zoomed(&self) -> bool {
+        self.state() != ZoomState::NoZoom
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gtk4::gdk::Rectangle;
 
     // Helper function to create a test rectangle
-    fn test_rect(width: i32, height: i32) -> Rectangle {
-        Rectangle::new(0, 0, width, height)
+    fn test_rect(width: i32, height: i32) -> RectD {
+        RectD::new(0.0, 0.0, width as f64, height as f64)
     }
 
     // Helper function to compare floating point values with tolerance
@@ -468,8 +597,8 @@ mod tests {
         let zoom = Zoom::default();
         assert_eq!(zoom.rotation, 0);
         assert_eq!(zoom.zoom, 1.0);
-        assert_eq!(zoom.off_x(), 0.0);
-        assert_eq!(zoom.off_y(), 0.0);
+        assert_eq!(zoom.offset_x(), 0.0);
+        assert_eq!(zoom.offset_y(), 0.0);
         assert_eq!(zoom.state(), ZoomState::NoZoom);
     }
 
@@ -483,8 +612,8 @@ mod tests {
         zoom.reset();
         assert_eq!(zoom.rotation, 0);
         assert_eq!(zoom.zoom, 1.0);
-        assert_eq!(zoom.off_x(), 0.0);
-        assert_eq!(zoom.off_y(), 0.0);
+        assert_eq!(zoom.offset_x(), 0.0);
+        assert_eq!(zoom.offset_y(), 0.0);
     }
 
     #[test]
@@ -592,37 +721,28 @@ mod tests {
 
         // Test basic offset setting
         zoom.set_offset(10.0, 20.0);
-        assert_eq!(zoom.off_x(), 10.0);
-        assert_eq!(zoom.off_y(), 20.0);
-
-        // Test with image offsets (simulating rotation)
-        zoom.image_off_x = 5.0;
-        zoom.image_off_y = 15.0;
-        zoom.set_offset(10.0, 20.0);
-        assert_eq!(zoom.off_x(), 10.0); // Should still be 10.0 total
-        assert_eq!(zoom.off_y(), 20.0); // Should still be 20.0 total
-        assert_eq!(zoom.screen_off_x, 5.0); // screen_off_x should be adjusted
-        assert_eq!(zoom.screen_off_y, 5.0); // screen_off_y should be adjusted
+        assert_eq!(zoom.offset_x(), 10.0);
+        assert_eq!(zoom.offset_y(), 20.0);
     }
 
     #[test]
     fn test_apply_zoom_no_zoom() {
         let mut zoom = Zoom::new();
-        let image_size = (100.0, 200.0);
+        let image_size = SizeD::new(100.0, 200.0);
         let viewport = test_rect(400, 300);
 
         zoom.apply_zoom(ZoomMode::NoZoom, image_size, viewport);
 
         assert_eq!(zoom.zoom, 1.0);
         // Image should be centered in viewport
-        assert_eq!(zoom.screen_off_x, 150.0); // (400 - 100) / 2
-        assert_eq!(zoom.screen_off_y, 50.0); // (300 - 200) / 2
+        assert_eq!(zoom.offset_x, 150.0); // (400 - 100) / 2
+        assert_eq!(zoom.offset_y, 50.0); // (300 - 200) / 2
     }
 
     #[test]
     fn test_apply_zoom_fit() {
         let mut zoom = Zoom::new();
-        let image_size = (200.0, 400.0); // 2:1 aspect ratio
+        let image_size = SizeD::new(200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
         zoom.apply_zoom(ZoomMode::Fit, image_size, viewport);
@@ -631,7 +751,7 @@ mod tests {
         assert_eq!(zoom.zoom, 0.75); // 300 / 400 = 0.75
 
         // Test fit mode with small image (should not scale up)
-        let small_image = (50.0, 50.0);
+        let small_image = SizeD::new(50.0, 50.0);
         zoom.apply_zoom(ZoomMode::Fit, small_image, viewport);
         assert_eq!(zoom.zoom, 1.0); // Should not scale up
     }
@@ -639,7 +759,7 @@ mod tests {
     #[test]
     fn test_apply_zoom_fill() {
         let mut zoom = Zoom::new();
-        let image_size = (200.0, 400.0); // 2:1 aspect ratio
+        let image_size = SizeD::new(200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
         zoom.apply_zoom(ZoomMode::Fill, image_size, viewport);
@@ -651,7 +771,7 @@ mod tests {
     #[test]
     fn test_apply_zoom_max() {
         let mut zoom = Zoom::new();
-        let image_size = (200.0, 400.0); // 2:1 aspect ratio
+        let image_size = SizeD::new(200.0, 400.0); // 2:1 aspect ratio
         let viewport = test_rect(400, 300); // 4:3 aspect ratio
 
         zoom.apply_zoom(ZoomMode::Max, image_size, viewport);
@@ -663,7 +783,7 @@ mod tests {
     #[test]
     fn test_apply_zoom_with_rotation() {
         let mut zoom = Zoom::new();
-        let image_size = (100.0, 200.0);
+        let image_size = SizeD::new(100.0, 200.0);
         let viewport = test_rect(400, 300);
 
         // Test with 90-degree rotation (dimensions should be swapped)
@@ -684,16 +804,16 @@ mod tests {
         zoom.apply_zoom(ZoomMode::Max, image_size, viewport);
         assert_eq!(zoom.zoom, 3.0);
 
-        // Check image offsets for 90-degree rotation
-        let size_x_zoomed = zoom.zoom * 200.0; // effective width after rotation
-        assert_eq!(zoom.image_off_x, size_x_zoomed);
-        assert_eq!(zoom.image_off_y, 0.0);
+        // // Check image offsets for 90-degree rotation
+        // let size_x_zoomed = zoom.zoom * 200.0; // effective width after rotation
+        // assert_eq!(zoom.image_off_x, size_x_zoomed);
+        // assert_eq!(zoom.image_off_y, 0.0);
     }
 
     #[test]
     fn test_apply_zoom_constraints() {
         let mut zoom = Zoom::new();
-        let image_size = (100.0, 100.0);
+        let image_size = SizeD::new(100.0, 100.0);
         let viewport = test_rect(1, 1); // Very small viewport
 
         zoom.apply_zoom(ZoomMode::Fill, image_size, viewport);
@@ -715,14 +835,14 @@ mod tests {
         let viewport = test_rect(400, 300);
 
         // Test zero dimensions
-        zoom.apply_zoom(ZoomMode::Fit, (0.0, 100.0), viewport);
+        zoom.apply_zoom(ZoomMode::Fit, SizeD::new(0.0, 100.0), viewport);
         assert_eq!(zoom.zoom, 1.0); // Should remain unchanged
 
-        zoom.apply_zoom(ZoomMode::Fit, (100.0, 0.0), viewport);
+        zoom.apply_zoom(ZoomMode::Fit, SizeD::new(100.0, 0.0), viewport);
         assert_eq!(zoom.zoom, 1.0); // Should remain unchanged
 
         // Test negative dimensions
-        zoom.apply_zoom(ZoomMode::Fit, (-100.0, 100.0), viewport);
+        zoom.apply_zoom(ZoomMode::Fit, SizeD::new(-100.0, 100.0), viewport);
         assert_eq!(zoom.zoom, 1.0); // Should remain unchanged
     }
 
@@ -744,8 +864,8 @@ mod tests {
         let expected_off_x = anchor.0 - (50.0 * 2.0); // 150 - 100 = 50
         let expected_off_y = anchor.1 - (50.0 * 2.0);
 
-        assert!(approx_eq(zoom.off_x(), expected_off_x, 0.001));
-        assert!(approx_eq(zoom.off_y(), expected_off_y, 0.001));
+        assert!(approx_eq(zoom.offset_x(), expected_off_x, 0.001));
+        assert!(approx_eq(zoom.offset_y(), expected_off_y, 0.001));
     }
 
     #[test]
@@ -762,9 +882,9 @@ mod tests {
         assert_eq!(zoom.zoom, MAX_ZOOM_FACTOR);
 
         // Test no-change case
-        let initial_offset = zoom.off_x();
+        let initial_offset = zoom.offset_x();
         zoom.update_zoom(MAX_ZOOM_FACTOR, anchor); // Same zoom value
-        assert_eq!(zoom.off_x(), initial_offset); // Should not change
+        assert_eq!(zoom.offset_x(), initial_offset); // Should not change
     }
 
     #[test]
@@ -817,15 +937,14 @@ mod tests {
     #[test]
     fn test_unscaled_transform_matrix() {
         let mut zoom = Zoom::new();
-        zoom.screen_off_x = 10.0;
-        zoom.screen_off_y = 20.0;
+        zoom.offset_x = 10.0;
+        zoom.offset_y = 20.0;
 
-        let width = 100;
-        let height = 200;
+        let size = SizeD::new(100.0, 200.0);
 
         // Test 0-degree rotation
         zoom.set_rotation(0);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.xx(), 1.0);
         assert_eq!(matrix.yx(), 0.0);
         assert_eq!(matrix.xy(), 0.0);
@@ -835,7 +954,7 @@ mod tests {
 
         // Test 90-degree rotation
         zoom.set_rotation(90);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.xx(), 0.0);
         assert_eq!(matrix.yx(), 1.0);
         assert_eq!(matrix.xy(), -1.0);
@@ -845,7 +964,7 @@ mod tests {
 
         // Test 180-degree rotation
         zoom.set_rotation(180);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.xx(), -1.0);
         assert_eq!(matrix.yx(), 0.0);
         assert_eq!(matrix.xy(), 0.0);
@@ -855,7 +974,7 @@ mod tests {
 
         // Test 270-degree rotation
         zoom.set_rotation(270);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.xx(), 0.0);
         assert_eq!(matrix.yx(), -1.0);
         assert_eq!(matrix.xy(), 1.0);
@@ -864,16 +983,16 @@ mod tests {
         assert_eq!(matrix.y0(), 120.0);
 
         // Test negative screen offsets (should be clamped to 0)
-        zoom.screen_off_x = -5.0;
-        zoom.screen_off_y = -10.0;
+        zoom.offset_x = -5.0;
+        zoom.offset_y = -10.0;
         zoom.set_rotation(0);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.x0(), 0.0);
         assert_eq!(matrix.y0(), 0.0);
 
         // Test clamping with rotation
         zoom.set_rotation(90);
-        let matrix = zoom.unscaled_transform_matrix(width, height);
+        let matrix = zoom.unscaled_transform_matrix(size);
         assert_eq!(matrix.x0(), 200.0);
         assert_eq!(matrix.y0(), 0.0);
     }
@@ -890,15 +1009,5 @@ mod tests {
 
         zoom.set_rotation(0);
         assert!(!zoom.is_rotated());
-
-        // Test effective size
-        let original_size = (100.0, 200.0);
-        assert_eq!(zoom.effective_size(original_size), (100.0, 200.0));
-
-        zoom.set_rotation(90);
-        assert_eq!(zoom.effective_size(original_size), (200.0, 100.0));
-
-        zoom.set_rotation(270);
-        assert_eq!(zoom.effective_size(original_size), (200.0, 100.0));
     }
 }

@@ -28,12 +28,13 @@ use crate::{
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
-        view::zoom::ZOOM_MULTIPLIER,
+        view::{svg::render_svg, zoom::ZOOM_MULTIPLIER},
         Image, ImageData,
     },
+    rect::{RectD, SizeD},
     util::remove_source_id,
 };
-use cairo::{Context, Extend, FillRule, Matrix, SurfacePattern};
+use cairo::{Context, Extend, FillRule, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
@@ -41,7 +42,6 @@ use gtk4::{
     subclass::prelude::*,
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
 };
-use rsvg::prelude::HandleExt;
 
 use super::{
     data::{ImageViewData, QUALITY_HIGH, QUALITY_LOW},
@@ -114,55 +114,68 @@ impl ImageViewImp {
 
         context.set_fill_rule(FillRule::EvenOdd);
 
-        let (matrix, size, alpha) = if let Some(surface) = &p.zoom_overlay {
-            (
-                z.unscaled_transform_matrix(surface.width(), surface.height()),
-                (surface.width() as f64, surface.height() as f64),
-                false,
-            )
+        let viewport = clip_extents_to_rect(context);
+        let intersect = z.intersection(&viewport);
+
+        let (matrix, size, alpha) = if let ImageData::Svg(_tree) = &p.image.image_data {
+            let size = z.pixmap_size(&intersect);
+            (z.unscaled_transform_matrix(size), size, true)
+        } else if let Some(surface) = &p.zoom_overlay {
+            let size = SizeD::new(surface.width() as f64, surface.height() as f64);
+            (z.unscaled_transform_matrix(size), size, false)
         } else {
             (z.transform_matrix(), p.image.size(), p.image.has_alpha())
         };
-        context.transform(matrix);
 
-        let (width, height) = size;
-
-        if let Ok((x1, y1, x2, y2)) = context.clip_extents() {
-            context.color(Color::Black);
-            // With FillRule::EvenOdd:
-            // * Areas covered by an odd number of shapes get filled
-            // * Areas covered by an even number of shapes don't get filled
-            // * The outer rectangle covers the entire area (1 = odd, so filled)
-            context.rectangle(x1, y1, x2 - x1, y2 - y1);
-            // * The inner rectangle overlaps part of the outer rectangle (1+1 = 2 = even, so not filled)
-            context.rectangle(2.0, 2.0, width - 4.0, height - 4.0);
-            // Result: black background with a transparent "hole" in the middle
-            let _ = context.fill();
-        }
+        // Create black border around image
+        context.color(Color::Black);
+        // With FillRule::EvenOdd:
+        // * Areas covered by an odd number of shapes get filled
+        // * Areas covered by an even number of shapes don't get filled
+        // * The outer rectangle covers the entire area (1 = odd, so filled)
+        context.rectangle(
+            viewport.x0,
+            viewport.y0,
+            viewport.width(),
+            viewport.height(),
+        );
+        // * The inner rectangle overlaps part of the outer rectangle (1+1 = 2 = even, so not filled)
+        // * make the black other area one pixel bigger at every side to avaid gaps
+        //   around images in case of rounding errors
+        context.rectangle(
+            intersect.x0 + 1.0,
+            intersect.y0 + 1.0,
+            intersect.width() - 2.0,
+            intersect.height() - 2.0,
+        );
+        // Result: black background with a unpainted "hole" in the middle
+        let _ = context.fill();
 
         if alpha {
             if let Some(transparency_background) = &p.transparency_background {
-                // Create a pattern and scale it inversely to maintain 16x16 pixel size
+                // Create a checkerboard pattern
                 let pattern = SurfacePattern::create(transparency_background);
-                let mut pattern_matrix = Matrix::identity();
-                // Cairo pattern matrix works opposite to intuition:
-                // When context is scaled 2x larger, pattern matrix must also scale 2x
-                // to sample the pattern more densely, keeping blocks at 16x16 pixels
-                pattern_matrix.scale(z.zoom_factor(), z.zoom_factor());
-                pattern.set_matrix(pattern_matrix);
                 pattern.set_extend(Extend::Repeat);
                 let _ = context.set_source(&pattern);
-                context.rectangle(1.0, 1.0, width - 2.0, height - 2.0);
+                // make the checkerboard one pixel smaller at every side to not extend the
+                // images in case of rounding errors
+                context.rectangle(
+                    intersect.x0 + 1.0,
+                    intersect.y0 + 1.0,
+                    intersect.width() - 2.0,
+                    intersect.height() - 2.0,
+                );
                 let _ = context.fill();
             }
         }
 
-        context.rectangle(0.0, 0.0, width, height);
-        if let ImageData::Svg(handle) = &p.image.image_data {
-            context.clip();
-            let (width, height) = p.image.size();
-            let viewport = rsvg::Rectangle::new(0.0, 0.0, width, height);
-            handle.render_document(context, &viewport).unwrap();
+        // Viewport offset is handled in the transformation matrix so drawing here happens
+        // at the virtual origin (0.0, 0.0)
+        context.transform(matrix);
+
+        context.rectangle(0.0, 0.0, size.width(), size.height());
+        if let ImageData::Svg(tree) = &p.image.image_data {
+            render_svg(context, &p.zoom, &viewport, tree);
         } else if let Some(surface) = &p.zoom_overlay {
             let _ = context.set_source_surface(surface, 0.0, 0.0);
             let _ = context.fill();
@@ -175,7 +188,7 @@ impl ImageViewImp {
                 let _ = context.set_source_surface(surface_left, off_x_left, off_y_left);
                 context.source().set_filter(p.quality);
                 let _ = context.fill();
-                context.rectangle(0.0, 0.0, width, height);
+                context.rectangle(0.0, 0.0, size.width(), size.height());
                 let _ = context.set_source_surface(surface_right, off_x_right, off_y_right);
             }
             context.source().set_filter(p.quality);
@@ -226,7 +239,10 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.drag.is_none() && p.image.is_movable() {
             let (position_x, position_y) = position;
-            p.drag = Some((position_x - p.zoom.off_x(), position_y - p.zoom.off_y()));
+            p.drag = Some((
+                position_x - p.zoom.offset_x(),
+                position_y - p.zoom.offset_y(),
+            ));
             self.obj().set_view_cursor(ViewCursor::Drag);
         }
     }
@@ -244,7 +260,7 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         p.mouse_position = (x, y);
         if let Some(annotations) = &p.annotations {
-            let index = annotations.index_at(x - p.zoom.off_x(), y - p.zoom.off_y());
+            let index = annotations.index_at(x - p.zoom.offset_x(), y - p.zoom.offset_y());
             if index != p.hover {
                 p.hover = index;
                 p.redraw(QUALITY_HIGH); // hq_redraw not needed, because annotation only apply to thumbnail sheets
@@ -383,5 +399,15 @@ impl DrawingAreaImpl for ImageViewImp {
             self.obj()
                 .emit_by_name::<()>(SIGNAL_CANVAS_RESIZED, &[&width, &height]);
         }
+    }
+}
+
+/// Utility to convert clip_extents to rectangle
+pub fn clip_extents_to_rect(context: &Context) -> RectD {
+    if let Ok((x1, y1, x2, y2)) = context.clip_extents() {
+        RectD::new(x1, y1, x2, y2)
+    } else {
+        eprintln!("Could not determine context.clip_extents()");
+        Default::default() // Should not happen
     }
 }

@@ -29,6 +29,7 @@ use gdk::GdkImageLoader;
 use image::DynamicImage;
 use image_rs::RsImageLoader;
 use internal::InternalImageLoader;
+use resvg::usvg::{self, Tree};
 use std::{
     fs,
     io::{BufRead, BufReader, Cursor, Seek},
@@ -65,13 +66,17 @@ impl ImageLoader {
             _ => (),
         };
 
-        if let Some(path_as_string) = path.to_str() {
-            if path_as_string.to_lowercase().contains(".svg") {
-                if let Ok(Some(handle)) = rsvg::Handle::from_file(path_as_string) {
-                    duration.elapsed("decode svg (file)");
-                    return Image::new_svg(handle, None, ZoomMode::NotSpecified);
-                }
-            }
+        let is_svg = path
+            .extension()
+            .map(|ext| ext.to_string_lossy().starts_with("svg"))
+            .unwrap_or_default();
+        if is_svg {
+            // FIXME: error handling
+            let svg_data = fs::read(path).expect("Failed to read SVG file");
+            let svg_options = usvg::Options::default();
+            let tree = Tree::from_data(&svg_data, &svg_options).expect("Failed to parse SVG");
+            duration.elapsed("decode svg (file)");
+            return Image::new_svg(tree, None, ZoomMode::NotSpecified);
         }
 
         let input = match std::fs::File::open(path) {
@@ -104,9 +109,10 @@ impl ImageLoader {
         let duration = Performance::start();
 
         if try_svg {
-            if let Ok(Some(handle)) = rsvg::Handle::from_data(&buf) {
+            let svg_options = usvg::Options::default();
+            if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");
-                return Image::new_svg(handle, None, ZoomMode::NotSpecified);
+                return Image::new_svg(tree, None, ZoomMode::NotSpecified);
             }
         }
 
@@ -133,8 +139,9 @@ impl ImageLoader {
     }
 
     pub fn image_from_svg_data(buf: &[u8], tag: Option<String>) -> Option<Image> {
-        if let Ok(Some(handle)) = rsvg::Handle::from_data(buf) {
-            Some(Image::new_svg(handle, tag, ZoomMode::Fill))
+        let svg_options = usvg::Options::default();
+        if let Ok(tree) = Tree::from_data(buf, &svg_options) {
+            Some(Image::new_svg(tree, tag, ZoomMode::Fill))
         } else {
             None
         }
