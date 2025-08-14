@@ -19,6 +19,7 @@
 
 pub mod data;
 mod imp;
+mod svg;
 pub mod zoom;
 
 use std::time::SystemTime;
@@ -38,7 +39,7 @@ use gtk4::{
 };
 use mupdf::Rect;
 
-use crate::backends::thumbnail::model::Annotations;
+use crate::{backends::thumbnail::model::Annotations, rect::SizeD};
 
 use super::Image;
 pub use data::QUALITY_HIGH;
@@ -47,7 +48,7 @@ pub use zoom::{Zoom, ZoomMode};
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
-        @extends gtk4::DrawingArea, gtk4::Widget, @implements gtk4::Buildable;
+        @extends gtk4::DrawingArea, gtk4::Widget, @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget;
 }
 
 impl Default for ImageView {
@@ -152,7 +153,7 @@ impl ImageView {
         self.imp().data.borrow().image.id()
     }
 
-    pub fn image_size(&self) -> (f64, f64) {
+    pub fn image_size(&self) -> SizeD {
         self.imp().data.borrow().image.size()
     }
 

@@ -27,7 +27,8 @@ use crate::image::Image;
 
 glib::wrapper! {
 pub struct InfoView(ObjectSubclass<imp::InfoViewImp>)
-    @extends gtk4::Widget, gtk4::TreeView, gtk4::Scrollable;
+    @extends gtk4::Widget, gtk4::TreeView,
+    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
 }
 
 #[derive(Debug)]
@@ -67,9 +68,9 @@ impl InfoView {
     pub fn update(&self, image: &Image) {
         let store = Columns::store();
 
-        let (width, height) = image.size();
-        insert(&store, "width", &format!("{width:.0} px"));
-        insert(&store, "height", &format!("{height:.0} px"));
+        let size = image.size();
+        insert(&store, "width", &format!("{:.0} px", size.width()));
+        insert(&store, "height", &format!("{:.0} px", size.height()));
         insert(
             &store,
             "alpha channel",

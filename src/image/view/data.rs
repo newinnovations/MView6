@@ -23,6 +23,7 @@ use gtk4::prelude::WidgetExt;
 use crate::{
     backends::thumbnail::model::Annotations,
     image::{view::zoom::Zoom, Image},
+    rect::RectD,
 };
 
 use super::{ImageView, ZoomMode};
@@ -73,10 +74,19 @@ impl ImageViewData {
 
     pub fn apply_zoom(&mut self) {
         if let Some(view) = &self.view {
-            let viewport = view.allocation();
-            let image_size = self.image.size();
-            let (image_width, image_height) = image_size;
-            let zoom_mode = if image_width < 0.1 || image_height < 0.1 {
+            let allocation = view.allocation();
+            // * allocation is relative to the parent window, allocation.x() and
+            //   allocation.y() might not be 0 depending on the presence of other
+            //   widgets in the parent window (fileview, borders, etc)
+            // * viewport is relatieve to the view, so origin is (0.0, 0.0)
+            let viewport = RectD::new(
+                0.0,
+                0.0,
+                allocation.width() as f64,
+                allocation.height() as f64,
+            );
+            let size = self.image.size();
+            let zoom_mode = if size.width() < 0.1 || size.height() < 0.1 {
                 ZoomMode::NoZoom
             } else if self.image.zoom_mode == ZoomMode::NotSpecified {
                 if self.zoom_mode == ZoomMode::NotSpecified {
@@ -87,7 +97,7 @@ impl ImageViewData {
             } else {
                 self.image.zoom_mode
             };
-            self.zoom.apply_zoom(zoom_mode, image_size, viewport);
+            self.zoom.apply_zoom(zoom_mode, size, viewport);
         }
     }
 
@@ -95,7 +105,10 @@ impl ImageViewData {
         self.zoom.update_zoom(new_zoom, anchor);
         if self.drag.is_some() {
             let (anchor_x, anchor_y) = anchor;
-            self.drag = Some((anchor_x - self.zoom.off_x(), anchor_y - self.zoom.off_y()))
+            self.drag = Some((
+                anchor_x - self.zoom.offset_x(),
+                anchor_y - self.zoom.offset_y(),
+            ))
         }
     }
 }

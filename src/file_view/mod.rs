@@ -36,7 +36,8 @@ pub use imp::{
 use crate::window::MViewWindow;
 glib::wrapper! {
 pub struct FileView(ObjectSubclass<imp::FileViewImp>)
-    @extends gtk4::Widget, gtk4::TreeView, gtk4::Scrollable;
+    @extends gtk4::Widget, gtk4::TreeView,
+    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
 }
 
 impl FileView {

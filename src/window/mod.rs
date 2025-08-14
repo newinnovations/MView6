@@ -24,7 +24,8 @@ use gtk4::glib;
 
 glib::wrapper! {
     pub struct MViewWindow(ObjectSubclass<imp::MViewWindowImp>)
-        @extends gtk4::Widget, gtk4::Window, gtk4::ApplicationWindow;
+        @extends gtk4::Widget, gtk4::Window, gtk4::ApplicationWindow,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Native, gtk4::Root, gtk4::ShortcutManager, gio::ActionGroup, gio::ActionMap;
 }
 
 impl MViewWindow {

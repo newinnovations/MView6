@@ -205,7 +205,7 @@ impl MViewWindowImp {
             if let Some(surface) = backend.image_zoom(
                 &current,
                 &params,
-                w.image_view.image_size().1 as f32,
+                w.image_view.image_size().height() as f32,
                 w.image_view.clip(),
                 w.image_view.zoom(),
             ) {

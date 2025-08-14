@@ -23,7 +23,8 @@ use gtk4::{gio::ApplicationFlags, glib, Settings};
 
 glib::wrapper! {
     pub struct MviewApplication(ObjectSubclass<imp::MviewApplicationImp>)
-        @extends gio::Application, gtk4::Application;
+        @extends gio::Application, gtk4::Application,
+        @implements gio::ActionGroup, gio::ActionMap;
 }
 
 impl MviewApplication {

@@ -28,14 +28,14 @@ use cairo::{Context, Format, ImageSurface};
 use exif::Exif;
 use gdk_pixbuf::Pixbuf;
 use gtk4::gdk::prelude::GdkCairoContextExt;
-use rsvg::{prelude::HandleExt, Handle};
+use resvg::usvg::Tree;
 use std::{
     cmp::max,
     sync::atomic::{AtomicU32, Ordering},
 };
 use view::ZoomMode;
 
-use crate::image::provider::gdk::GdkImageLoader;
+use crate::{image::provider::gdk::GdkImageLoader, rect::SizeD};
 
 static IMAGE_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -50,7 +50,7 @@ pub enum ImageData {
     None,
     Single(ImageSurface),
     Dual(ImageSurface, ImageSurface),
-    Svg(Handle),
+    Svg(Box<Tree>),
 }
 
 impl From<Option<Pixbuf>> for ImageData {
@@ -103,6 +103,10 @@ impl ImageData {
             }
             _ => (0.0, 0.0, 0.0, 0.0),
         }
+    }
+
+    pub fn is_svg(&self) -> bool {
+        matches!(self, ImageData::Svg(_))
     }
 }
 
@@ -197,10 +201,10 @@ impl Image {
         }
     }
 
-    pub fn new_svg(svg: Handle, tag: Option<String>, zoom_mode: ZoomMode) -> Self {
+    pub fn new_svg(svg: Tree, tag: Option<String>, zoom_mode: ZoomMode) -> Self {
         Image {
             id: get_image_id(),
-            image_data: ImageData::Svg(svg),
+            image_data: ImageData::Svg(Box::new(svg)),
             animation: Animation::None,
             exif: None,
             zoom_mode,
@@ -212,15 +216,18 @@ impl Image {
         self.id
     }
 
-    pub fn size(&self) -> (f64, f64) {
+    pub fn size(&self) -> SizeD {
         match &self.image_data {
-            ImageData::None => (0.0, 0.0),
-            ImageData::Single(pixbuf) => (pixbuf.width() as f64, pixbuf.height() as f64),
-            ImageData::Dual(pixbuf1, pixbuf2) => (
-                (pixbuf1.width() + pixbuf2.width()) as f64,
-                max(pixbuf1.height(), pixbuf2.height()) as f64,
+            ImageData::None => Default::default(),
+            ImageData::Single(pixbuf) => SizeD::new(pixbuf.width().into(), pixbuf.height().into()),
+            ImageData::Dual(pixbuf1, pixbuf2) => SizeD::new(
+                (pixbuf1.width() + pixbuf2.width()).into(),
+                max(pixbuf1.height(), pixbuf2.height()).into(),
             ),
-            ImageData::Svg(handle) => handle.intrinsic_size_in_pixels().unwrap_or((64.0, 64.0)),
+            ImageData::Svg(tree) => {
+                let size = tree.size();
+                SizeD::new(size.width().into(), size.height().into())
+            }
         }
     }
 
@@ -231,7 +238,7 @@ impl Image {
             ImageData::Dual(pixbuf1, pixbuf2) => {
                 pixbuf1.format() == Format::ARgb32 || pixbuf2.format() == Format::ARgb32
             }
-            ImageData::Svg(_handle) => true,
+            ImageData::Svg(_tree) => true,
         }
     }
 
