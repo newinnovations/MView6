@@ -117,12 +117,13 @@ impl ImageViewImp {
         let viewport = clip_extents_to_rect(context);
         let intersect = z.intersection(&viewport);
 
-        let (matrix, size, alpha) = if let ImageData::Svg(_tree) = &p.image.image_data {
+        let (matrix, size, alpha) = if let Some((surface, zoom)) = &p.zoom_overlay {
+            let size = SizeD::new(surface.width() as f64, surface.height() as f64);
+            // let zoom = z.new_delta(parent_zoom, my_zoom);
+            (zoom.transform_matrix(), size, false)
+        } else if let ImageData::Svg(_tree) = &p.image.image_data {
             let size = z.pixmap_size(&intersect);
             (z.unscaled_transform_matrix(size), size, true)
-        } else if let Some(surface) = &p.zoom_overlay {
-            let size = SizeD::new(surface.width() as f64, surface.height() as f64);
-            (z.unscaled_transform_matrix(size), size, false)
         } else {
             (z.transform_matrix(), p.image.size(), p.image.has_alpha())
         };
@@ -159,26 +160,28 @@ impl ImageViewImp {
                 let _ = context.set_source(&pattern);
                 // make the checkerboard one pixel smaller at every side to not extend the
                 // images in case of rounding errors
-                context.rectangle(
-                    intersect.x0 + 1.0,
-                    intersect.y0 + 1.0,
-                    intersect.width() - 2.0,
-                    intersect.height() - 2.0,
-                );
-                let _ = context.fill();
             }
+        } else {
+            context.color(Color::White);
         }
+        context.rectangle(
+            intersect.x0 + 1.0,
+            intersect.y0 + 1.0,
+            intersect.width() - 2.0,
+            intersect.height() - 2.0,
+        );
+        let _ = context.fill();
 
         // Viewport offset is handled in the transformation matrix so drawing here happens
         // at the virtual origin (0.0, 0.0)
         context.transform(matrix);
 
         context.rectangle(0.0, 0.0, size.width(), size.height());
-        if let ImageData::Svg(tree) = &p.image.image_data {
-            render_svg(context, &p.zoom, &viewport, tree);
-        } else if let Some(surface) = &p.zoom_overlay {
+        if let Some((surface, _)) = &p.zoom_overlay {
             let _ = context.set_source_surface(surface, 0.0, 0.0);
             let _ = context.fill();
+        } else if let ImageData::Svg(tree) = &p.image.image_data {
+            render_svg(context, &p.zoom, &viewport, tree);
         } else {
             if let ImageData::Single(surface) = &p.image.image_data {
                 let _ = context.set_source_surface(surface, 0.0, 0.0);
@@ -239,10 +242,21 @@ impl ImageViewImp {
         let mut p = self.data.borrow_mut();
         if p.drag.is_none() && p.image.is_movable() {
             let (position_x, position_y) = position;
-            p.drag = Some((
-                position_x - p.zoom.offset_x(),
-                position_y - p.zoom.offset_y(),
-            ));
+            if let Some((_, zoom)) = &p.zoom_overlay {
+                p.drag = Some((
+                    position_x - p.zoom.offset_x(),
+                    position_y - p.zoom.offset_y(),
+                    position_x - zoom.offset_x(),
+                    position_y - zoom.offset_y(),
+                ));
+            } else {
+                p.drag = Some((
+                    position_x - p.zoom.offset_x(),
+                    position_y - p.zoom.offset_y(),
+                    0.0,
+                    0.0,
+                ));
+            }
             self.obj().set_view_cursor(ViewCursor::Drag);
         }
     }
@@ -266,8 +280,11 @@ impl ImageViewImp {
                 p.redraw(QUALITY_HIGH); // hq_redraw not needed, because annotation only apply to thumbnail sheets
             }
         }
-        if let Some((drag_x, drag_y)) = p.drag {
+        if let Some((drag_x, drag_y, drag_ovl_x, drag_ovl_y)) = p.drag {
             p.zoom.set_offset(x - drag_x, y - drag_y);
+            if let Some((_, zoom)) = &mut p.zoom_overlay {
+                zoom.set_offset(x - drag_ovl_x, y - drag_ovl_y);
+            }
             drop(p);
             self.obj().emit_by_name::<()>(SIGNAL_HQ_REDRAW, &[&true]);
         }

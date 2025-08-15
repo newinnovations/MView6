@@ -78,6 +78,7 @@ impl ImageView {
         self.imp().cancel_animation();
         p.image = image;
         p.zoom.set_rotation(0);
+        p.zoom_overlay = None;
         p.annotations = None;
         p.hover = None;
     }
@@ -136,7 +137,18 @@ impl ImageView {
     pub fn set_zoomed_surface(&self, surface: ImageSurface) {
         let mut p = self.imp().data.borrow_mut();
         p.redraw(QUALITY_HIGH); // FIXME: handle the removal of existing surfaces better
-        p.zoom_overlay = Some(surface);
+        let size = SizeD::new(surface.width() as f64, surface.height() as f64);
+        let ovl_zoom = p.zoom.new_unscaled(size);
+        if p.drag.is_some() {
+            let (anchor_x, anchor_y) = p.mouse_position;
+            p.drag = Some((
+                anchor_x - p.zoom.offset_x(),
+                anchor_y - p.zoom.offset_y(),
+                anchor_x - ovl_zoom.offset_x(),
+                anchor_y - ovl_zoom.offset_y(),
+            ))
+        }
+        p.zoom_overlay = Some((surface, ovl_zoom));
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {

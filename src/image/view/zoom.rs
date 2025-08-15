@@ -195,11 +195,11 @@ impl Zoom {
     /// Sets both horizontal and vertical offsets for image positioning
     ///
     /// # Arguments
-    /// * `off_x` - New horizontal offset in screen coordinates
-    /// * `off_y` - New vertical offset in screen coordinates
-    pub fn set_offset(&mut self, off_x: f64, off_y: f64) {
-        self.offset_x = off_x;
-        self.offset_y = off_y;
+    /// * `offset_x` - New horizontal offset in screen coordinates
+    /// * `offset_y` - New vertical offset in screen coordinates
+    pub fn set_offset(&mut self, offset_x: f64, offset_y: f64) {
+        self.offset_x = offset_x;
+        self.offset_y = offset_y;
     }
 
     /// Sets the rotation angle, constraining it to 90-degree increments (0, 90, 180, 270)
@@ -313,14 +313,42 @@ impl Zoom {
     /// # Returns
     /// * `Matrix` - Unscaled transformation matrix for overlay positioning
     pub fn unscaled_transform_matrix(&self, size: SizeD) -> Matrix {
+        self.new_unscaled(size).transform_matrix()
+    }
+
+    /// Creates an unscaled [`Zoom`] instance for high-resolution rendering
+    ///
+    /// This matrix is used when displaying hi-res rendered overlays (such as PDF and SVG content)
+    /// where the overlay is pre-rendered at the target resolution rather than using Cairo's
+    /// built-in scaling. The matrix handles rotation and translation but omits the zoom scaling
+    /// since the overlay content is already rendered at the correct scale.
+    ///
+    /// The screen offsets are clamped to positive values to ensure proper positioning. Negative
+    /// values will be handled during rendering of the high-resolution overlay by transposing
+    /// the source content in the target overlay by that amount. Which needs the overlay to be
+    /// positioned at the origin.
+    ///
+    /// # Arguments
+    /// * `size` - overlay pixmap dimensions as SizeD (width, height)
+    ///
+    /// # Returns
+    /// * `Zoom` - Unscaled instance for overlay positioning
+    pub fn new_unscaled(&self, size: SizeD) -> Self {
         let i = self.image_rect_scaled_offset();
         let x0 = i.x0.max(0.0);
         let y0 = i.y0.max(0.0);
-        match self.rotation % 360 {
-            90 => Matrix::new(0.0, 1.0, -1.0, 0.0, x0 + size.height(), y0),
-            180 => Matrix::new(-1.0, 0.0, 0.0, -1.0, x0 + size.width(), y0 + size.height()),
-            270 => Matrix::new(0.0, -1.0, 1.0, 0.0, x0, y0 + size.width()),
-            _ => Matrix::new(1.0, 0.0, 0.0, 1.0, x0, y0),
+        let (offset_x, offset_y) = match self.rotation % 360 {
+            90 => (x0 + size.height(), y0),
+            180 => (x0 + size.width(), y0 + size.height()),
+            270 => (x0, y0 + size.width()),
+            _ => (x0, y0),
+        };
+        Self {
+            zoom: 1.0,
+            rotation: self.rotation,
+            offset_x,
+            offset_y,
+            image_size: size,
         }
     }
 

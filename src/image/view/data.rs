@@ -35,11 +35,11 @@ pub struct ImageViewData {
     pub image: Image,
     pub zoom: Zoom,
     pub zoom_mode: ZoomMode,
-    pub zoom_overlay: Option<ImageSurface>,
+    pub zoom_overlay: Option<(ImageSurface, Zoom)>,
     pub transparency_background: Option<ImageSurface>,
     pub view: Option<ImageView>,
     pub mouse_position: (f64, f64),
-    pub drag: Option<(f64, f64)>,
+    pub drag: Option<(f64, f64, f64, f64)>,
     pub quality: Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
@@ -66,7 +66,7 @@ impl Default for ImageViewData {
 impl ImageViewData {
     pub fn redraw(&mut self, quality: Filter) {
         if let Some(view) = &self.view {
-            self.zoom_overlay = None;
+            // self.zoom_overlay = None;
             self.quality = quality;
             view.queue_draw();
         }
@@ -102,13 +102,30 @@ impl ImageViewData {
     }
 
     pub fn update_zoom(&mut self, new_zoom: f64, anchor: (f64, f64)) {
+        let zoom_update = new_zoom / self.zoom.zoom_factor();
         self.zoom.update_zoom(new_zoom, anchor);
+        if let Some((_, zoom)) = &mut self.zoom_overlay {
+            let new_zoom = zoom.zoom_factor() * zoom_update;
+            zoom.update_zoom(new_zoom, anchor);
+        }
+
         if self.drag.is_some() {
             let (anchor_x, anchor_y) = anchor;
-            self.drag = Some((
-                anchor_x - self.zoom.offset_x(),
-                anchor_y - self.zoom.offset_y(),
-            ))
+            if let Some((_, zoom)) = &mut self.zoom_overlay {
+                self.drag = Some((
+                    anchor_x - self.zoom.offset_x(),
+                    anchor_y - self.zoom.offset_y(),
+                    anchor_x - zoom.offset_x(),
+                    anchor_y - zoom.offset_y(),
+                ))
+            } else {
+                self.drag = Some((
+                    anchor_x - self.zoom.offset_x(),
+                    anchor_y - self.zoom.offset_y(),
+                    0.0,
+                    0.0,
+                ))
+            }
         }
     }
 }
