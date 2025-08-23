@@ -47,7 +47,7 @@ impl MViewWindowImp {
                 if !self.backend.borrow().is_bookmarks() {
                     let backend = self.backend.replace(<dyn Backend>::none());
                     let target = if let Some(cursor) = w.file_view.current() {
-                        backend.entry(&cursor).into()
+                        backend.reference(&cursor).into()
                     } else {
                         Target::First
                     };
@@ -184,16 +184,16 @@ impl MViewWindowImp {
                 self.toggle_pdf_engine();
             }
             Key::_1 => {
-                self.change_sort(Column::Cat);
+                self.change_sort(Column::Cat, &w.file_view);
             }
             Key::_2 => {
-                self.change_sort(Column::Name);
+                self.change_sort(Column::Name, &w.file_view);
             }
             Key::_3 => {
-                self.change_sort(Column::Size);
+                self.change_sort(Column::Size, &w.file_view);
             }
             Key::_4 => {
-                self.change_sort(Column::Modified);
+                self.change_sort(Column::Modified, &w.file_view);
             }
             Key::p => {
                 match self.page_mode.get() {
@@ -205,14 +205,15 @@ impl MViewWindowImp {
             Key::P => {
                 let w = self.widgets();
                 let params = ImageParams {
-                    sender: &w.sender,
+                    tn_sender: Some(&w.tn_sender),
                     page_mode: &self.page_mode.get(),
                     allocation_height: self.obj().height(),
                 };
                 if let Some(current) = w.file_view.current() {
-                    let image1 = self.backend.borrow().image(&current, &params);
+                    let b = self.backend.borrow();
+                    let image1 = b.image(&b.reference(&current).item, &params);
                     if current.next() {
-                        let image2 = self.backend.borrow().image(&current, &params);
+                        let image2 = b.image(&b.reference(&current).item, &params);
                         if let (ImageData::Single(surface), ImageData::Single(surface2)) =
                             (image1.image_data, image2.image_data)
                         {

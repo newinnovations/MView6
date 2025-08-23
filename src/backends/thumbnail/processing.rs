@@ -17,24 +17,28 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{panic, thread, time};
+use std::{panic, thread};
 
 use async_channel::Sender;
 use image::DynamicImage;
 
 use crate::{
     backends::{
-        archive_mar::MarArchive, archive_rar::RarArchive, archive_zip::ZipArchive,
-        document::mupdf::DocMuPdf, filesystem::FileSystem,
+        archive_mar::MarArchive,
+        archive_rar::RarArchive,
+        archive_zip::ZipArchive,
+        document::{mupdf::DocMuPdf, pdfium::DocPdfium},
+        filesystem::FileSystem,
     },
     category::Category,
     error::MviewResult,
+    file_view::model::BackendRef,
     image::{draw::text_thumb, provider::image_rs::RsImageLoader, view::ImageView},
 };
 
 use super::{
     model::{Annotations, TRect},
-    Message, TCommand, TMessage, TReference, TResult, TResultOption, TTask,
+    Message, TCommand, TMessage, TResult, TResultOption, TTask,
 };
 
 fn thumb_result(res: MviewResult<DynamicImage>, task: &TTask) -> TResultOption {
@@ -83,26 +87,28 @@ pub fn start_thumbnail_task(
             thread::spawn(move || {
                 // println!("{tid:3}: start {:7.3}", elapsed);
                 // thread::sleep(time::Duration::from_secs(2));
-                thread::sleep(time::Duration::from_millis(1));
-                let result = match panic::catch_unwind(|| match &task.source.reference {
-                    TReference::FileReference(src) => {
-                        thumb_result(FileSystem::get_thumbnail(src), &task)
+                // thread::sleep(time::Duration::from_millis(1));
+                let result = match panic::catch_unwind(|| match &task.source.reference.backend {
+                    BackendRef::FileSystem(_) => {
+                        thumb_result(FileSystem::get_thumbnail(&task.source.reference), &task)
                     }
-                    TReference::ZipReference(src) => {
-                        thumb_result(ZipArchive::get_thumbnail(src), &task)
+                    BackendRef::MarArchive(_) => {
+                        dbg!(&task.source.reference);
+                        thumb_result(MarArchive::get_thumbnail(&task.source.reference), &task)
                     }
-                    TReference::MarReference(src) => {
-                        thumb_result(MarArchive::get_thumbnail(src), &task)
+                    BackendRef::RarArchive(_) => {
+                        thumb_result(RarArchive::get_thumbnail(&task.source.reference), &task)
                     }
-                    TReference::RarReference(src) => {
-                        thumb_result(RarArchive::get_thumbnail(src), &task)
+                    BackendRef::ZipArchive(_) => {
+                        thumb_result(ZipArchive::get_thumbnail(&task.source.reference), &task)
                     }
-                    TReference::DocReference(src) => {
-                        thumb_result(DocMuPdf::get_thumbnail(src), &task)
+                    BackendRef::Mupdf(_) => {
+                        thumb_result(DocMuPdf::get_thumbnail(&task.source.reference), &task)
                     }
-                    TReference::None => {
-                        TResultOption::Message(TMessage::error("none", "TEntry::None"))
+                    BackendRef::Pdfium(_) => {
+                        thumb_result(DocPdfium::get_thumbnail(&task.source.reference), &task)
                     }
+                    _ => TResultOption::Message(TMessage::error("none", "TEntry::None")),
                 }) {
                     Ok(image) => image,
                     Err(_) => TResultOption::Message(TMessage::error("panic", &task.source.name)),

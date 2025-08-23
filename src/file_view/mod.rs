@@ -17,21 +17,22 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+pub mod cursor;
 mod imp;
+pub mod model;
+mod sort;
 
+pub use cursor::{Cursor, TreeModelMviewExt};
 use glib::{
     clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
 };
 use gtk4::{
     glib,
     prelude::{TreeModelExt, TreeSortableExtManual, TreeViewExt},
-    ListStore, TreeIter, TreeViewColumn,
+    ListStore, SortColumn, SortType, TreeIter, TreeViewColumn,
 };
-pub use imp::{
-    cursor::{Cursor, TreeModelMviewExt},
-    model::{Column, Direction, Filter, Target},
-    sort::Sort,
-};
+pub use model::{Column, Direction, Filter, Target};
+pub use sort::Sort;
 
 use crate::window::MViewWindow;
 glib::wrapper! {
@@ -53,12 +54,9 @@ impl Default for FileView {
 }
 
 impl FileView {
-    fn store(&self) -> Option<ListStore> {
-        if let Some(model) = self.model() {
-            model.downcast::<ListStore>().ok()
-        } else {
-            None
-        }
+    pub fn store(&self) -> Option<ListStore> {
+        self.model()
+            .and_then(|tree_model| tree_model.downcast::<ListStore>().ok())
     }
 
     pub fn current(&self) -> Option<Cursor> {
@@ -204,5 +202,26 @@ impl FileView {
 
     pub fn set_extended(&self, extended: bool) {
         self.imp().set_extended(extended);
+    }
+
+    pub fn change_sort(&self, sort_col: Column) {
+        if let Some(store) = self.store() {
+            let new_sort_column = SortColumn::Index(sort_col as u32);
+            let current_sort = store.sort_column_id();
+            let new_direction = match current_sort {
+                Some((current_column, current_direction)) => {
+                    if current_column.eq(&new_sort_column) {
+                        match current_direction {
+                            SortType::Ascending => SortType::Descending,
+                            _ => SortType::Ascending,
+                        }
+                    } else {
+                        SortType::Ascending
+                    }
+                }
+                None => SortType::Ascending,
+            };
+            store.set_sort_column_id(new_sort_column, new_direction);
+        }
     }
 }

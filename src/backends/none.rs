@@ -20,18 +20,24 @@
 use std::path::PathBuf;
 
 use super::{Image, ImageParams};
-use gtk4::ListStore;
 
-use crate::file_view::{Column, Cursor};
+use crate::file_view::{
+    model::{BackendRef, ItemRef, Reference, Row},
+    Cursor,
+};
 
 use super::{Backend, Target};
 
 #[derive(Clone)]
-pub struct NoneBackend {}
+pub struct NoneBackend {
+    store: Vec<Row>,
+}
 
 impl NoneBackend {
     pub fn new() -> Self {
-        NoneBackend {}
+        NoneBackend {
+            store: Default::default(),
+        }
     }
 }
 
@@ -54,15 +60,22 @@ impl Backend for NoneBackend {
         "invalid".into()
     }
 
-    fn store(&self) -> ListStore {
-        Column::empty_store()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
 
-    fn image(&self, _: &Cursor, _: &ImageParams) -> Image {
+    fn image(&self, _: &ItemRef, _: &ImageParams) -> Image {
         Image::default()
+    }
+
+    fn reference(&self, _cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::None,
+            item: ItemRef::Index(0),
+        }
     }
 }

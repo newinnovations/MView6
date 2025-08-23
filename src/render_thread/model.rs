@@ -17,22 +17,50 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::MViewWindowImp;
+use resvg::usvg::Tree;
 
-impl MViewWindowImp {
-    pub(super) fn on_mouse_press(&self, position: (f64, f64)) {
-        let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
-            let (x, y) = position;
-            let zoom = w.image_view.zoom();
-            let (x, y) = (x - zoom.offset_x(), y - zoom.offset_y());
-            let backend = self.backend.borrow();
-            if let Some((new_backend, goto)) =
-                backend.click(&backend.reference(&current).item, x, y)
-            {
-                drop(backend);
-                self.set_backend(new_backend, &goto);
-            }
-        }
+use crate::{
+    backends::document::PageMode,
+    file_view::model::Reference,
+    image::{provider::surface::SurfaceData, view::Zoom},
+    rect::RectD,
+};
+
+#[derive(Debug, Clone)]
+pub enum RenderCommand {
+    // Image((Reference, PageMode, i32)),
+    RenderDoc(Reference, u32, PageMode, Zoom, RectD),
+    RenderSvg(u32, Zoom, RectD, Box<Tree>),
+}
+
+#[derive(Debug, Clone)]
+pub struct RenderCommandMessage {
+    pub id: u32,
+    pub cmd: RenderCommand,
+}
+
+#[derive(Debug, Clone)]
+pub enum RenderReply {
+    // Image((Reference, PageMode, i32)),
+    RenderDone(u32, SurfaceData, Zoom),
+}
+
+#[derive(Debug, Clone)]
+pub struct RenderReplyMessage {
+    pub _id: u32,
+    pub reply: RenderReply,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_send_sync<T: Send + Sync>() {}
+
+    #[test]
+    fn test_send_sync() {
+        assert_send_sync::<RenderCommandMessage>();
+        assert_send_sync::<RenderReplyMessage>();
+        assert_send_sync::<SurfaceData>();
     }
 }

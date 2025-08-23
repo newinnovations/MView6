@@ -21,10 +21,12 @@ use super::{Image, ImageParams};
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Column, Cursor, Direction},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor, Direction,
+    },
     image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
 };
-use gtk4::ListStore;
 use image::DynamicImage;
 use regex::Regex;
 use std::{
@@ -34,25 +36,23 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use super::{
-    thumbnail::{TEntry, TReference},
-    Backend, Target,
-};
+use super::{Backend, Target};
 
 pub struct FileSystem {
     directory: PathBuf,
-    store: ListStore,
+    store: Vec<Row>,
 }
 
 impl FileSystem {
     pub fn new(directory: &Path) -> Self {
         FileSystem {
             directory: directory.into(),
-            store: Self::create_store(directory),
+            store: Self::read_directory(directory).unwrap_or_default(),
         }
     }
 
-    fn read_directory(store: &ListStore, current_dir: &Path) -> io::Result<()> {
+    fn read_directory(current_dir: &Path) -> io::Result<Vec<Row>> {
+        let mut result = Vec::new();
         for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -80,50 +80,45 @@ impl FileSystem {
             } else {
                 0
             };
-            let file_size = metadata.len();
+            let size = metadata.len();
 
             let cat = Category::determine(&path, metadata.is_dir());
 
-            store.insert_with_values(
-                None,
-                &[
-                    (Column::Cat as u32, &cat.id()),
-                    (Column::Icon as u32, &cat.icon()),
-                    (Column::Name as u32, &filename),
-                    (Column::Size as u32, &file_size),
-                    (Column::Modified as u32, &modified),
-                ],
-            );
+            let row = Row {
+                category: cat.id(),
+                name: filename.to_string(),
+                size,
+                modified,
+                index: Default::default(),
+                icon: cat.icon().to_string(),
+                folder: Default::default(),
+            };
+
+            result.push(row);
         }
-        Ok(())
+        Ok(result)
     }
 
-    fn create_store(directory: &Path) -> ListStore {
-        let store = Column::empty_store();
-        match Self::read_directory(&store, directory) {
-            Ok(()) => (),
-            Err(e) => {
-                println!("read_dir failed {e:?}");
-            }
-        }
-        store
-    }
-
-    pub fn get_thumbnail(src: &TFileReference) -> MviewResult<DynamicImage> {
-        if let Some(image) = InternalImageLoader::thumb_from_file(&src.path()) {
-            Ok(image)
-        } else {
-            let thumb_filename = src.filename.replace(".lo.", ".").replace(".hi.", ".") + ".mthumb";
-            let thumb_path = src.directory.join(".mview").join(thumb_filename);
-            if Path::new(&thumb_path).exists() {
-                RsImageLoader::dynimg_from_file(&thumb_path)
-            } else {
-                let path = src.directory.join(&src.filename);
-                let image = RsImageLoader::dynimg_from_file(&path)?;
-                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-                // ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
+    pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
+        if let (BackendRef::FileSystem(directory), ItemRef::String(name)) = src.as_tuple() {
+            let filename = directory.join(name);
+            if let Some(image) = InternalImageLoader::thumb_from_file(&filename) {
                 Ok(image)
+            } else {
+                let thumb_filename = name.replace(".lo.", ".").replace(".hi.", ".") + ".mthumb";
+                let thumb_path = directory.join(".mview").join(thumb_filename);
+                if Path::new(&thumb_path).exists() {
+                    RsImageLoader::dynimg_from_file(&thumb_path)
+                } else {
+                    let path = directory.join(name);
+                    let image = RsImageLoader::dynimg_from_file(&path)?;
+                    let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                    // ImageSaver::save_thumbnail(&src.directory, &thumb_filename, &image);
+                    Ok(image)
+                }
             }
+        } else {
+            Err("invalid reference".into())
         }
     }
 }
@@ -141,8 +136,8 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
@@ -171,8 +166,8 @@ impl Backend for FileSystem {
         }
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        let filename = self.directory.join(cursor.name());
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+        let filename = self.directory.join(item.str());
         ImageLoader::image_from_file(&filename)
     }
 
@@ -218,44 +213,18 @@ impl Backend for FileSystem {
         }
     }
 
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        let name = &cursor.name();
-        TEntry::new(
-            cursor.category(),
-            name,
-            TReference::FileReference(TFileReference::new(&self.directory, name)),
-        )
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::FileSystem(self.directory.clone()),
+            item: ItemRef::String(cursor.name()),
+        }
     }
 
     fn reload(&self) -> Option<Box<dyn Backend>> {
         let directory = &self.directory;
         Some(Box::new(FileSystem {
             directory: directory.into(),
-            store: Self::create_store(directory),
+            store: Self::read_directory(directory).unwrap_or_default(),
         }))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TFileReference {
-    directory: PathBuf,
-    filename: String,
-}
-
-impl TFileReference {
-    pub fn new(directory: &Path, filename: &str) -> Self {
-        TFileReference {
-            directory: directory.into(),
-            filename: filename.to_string(),
-        }
-    }
-
-    pub fn filename(&self) -> String {
-        self.filename.clone()
-    }
-
-    pub fn path(&self) -> PathBuf {
-        let p = Path::new(&self.directory);
-        p.join(&self.filename)
     }
 }

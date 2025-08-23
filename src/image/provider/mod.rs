@@ -105,10 +105,10 @@ impl ImageLoader {
         image
     }
 
-    pub fn image_from_memory(buf: Vec<u8>, try_svg: bool) -> Image {
+    pub fn image_from_memory(buf: Vec<u8>) -> Image {
         let duration = Performance::start();
 
-        if try_svg {
+        if buf.starts_with(&[0x3c, 0x3f]) || buf.starts_with(&[0x1f, 0x8b]) {
             let svg_options = usvg::Options::default();
             if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");

@@ -27,20 +27,21 @@ use archive_rar::RarArchive;
 use archive_zip::ZipArchive;
 use async_channel::Sender;
 use bookmarks::Bookmarks;
-use cairo::ImageSurface;
 use filesystem::FileSystem;
-use gtk4::ListStore;
-use mupdf::Rect;
 use none::NoneBackend;
-use thumbnail::{Message, TEntry, Thumbnail};
+use thumbnail::{Message, Thumbnail};
 
 use crate::{
     backends::{
         document::{mupdf::DocMuPdf, pdf_engine, pdfium::DocPdfium, PageMode, PdfEngine},
         thumbnail::model::TParent,
     },
-    file_view::{Cursor, Direction, Target},
-    image::{view::Zoom, Image},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Column, Cursor, Direction, Target,
+    },
+    image::{provider::surface::SurfaceData, view::Zoom, Image},
+    rect::RectD,
 };
 
 mod archive_mar;
@@ -53,7 +54,7 @@ mod none;
 pub mod thumbnail;
 
 pub struct ImageParams<'a> {
-    pub sender: &'a Sender<Message>,
+    pub tn_sender: Option<&'a Sender<Message>>,
     pub page_mode: &'a PageMode,
     pub allocation_height: i32,
 }
@@ -62,12 +63,9 @@ pub struct ImageParams<'a> {
 pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
-    fn store(&self) -> ListStore;
+    fn store(&self) -> &Vec<Row>;
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
-    }
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        None
     }
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.path().parent() {
@@ -82,10 +80,38 @@ pub trait Backend {
             None
         }
     }
-    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image;
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        Default::default()
+
+    fn reference(&self, cursor: &Cursor) -> Reference;
+    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
+        None
     }
+
+    fn image(&self, item: &ItemRef, params: &ImageParams) -> Image;
+    fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
+        None
+    }
+
+    // fn image_zoom(
+    //     &self,
+    //     item: &ItemRef,
+    //     page_mode: PageMode,
+    //     current_height: f32,
+    //     clip: RectD,
+    //     zoom: &Zoom,
+    // ) -> Option<SurfaceData> {
+    //     None
+    // }
+
+    fn render(
+        &self,
+        item: &ItemRef,
+        page_mode: &PageMode,
+        zoom: &Zoom,
+        viewport: &RectD,
+    ) -> Option<SurfaceData> {
+        None
+    }
+
     fn is_container(&self) -> bool {
         false
     }
@@ -101,18 +127,17 @@ pub trait Backend {
     fn is_none(&self) -> bool {
         false
     }
-    fn click(&self, current: &Cursor, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
-        None
-    }
     fn can_be_sorted(&self) -> bool {
         !(self.is_thumbnail() || self.is_doc())
     }
+
     // Only implemented by thumbnail backend, dummy here
     fn get_thumb_parent(&self) -> TParent {
         TParent {
             backend: <dyn Backend>::none(),
             target: Target::First,
             focus_pos: 0,
+            store: Column::empty_store(),
         }
     }
     // Only implemented by filesystem backend, dummy here
@@ -137,16 +162,6 @@ pub trait Backend {
             // On non-Windows systems, just return the path as-is
             path
         }
-    }
-    fn image_zoom(
-        &self,
-        cursor: &Cursor,
-        params: &ImageParams,
-        current_height: f32,
-        clip: Rect,
-        zoom: Zoom,
-    ) -> Option<ImageSurface> {
-        None
     }
 }
 
@@ -178,6 +193,21 @@ impl dyn Backend {
             },
             Some("epub") => Box::new(DocMuPdf::new(filename)),
             Some(_) | None => Box::new(FileSystem::new(filename)),
+        }
+    }
+
+    pub fn new_reference(reference: &BackendRef) -> Box<dyn Backend> {
+        match reference {
+            BackendRef::FileSystem(path_buf) => Box::new(FileSystem::new(path_buf)),
+            BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
+            BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
+            BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
+            BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
+            BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
+            // BackendRef::Thumbnail => todo!(),
+            // BackendRef::Bookmarks => todo!(),
+            // BackendRef::None => todo!(),
+            _ => Box::new(NoneBackend::new()),
         }
     }
 

@@ -23,7 +23,7 @@ mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
-mod redraw;
+mod resize;
 mod sort;
 
 use crate::{
@@ -36,8 +36,12 @@ use crate::{
         Backend,
     },
     file_view::{FileView, Filter, Sort, Target},
-    image::view::{ImageView, ZoomMode, SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW},
+    image::view::{ImageView, SIGNAL_CANVAS_RESIZED},
     info_view::InfoView,
+    render_thread::{
+        model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
+        RenderThread, RenderThreadSender,
+    },
 };
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
@@ -63,7 +67,9 @@ pub struct MViewWidgets {
     info_widget: ScrolledWindow,
     info_view: InfoView,
     image_view: ImageView,
-    pub sender: Sender<Message>,
+    pub tn_sender: Sender<Message>,
+    _render_thread: RenderThread,
+    pub rt_sender: RenderThreadSender,
     actions: SimpleActionGroup,
 }
 
@@ -82,6 +88,10 @@ impl MViewWidgets {
                 action.set_state(&state.to_variant());
             }
         }
+    }
+
+    pub fn rb_send(&self, command: RenderCommand) {
+        self.rt_sender.send_blocking(command);
     }
 }
 
@@ -118,8 +128,6 @@ pub struct MViewWindowImp {
     sorting_store: RefCell<HashMap<PathBuf, Sort>>,
     target_store: RefCell<HashMap<PathBuf, TargetTime>>,
     canvas_resized_timeout_id: RefCell<Option<SourceId>>,
-    hq_redraw_timeout_id: RefCell<Option<SourceId>>,
-    current_height: Cell<i32>,
 }
 
 #[glib::object_subclass]
@@ -256,7 +264,6 @@ impl ObjectImpl for MViewWindowImp {
         file_widget.set_child(Some(&file_view));
 
         let image_view = ImageView::new();
-        image_view.set_zoom_mode(ZoomMode::Fill);
         hbox.append(&image_view);
 
         let info_widget = ScrolledWindow::new();
@@ -304,18 +311,6 @@ impl ObjectImpl for MViewWindowImp {
             ),
         );
 
-        image_view.connect_closure(
-            SIGNAL_HQ_REDRAW,
-            false,
-            closure_local!(
-                #[weak(rename_to = this)]
-                self,
-                move |_view: ImageView, delayed: bool| {
-                    this.event_hq_redraw(delayed);
-                }
-            ),
-        );
-
         image_view.add_context_menu(menu);
 
         file_view.connect_cursor_changed(clone!(
@@ -332,7 +327,12 @@ impl ObjectImpl for MViewWindowImp {
             }
         ));
 
-        let (sender, receiver) = async_channel::unbounded::<Message>();
+        let (tn_sender, tn_receiver) = async_channel::unbounded::<Message>();
+        let (to_rt_sender, to_rt_receiver) = async_channel::unbounded::<RenderCommandMessage>();
+        let (from_rt_sender, from_rt_receiver) = async_channel::unbounded::<RenderReplyMessage>();
+
+        let render_thread = RenderThread::new(from_rt_sender, to_rt_receiver);
+        let rt_sender = render_thread.create_sender(to_rt_sender);
 
         self.widget_cell
             .set(MViewWidgets {
@@ -342,21 +342,26 @@ impl ObjectImpl for MViewWindowImp {
                 info_widget,
                 info_view,
                 image_view,
-                sender,
+                tn_sender,
+                _render_thread: render_thread,
+                rt_sender,
                 actions,
             })
             .expect("Failed to initialize MView window");
 
         let w = self.widgets();
+
+        w.image_view.init(w);
+
         glib::spawn_future_local(clone!(
             #[strong(rename_to = image_view)]
             w.image_view,
             #[strong(rename_to = sender)]
-            w.sender,
+            w.tn_sender,
             async move {
                 let mut current_task = 0;
                 let mut command = TCommand::default();
-                while let Ok(msg) = receiver.recv().await {
+                while let Ok(msg) = tn_receiver.recv().await {
                     match msg {
                         Message::Command(cmd) => {
                             command = *cmd;
@@ -394,6 +399,26 @@ impl ObjectImpl for MViewWindowImp {
                                     &mut current_task,
                                 );
                             }
+                        }
+                    }
+                }
+            }
+        ));
+
+        glib::spawn_future_local(clone!(
+            #[strong(rename_to = image_view)]
+            w.image_view,
+            #[strong(rename_to = _sender)]
+            w.tn_sender,
+            async move {
+                // let mut current_task = 0;
+                // let mut command = TCommand::default();
+                while let Ok(msg) = from_rt_receiver.recv().await {
+                    // dbg!(msg);
+                    match msg.reply {
+                        RenderReply::RenderDone(image_id, surface_data, orig_zoom) => {
+                            image_view.hq_render_reply(image_id, surface_data, orig_zoom);
+                            println!("Got reply HqRender");
                         }
                     }
                 }

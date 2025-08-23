@@ -18,7 +18,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use super::{Image, ImageParams};
-use gtk4::ListStore;
 use image::DynamicImage;
 use std::{
     fs,
@@ -30,7 +29,10 @@ use std::{
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Column, Cursor},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor,
+    },
     image::{
         draw::draw_error,
         provider::internal::{InternalImageLoader, InternalReader},
@@ -38,10 +40,7 @@ use crate::{
     profile::performance::Performance,
 };
 
-use super::{
-    thumbnail::{TEntry, TReference},
-    Backend,
-};
+use super::Backend;
 
 pub struct MarEntry {
     pub offset: u64,
@@ -69,34 +68,29 @@ impl MarEntry {
 }
 
 pub struct MarArchive {
-    filename: PathBuf,
-    store: ListStore,
+    path: PathBuf,
+    store: Vec<Row>,
 }
 
 impl MarArchive {
     pub fn new(filename: &Path) -> Self {
         MarArchive {
-            filename: filename.into(),
-            store: Self::create_store(filename),
+            path: filename.into(),
+            store: list_mar(filename).unwrap_or_default(),
         }
     }
 
-    fn create_store(filename: &Path) -> ListStore {
-        println!("create_store MarArchive {filename:?}");
-        let store = Column::empty_store();
-        match list_mar(filename, &store) {
-            Ok(()) => println!("OK"),
-            Err(e) => println!("ERROR {e:?}"),
-        };
-        store
-    }
-
-    pub fn get_thumbnail(src: &TMarReference) -> MviewResult<DynamicImage> {
-        let fname = Path::new(&src.filename);
-        let file = fs::File::open(fname)?;
-        let mut reader = BufReader::new(file);
-        reader.seek(SeekFrom::Start(src.index))?;
-        InternalImageLoader::thumb_from_reader(&mut reader)
+    pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
+        if let (BackendRef::MarArchive(filename), ItemRef::Index(index)) = src.as_tuple() {
+            dbg!(filename, index);
+            let fname = Path::new(filename);
+            let file = fs::File::open(fname)?;
+            let mut reader = BufReader::new(file);
+            reader.seek(SeekFrom::Start(*index))?;
+            InternalImageLoader::thumb_from_reader(&mut reader)
+        } else {
+            Err("invalid reference".into())
+        }
     }
 }
 
@@ -110,26 +104,25 @@ impl Backend for MarArchive {
     }
 
     fn path(&self) -> PathBuf {
-        self.filename.clone()
+        self.path.clone()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        match extract_mar(&self.filename, cursor.index()) {
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+        match extract_mar(&self.path, item.idx()) {
             Ok(image) => image,
             Err(error) => draw_error(error),
         }
     }
 
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        TEntry::new(
-            cursor.category(),
-            &cursor.name(),
-            TReference::MarReference(TMarReference::new(self, cursor.index())),
-        )
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::MarArchive(self.path.clone()),
+            item: ItemRef::Index(cursor.index()),
+        }
     }
 }
 
@@ -145,7 +138,8 @@ fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Image> {
     image
 }
 
-fn list_mar(mar_file: &Path, store: &ListStore) -> Result<()> {
+fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
+    let mut result = Vec::new();
     let fname = std::path::Path::new(mar_file);
     let file = fs::File::open(fname)?;
     let mut reader = BufReader::new(file);
@@ -172,40 +166,17 @@ fn list_mar(mar_file: &Path, store: &ListStore) -> Result<()> {
             continue;
         }
 
-        store.insert_with_values(
-            None,
-            &[
-                (Column::Cat as u32, &cat.id()),
-                (Column::Icon as u32, &cat.icon()),
-                (Column::Name as u32, &entry.filename),
-                (Column::Size as u32, &file_size),
-                (Column::Modified as u32, &entry.date),
-                (Column::Index as u32, &entry.offset),
-            ],
-        );
-    }
-    Ok(())
-}
+        let row = Row {
+            category: cat.id(),
+            name: entry.filename.to_string(),
+            size: file_size,
+            modified: entry.date,
+            index: entry.offset,
+            icon: cat.icon().to_string(),
+            folder: Default::default(),
+        };
 
-#[derive(Debug, Clone)]
-pub struct TMarReference {
-    filename: PathBuf,
-    index: u64,
-}
-
-impl TMarReference {
-    pub fn new(backend: &MarArchive, index: u64) -> Self {
-        TMarReference {
-            filename: backend.filename.clone(),
-            index,
-        }
+        result.push(row);
     }
-
-    pub fn filename(&self) -> PathBuf {
-        self.filename.clone()
-    }
-
-    pub fn index(&self) -> u64 {
-        self.index
-    }
+    Ok(result)
 }

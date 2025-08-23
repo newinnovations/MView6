@@ -51,8 +51,94 @@ where
     pub fn width(&self) -> T {
         self.width
     }
+
     pub fn height(&self) -> T {
         self.height
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
+pub struct Vector<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Vector<T>
+where
+    T: Default
+        + Copy
+        + std::ops::Add<Output = T>
+        + std::ops::Sub<Output = T>
+        + std::ops::Mul<Output = T>
+        + std::ops::Div<Output = T>,
+{
+    pub fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+
+    pub fn x(&self) -> T {
+        self.x
+    }
+
+    pub fn y(&self) -> T {
+        self.y
+    }
+
+    /// Returns a new vector translated by the given offsets.
+    pub fn translate(&self, offset: Vector<T>) -> Self {
+        Self::new(self.x + offset.x(), self.y + offset.y())
+    }
+
+    /// Returns a new vector scaled by the given scale.
+    pub fn scale(&self, scale: T) -> Self {
+        Self::new(self.x * scale, self.y * scale)
+    }
+
+    /// Returns a new vector unscaled by the given scale.
+    pub fn unscale(&self, scale: T) -> Self {
+        Self::new(self.x / scale, self.y / scale)
+    }
+
+    /// Returns the vector rotated by 180 degrees
+    pub fn neg(&self) -> Self {
+        Self::new(T::default() - self.x, T::default() - self.y)
+    }
+
+    pub fn rotate(&self, rotation: i32) -> Self {
+        match rotation {
+            -90 | 270 => Self::new(self.y, T::default() - self.x),
+            -180 | 180 => Self::new(T::default() - self.x, T::default() - self.y),
+            -270 | 90 => Self::new(T::default() - self.y, self.x),
+            _ => Self::new(self.x, self.y),
+        }
+    }
+}
+
+impl<T> std::ops::Add for Vector<T>
+where
+    T: Copy + std::ops::Add<Output = T>,
+{
+    type Output = Vector<T>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
+impl<T> std::ops::Sub for Vector<T>
+where
+    T: Copy + std::ops::Sub<Output = T>,
+{
+    type Output = Vector<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::Output {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
     }
 }
 
@@ -63,6 +149,7 @@ where
         + std::ops::Add<Output = T>
         + std::ops::Sub<Output = T>
         + std::ops::Mul<Output = T>
+        + std::ops::Div<Output = T>
         + Debug
         + Default,
 {
@@ -70,6 +157,10 @@ where
     /// No validation is performed - the rectangle may be invalid or empty.
     pub const fn new(x0: T, y0: T, x1: T, y1: T) -> Self {
         Self { x0, y0, x1, y1 }
+    }
+
+    pub fn new_from_size(size: Size<T>) -> Self {
+        Self::new(T::default(), T::default(), size.width, size.height)
     }
 
     /// Returns true if the rectangle is empty (has zero or negative area).
@@ -119,10 +210,7 @@ where
     /// Returns zero for empty rectangles.
     pub fn size(&self) -> Size<T> {
         if self.is_empty() {
-            Size {
-                width: Default::default(),
-                height: Default::default(),
-            }
+            Size::default()
         } else {
             Size {
                 width: self.x1 - self.x0,
@@ -212,13 +300,28 @@ where
 
     /// Returns a new rectangle translated by the given offsets.
     /// Both corner points are moved by (xoff, yoff).
-    pub fn translate(&self, xoff: T, yoff: T) -> Self {
+    pub fn translate(&self, offset: Vector<T>) -> Self {
         Self::new(
-            self.x0 + xoff,
-            self.y0 + yoff,
-            self.x1 + xoff,
-            self.y1 + yoff,
+            self.x0 + offset.x(),
+            self.y0 + offset.y(),
+            self.x1 + offset.x(),
+            self.y1 + offset.y(),
         )
+    }
+
+    pub fn rotate(&self, rotation: i32) -> Self {
+        if self.is_valid() {
+            let tl = Vector::new(self.x0, self.y0).rotate(rotation);
+            let br = Vector::new(self.x1, self.y1).rotate(rotation);
+            Self::new(
+                if tl.x < br.x { tl.x } else { br.x },
+                if tl.y < br.y { tl.y } else { br.y },
+                if tl.x > br.x { tl.x } else { br.x },
+                if tl.y > br.y { tl.y } else { br.y },
+            )
+        } else {
+            Self::default()
+        }
     }
 }
 
@@ -332,6 +435,9 @@ pub type RectD = Rect<f64>;
 pub type SizeI = Size<i32>;
 pub type SizeF = Size<f32>;
 pub type SizeD = Size<f64>;
+pub type VectorI = Vector<i32>;
+pub type VectorF = Vector<f32>;
+pub type VectorD = Vector<f64>;
 
 #[cfg(test)]
 mod tests {
@@ -360,7 +466,7 @@ mod tests {
         assert_eq!(rect.height(), 20);
         assert_eq!(rect.size(), SizeI::new(10, 20));
 
-        let translated = rect.translate(5, 5);
+        let translated = rect.translate(VectorI::new(5, 5));
         assert_eq!(translated.x0, 5);
         assert_eq!(translated.y0, 5);
         assert_eq!(translated.x1, 15);

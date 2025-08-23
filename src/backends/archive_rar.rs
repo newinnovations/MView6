@@ -19,7 +19,6 @@
 
 use super::{Image, ImageParams};
 use chrono::{Local, TimeZone};
-use gtk4::ListStore;
 use human_bytes::human_bytes;
 use image::DynamicImage;
 use sha2::{Digest, Sha256};
@@ -29,7 +28,10 @@ use unrar::{error::UnrarError, Archive, UnrarResult};
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Column, Cursor},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor,
+    },
     image::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, ImageLoader, ImageSaver},
@@ -37,53 +39,45 @@ use crate::{
     profile::performance::Performance,
 };
 
-use super::{
-    thumbnail::{TEntry, TReference},
-    Backend,
-};
+use super::Backend;
 
 pub struct RarArchive {
-    filename: PathBuf,
-    store: ListStore,
+    path: PathBuf,
+    store: Vec<Row>,
 }
 
 impl RarArchive {
     pub fn new(filename: &Path) -> Self {
         RarArchive {
-            filename: filename.into(),
-            store: Self::create_store(filename),
+            path: filename.into(),
+            store: list_rar(filename).unwrap_or_default(),
         }
     }
 
-    fn create_store(filename: &Path) -> ListStore {
-        let store = Column::empty_store();
-        match list_rar(filename, &store) {
-            Ok(()) => (),
-            Err(e) => println!("ERROR {e:?}"),
-        };
-        store
-    }
+    pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
+        if let (BackendRef::RarArchive(filename), ItemRef::String(selection)) = src.as_tuple() {
+            if let Some(directory) = filename.parent() {
+                let mut hasher = Sha256::new();
+                hasher.update(filename.to_string_lossy().to_string().as_bytes());
+                hasher.update(selection.as_bytes());
+                let sha256sum = format!("{:x}", hasher.finalize());
+                let thumb_filename = format!("{sha256sum}.mthumb");
+                let thumb_path = directory.join(".mview").join(thumb_filename);
 
-    pub fn get_thumbnail(src: &TRarReference) -> MviewResult<DynamicImage> {
-        if let Some(directory) = src.filename.parent() {
-            let mut hasher = Sha256::new();
-            hasher.update(src.filename.to_string_lossy().to_string().as_bytes());
-            hasher.update(src.selection.as_bytes());
-            let sha256sum = format!("{:x}", hasher.finalize());
-            let thumb_filename = format!("{sha256sum}.mthumb");
-            let thumb_path = directory.join(".mview").join(thumb_filename);
-
-            if Path::new(&thumb_path).exists() {
-                RsImageLoader::dynimg_from_file(&thumb_path)
+                if Path::new(&thumb_path).exists() {
+                    RsImageLoader::dynimg_from_file(&thumb_path)
+                } else {
+                    let bytes = extract_rar(filename, selection)?;
+                    let image = RsImageLoader::dynimg_from_memory(&bytes)?;
+                    let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                    ImageSaver::save_thumbnail(&thumb_path, &image);
+                    Ok(image)
+                }
             } else {
-                let bytes = extract_rar(&src.filename, &src.selection)?;
-                let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-                ImageSaver::save_thumbnail(&thumb_path, &image);
-                Ok(image)
+                Err("Failed to find directory of rar file".into()) // FIXME
             }
         } else {
-            Err("Failed to find directory of rar file".into()) // FIXME
+            Err("invalid reference".into())
         }
     }
 }
@@ -98,27 +92,25 @@ impl Backend for RarArchive {
     }
 
     fn path(&self) -> PathBuf {
-        self.filename.clone()
+        self.path.clone()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        let sel = cursor.name();
-        match extract_rar(&self.filename, &sel) {
-            Ok(bytes) => ImageLoader::image_from_memory(bytes, sel.to_lowercase().contains(".svg")),
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+        match extract_rar(&self.path, item.str()) {
+            Ok(bytes) => ImageLoader::image_from_memory(bytes),
             Err(error) => draw_error(error.into()),
         }
     }
 
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        TEntry::new(
-            cursor.category(),
-            &cursor.name(),
-            TReference::RarReference(TRarReference::new(self, &cursor.name())),
-        )
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::RarArchive(self.path.clone()),
+            item: ItemRef::String(cursor.name()),
+        }
     }
 }
 
@@ -148,7 +140,8 @@ fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
     })
 }
 
-fn list_rar(rar_file: &Path, store: &ListStore) -> UnrarResult<()> {
+fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
+    let mut result = Vec::new();
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
@@ -162,18 +155,19 @@ fn list_rar(rar_file: &Path, store: &ListStore) -> UnrarResult<()> {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        store.insert_with_values(
-            None,
-            &[
-                (Column::Cat as u32, &cat.id()),
-                (Column::Icon as u32, &cat.icon()),
-                (Column::Name as u32, &name),
-                (Column::Size as u32, &file_size),
-                (Column::Modified as u32, &modified),
-            ],
-        );
+        let row = Row {
+            category: cat.id(),
+            name: name.to_string(),
+            size: file_size,
+            modified,
+            index: Default::default(),
+            icon: cat.icon().to_string(),
+            folder: Default::default(),
+        };
+
+        result.push(row);
     }
-    Ok(())
+    Ok(result)
 }
 
 pub fn unix_from_msdos(dostime: u32) -> u64 {
@@ -192,24 +186,5 @@ pub fn unix_from_msdos(dostime: u32) -> u64 {
             println!("Could not create local datetime (Ambiguous or None)");
             0_u64
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct TRarReference {
-    filename: PathBuf,
-    selection: String,
-}
-
-impl TRarReference {
-    pub fn new(backend: &RarArchive, selection: &str) -> Self {
-        TRarReference {
-            filename: backend.filename.clone(),
-            selection: selection.to_string(),
-        }
-    }
-
-    pub fn selection(&self) -> String {
-        self.selection.clone()
     }
 }

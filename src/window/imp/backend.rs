@@ -22,7 +22,7 @@ use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeVi
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{Sort, Target},
+    file_view::{Column, Sort, Target},
 };
 
 use super::MViewWindowImp;
@@ -51,7 +51,8 @@ impl MViewWindowImp {
             &Sort::sort_on_category()
         };
 
-        let new_store = new_backend.store();
+        // let new_store = new_backend.store();
+        let new_store = Column::store(new_backend.store());
         match new_sort {
             Sort::Sorted((column, order)) => new_store.set_sort_column_id(*column, *order),
             Sort::Unsorted => (),
@@ -74,7 +75,14 @@ impl MViewWindowImp {
             .unwrap_or_default()
             .to_str()
             .unwrap_or_default();
-        self.obj().set_title(Some(&format!("{filename} - MView6")));
+        if new_backend.is_doc() {
+            self.obj().set_title(Some(&format!(
+                "{filename} ({}) - MView6",
+                new_backend.class_name()
+            )));
+        } else {
+            self.obj().set_title(Some(&format!("{filename} - MView6")));
+        }
 
         w.set_action_bool("thumb.show", new_backend.is_thumbnail());
 
