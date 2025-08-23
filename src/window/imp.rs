@@ -47,8 +47,8 @@ use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, ControlFlow, SourceId};
 use gtk4::{
-    glib::Propagation, prelude::*, subclass::prelude::*, EventControllerKey, HeaderBar, MenuButton,
-    ScrolledWindow,
+    glib::Propagation, prelude::*, subclass::prelude::*, Button, EventControllerKey, HeaderBar,
+    MenuButton, ScrolledWindow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -71,6 +71,7 @@ pub struct MViewWidgets {
     _render_thread: RenderThread,
     pub rt_sender: RenderThreadSender,
     actions: SimpleActionGroup,
+    forward_button: Button,
 }
 
 impl MViewWidgets {
@@ -223,12 +224,21 @@ impl ObjectImpl for MViewWindowImp {
 
         let header_bar = HeaderBar::new();
 
+        let back_button = Button::builder().icon_name("go-previous-symbolic").build();
+        back_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_button| {
+                this.dir_leave();
+            }
+        ));
+        header_bar.pack_start(&back_button);
+
         // Create a menu button with hamburger icon
         let menu_button = MenuButton::builder()
             .icon_name("open-menu-symbolic") // hamburger icon
+            .can_focus(false)
             .build();
-
-        menu_button.set_can_focus(false); // disable keyboard activation (enter)
 
         let menu = Self::create_main_menu();
 
@@ -237,6 +247,16 @@ impl ObjectImpl for MViewWindowImp {
 
         // Pack the menu button at the start of the header bar
         header_bar.pack_start(&menu_button);
+
+        let forward_button = Button::builder().icon_name("go-next-symbolic").build();
+        forward_button.connect_clicked(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_button| {
+                this.dir_enter();
+            }
+        ));
+        header_bar.pack_start(&forward_button);
 
         // Set the header bar as the title bar of the window
         window.set_titlebar(Some(&header_bar));
@@ -346,6 +366,7 @@ impl ObjectImpl for MViewWindowImp {
                 _render_thread: render_thread,
                 rt_sender,
                 actions,
+                forward_button,
             })
             .expect("Failed to initialize MView window");
 

@@ -36,6 +36,8 @@ impl MViewWindowImp {
         self.backend.replace(new_backend);
         let new_backend = self.backend.borrow();
 
+        w.forward_button.set_visible(new_backend.has_enter());
+
         let mut sorting_store = self.sorting_store.borrow_mut();
         let can_be_sorted = new_backend.can_be_sorted();
 

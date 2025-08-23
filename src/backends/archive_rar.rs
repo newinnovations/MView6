@@ -87,10 +87,6 @@ impl Backend for RarArchive {
         "RarArchive"
     }
 
-    fn is_container(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         self.path.clone()
     }
@@ -106,11 +102,12 @@ impl Backend for RarArchive {
         }
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::RarArchive(self.path.clone()),
-            item: ItemRef::String(cursor.name()),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::RarArchive(self.path.clone())
+    }
+
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::String(cursor.name())
     }
 }
 

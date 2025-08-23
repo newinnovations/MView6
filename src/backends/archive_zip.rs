@@ -93,10 +93,6 @@ impl Backend for ZipArchive {
         "ZipArchive"
     }
 
-    fn is_container(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         self.path.clone()
     }
@@ -111,12 +107,12 @@ impl Backend for ZipArchive {
             Err(error) => draw_error(error.into()),
         }
     }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::ZipArchive(self.path.clone())
+    }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::ZipArchive(self.path.clone()),
-            item: ItemRef::Index(cursor.index()),
-        }
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::Index(cursor.index())
     }
 }
 

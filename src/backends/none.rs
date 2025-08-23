@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use super::{Image, ImageParams};
 
 use crate::file_view::{
-    model::{BackendRef, ItemRef, Reference, Row},
+    model::{BackendRef, ItemRef, Row},
     Cursor,
 };
 
@@ -52,10 +52,6 @@ impl Backend for NoneBackend {
         "Invalid"
     }
 
-    fn is_none(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         "invalid".into()
     }
@@ -72,10 +68,11 @@ impl Backend for NoneBackend {
         Image::default()
     }
 
-    fn reference(&self, _cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::None,
-            item: ItemRef::Index(0),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::None
+    }
+
+    fn item_ref(&self, _cursor: &Cursor) -> ItemRef {
+        ItemRef::Index(0)
     }
 }

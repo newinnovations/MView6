@@ -211,7 +211,7 @@ impl MViewWindowImp {
     pub fn toggle_thumbnail_view(&self) {
         let w = self.widgets();
         let backend = self.backend.borrow();
-        if backend.is_container() {
+        if backend.can_show_thumbnails() {
             if let Some(store) = w.file_view.store() {
                 let position = if let Some(cursor) = w.file_view.current() {
                     let target: Target = backend.reference(&cursor).into();

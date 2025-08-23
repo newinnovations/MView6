@@ -99,10 +99,6 @@ impl Backend for MarArchive {
         "MarArchive"
     }
 
-    fn is_container(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         self.path.clone()
     }
@@ -118,11 +114,12 @@ impl Backend for MarArchive {
         }
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::MarArchive(self.path.clone()),
-            item: ItemRef::Index(cursor.index()),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::MarArchive(self.path.clone())
+    }
+
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::Index(cursor.index())
     }
 }
 

@@ -30,7 +30,7 @@ use crate::{
     backends::thumbnail::model::TParent,
     category::Category,
     file_view::{
-        model::{BackendRef, Entry, ItemRef, Reference, Row},
+        model::{BackendRef, Entry, ItemRef, Row},
         Cursor,
     },
     image::draw::thumbnail_sheet,
@@ -188,10 +188,6 @@ impl Backend for Thumbnail {
         "Thumbnail"
     }
 
-    fn is_thumbnail(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         Path::new("thumbnail").into()
     }
@@ -260,10 +256,11 @@ impl Backend for Thumbnail {
         }
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::Thumbnail, //(self.parent_backend.borrow().reference(cursor)),
-            item: ItemRef::Index(cursor.index()),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::Thumbnail //(self.parent_backend.borrow().reference(cursor))
+    }
+
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::Index(cursor.index())
     }
 }

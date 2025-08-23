@@ -22,7 +22,7 @@ use crate::{
     category::Category,
     config::config,
     file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
+        model::{BackendRef, ItemRef, Row},
         Cursor,
     },
     image::draw::draw_text,
@@ -91,10 +91,6 @@ impl Backend for Bookmarks {
         "Bookmarks"
     }
 
-    fn is_bookmarks(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         Path::new("bookmarks").into()
     }
@@ -125,10 +121,11 @@ impl Backend for Bookmarks {
         draw_text(&cat.name(), folder, cat.colors())
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::Bookmarks,
-            item: ItemRef::String(cursor.folder()),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::Bookmarks
+    }
+
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::String(cursor.folder())
     }
 }

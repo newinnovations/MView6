@@ -128,10 +128,6 @@ impl Backend for FileSystem {
         "FileSystem"
     }
 
-    fn is_container(&self) -> bool {
-        true
-    }
-
     fn path(&self) -> PathBuf {
         self.directory.clone()
     }
@@ -213,11 +209,12 @@ impl Backend for FileSystem {
         }
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: BackendRef::FileSystem(self.directory.clone()),
-            item: ItemRef::String(cursor.name()),
-        }
+    fn backend_ref(&self) -> BackendRef {
+        BackendRef::FileSystem(self.directory.clone())
+    }
+
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
+        ItemRef::String(cursor.name())
     }
 
     fn reload(&self) -> Option<Box<dyn Backend>> {

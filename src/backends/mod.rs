@@ -81,7 +81,9 @@ pub trait Backend {
         }
     }
 
-    fn reference(&self, cursor: &Cursor) -> Reference;
+    fn backend_ref(&self) -> BackendRef;
+    fn item_ref(&self, cursor: &Cursor) -> ItemRef;
+
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         None
     }
@@ -110,25 +112,6 @@ pub trait Backend {
         viewport: &RectD,
     ) -> Option<SurfaceData> {
         None
-    }
-
-    fn is_container(&self) -> bool {
-        false
-    }
-    fn is_bookmarks(&self) -> bool {
-        false
-    }
-    fn is_thumbnail(&self) -> bool {
-        false
-    }
-    fn is_doc(&self) -> bool {
-        false
-    }
-    fn is_none(&self) -> bool {
-        false
-    }
-    fn can_be_sorted(&self) -> bool {
-        !(self.is_thumbnail() || self.is_doc())
     }
 
     // Only implemented by thumbnail backend, dummy here
@@ -228,5 +211,52 @@ impl dyn Backend {
             Ok(cwd) => Box::new(FileSystem::new(&cwd)),
             Err(_) => Box::new(FileSystem::new(&PathBuf::new())),
         }
+    }
+
+    pub fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: self.backend_ref(),
+            item: self.item_ref(cursor),
+        }
+    }
+
+    pub fn has_enter(&self) -> bool {
+        matches!(
+            self.backend_ref(),
+            BackendRef::Bookmarks | BackendRef::FileSystem(_)
+        )
+    }
+
+    pub fn can_show_thumbnails(&self) -> bool {
+        !matches!(
+            self.backend_ref(),
+            BackendRef::Thumbnail | BackendRef::Bookmarks | BackendRef::None
+        )
+    }
+
+    pub fn is_bookmarks(&self) -> bool {
+        matches!(self.backend_ref(), BackendRef::Bookmarks)
+    }
+
+    pub fn is_thumbnail(&self) -> bool {
+        matches!(self.backend_ref(), BackendRef::Thumbnail)
+    }
+
+    pub fn is_doc(&self) -> bool {
+        matches!(
+            self.backend_ref(),
+            BackendRef::Pdfium(_) | BackendRef::Mupdf(_)
+        )
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self.backend_ref(), BackendRef::None)
+    }
+
+    pub fn can_be_sorted(&self) -> bool {
+        !matches!(
+            self.backend_ref(),
+            BackendRef::Pdfium(_) | BackendRef::Mupdf(_) | BackendRef::Thumbnail
+        )
     }
 }
