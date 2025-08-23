@@ -112,7 +112,8 @@ impl ImageViewData {
                         self.zoom.clone(),
                         viewport,
                     ));
-                    if reason == RedrawReason::ImagePost {
+                    if reason == RedrawReason::ImagePost || reason == RedrawReason::RotationChanged
+                    {
                         return; // postpone actual redraw, because nothing to show
                                 // TO CONSIDER
                                 // actually with new images that are rendered by the bot
@@ -129,7 +130,8 @@ impl ImageViewData {
                         viewport,
                         tree.clone(),
                     ));
-                    if reason == RedrawReason::ImagePost {
+                    if reason == RedrawReason::ImagePost || reason == RedrawReason::RotationChanged
+                    {
                         return;
                     }
                 }

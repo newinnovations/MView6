@@ -167,6 +167,7 @@ impl ImageView {
         let mut p = self.imp().data.borrow_mut();
         p.zoom.add_rotation(angle);
         p.apply_zoom();
+        p.zoom_overlay = None;
         p.redraw(RedrawReason::RotationChanged);
     }
 
