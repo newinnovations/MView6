@@ -35,7 +35,10 @@ use std::{
 };
 use view::ZoomMode;
 
-use crate::{image::provider::gdk::GdkImageLoader, rect::SizeD};
+use crate::{
+    backends::document::PageMode, file_view::model::Reference,
+    image::provider::gdk::GdkImageLoader, rect::SizeD,
+};
 
 static IMAGE_ID: AtomicU32 = AtomicU32::new(1);
 
@@ -51,6 +54,7 @@ pub enum ImageData {
     Single(ImageSurface),
     Dual(ImageSurface, ImageSurface),
     Svg(Box<Tree>),
+    Doc(PageMode, SizeD),
 }
 
 impl From<Option<Pixbuf>> for ImageData {
@@ -113,6 +117,7 @@ impl ImageData {
 #[derive(Default)]
 pub struct Image {
     id: u32,
+    reference: Reference,
     pub image_data: ImageData,
     animation: Animation,
     pub exif: Option<Exif>,
@@ -124,6 +129,7 @@ impl Image {
     pub fn new_surface(surface: ImageSurface, exif: Option<Exif>) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: ImageData::Single(surface),
             animation: Animation::None,
             exif,
@@ -135,6 +141,7 @@ impl Image {
     pub fn new_surface_nozoom(surface: ImageSurface) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: ImageData::Single(surface),
             animation: Animation::None,
             exif: None,
@@ -146,6 +153,7 @@ impl Image {
     pub fn new_pixbuf(pixbuf: Option<Pixbuf>, exif: Option<Exif>) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: pixbuf.into(),
             animation: Animation::None,
             exif,
@@ -161,6 +169,7 @@ impl Image {
     ) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: (pixbuf_left, pixbuf_right).into(),
             animation: Animation::None,
             exif,
@@ -176,6 +185,7 @@ impl Image {
     ) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: (surface_left, surface_right).into(),
             animation: Animation::None,
             exif,
@@ -193,6 +203,7 @@ impl Image {
         };
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: surface.into(),
             animation,
             exif: None,
@@ -204,11 +215,24 @@ impl Image {
     pub fn new_svg(svg: Tree, tag: Option<String>, zoom_mode: ZoomMode) -> Self {
         Image {
             id: get_image_id(),
+            reference: Default::default(),
             image_data: ImageData::Svg(Box::new(svg)),
             animation: Animation::None,
             exif: None,
             zoom_mode,
             tag,
+        }
+    }
+
+    pub fn new_scalable(reference: Reference, page_mode: PageMode, size: SizeD) -> Self {
+        Image {
+            id: get_image_id(),
+            reference,
+            image_data: ImageData::Doc(page_mode, size),
+            animation: Animation::None,
+            exif: None,
+            zoom_mode: ZoomMode::NotSpecified,
+            tag: None,
         }
     }
 
@@ -228,7 +252,12 @@ impl Image {
                 let size = tree.size();
                 SizeD::new(size.width().into(), size.height().into())
             }
+            ImageData::Doc(_, size) => *size,
         }
+    }
+
+    pub fn reference(&self) -> &Reference {
+        &self.reference
     }
 
     pub fn has_alpha(&self) -> bool {
@@ -239,6 +268,7 @@ impl Image {
                 pixbuf1.format() == Format::ARgb32 || pixbuf2.format() == Format::ARgb32
             }
             ImageData::Svg(_tree) => true,
+            ImageData::Doc(_, _size) => true,
         }
     }
 
@@ -269,25 +299,4 @@ impl Image {
             }
         }
     }
-
-    // pub fn crop_to_max_size(&mut self) {
-    //     if let ImageData::Single(pixbuf) = &self.image_data {
-    //         if pixbuf.width() > MAX_IMAGE_SIZE || pixbuf.height() > MAX_IMAGE_SIZE {
-    //             let new_width = min(pixbuf.width(), MAX_IMAGE_SIZE);
-    //             let new_height = min(pixbuf.height(), MAX_IMAGE_SIZE);
-    //             let new_pixpuf = Pixbuf::new(
-    //                 pixbuf.colorspace(),
-    //                 pixbuf.has_alpha(),
-    //                 pixbuf.bits_per_sample(),
-    //                 new_width,
-    //                 new_height,
-    //             );
-    //             if let Some(new_pixbuf) = &new_pixpuf {
-    //                 pixbuf.copy_area(0, 0, new_width, new_height, new_pixbuf, 0, 0);
-    //             }
-    //             self.image_data = new_pixpuf.into();
-    //             self.animation = Animation::None;
-    //         }
-    //     }
-    // }
 }

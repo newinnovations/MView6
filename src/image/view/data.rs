@@ -17,13 +17,17 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use cairo::{Filter, ImageSurface};
+pub mod redraw;
+
+use cairo::{Filter, ImageSurface, Matrix};
+use glib::SourceId;
 use gtk4::prelude::WidgetExt;
 
 use crate::{
     backends::thumbnail::model::Annotations,
     image::{view::zoom::Zoom, Image},
-    rect::RectD,
+    rect::{RectD, SizeD, VectorD},
+    render_thread::{model::RenderCommand, RenderThreadSender},
 };
 
 use super::{ImageView, ZoomMode};
@@ -31,18 +35,60 @@ use super::{ImageView, ZoomMode};
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
 pub const QUALITY_LOW: Filter = Filter::Fast;
 
+#[derive(Debug, Clone)]
+pub struct ZoomedImage {
+    surface: ImageSurface,
+    origin: VectorD,
+    orig_image_zoom: Zoom,
+}
+
+impl ZoomedImage {
+    pub fn new(surface: ImageSurface, origin: VectorD, orig_image_zoom: Zoom) -> Self {
+        Self {
+            surface,
+            origin,
+            orig_image_zoom,
+        }
+    }
+
+    pub fn surface(&self) -> &ImageSurface {
+        &self.surface
+    }
+
+    pub fn size(&self) -> SizeD {
+        SizeD::new(self.surface.width() as f64, self.surface.height() as f64)
+    }
+
+    /// Creates a Cairo transformation matrix for displaying this zoomed image
+    ///
+    /// It corrects for the situation that the current zoom (scale and position) may have
+    /// changed from the original zoom for which this rendering was made. And that until
+    /// we have an updated rendering for the current zoom, we must scale and transpose this one.
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        let scale = current_image_zoom.scale() / self.orig_image_zoom.scale();
+        let new_origin = current_image_zoom.origin() + self.origin.scale(scale)
+            - self.orig_image_zoom.origin().scale(scale);
+        let mut zoom = self.orig_image_zoom.clone();
+        zoom.set_origin(new_origin);
+        zoom.set_zoom_factor(scale);
+        zoom.transform_matrix()
+    }
+}
+
 pub struct ImageViewData {
     pub image: Image,
     pub zoom: Zoom,
     pub zoom_mode: ZoomMode,
-    pub zoom_overlay: Option<(ImageSurface, Zoom)>,
+    pub zoom_overlay: Option<ZoomedImage>,
     pub transparency_background: Option<ImageSurface>,
     pub view: Option<ImageView>,
-    pub mouse_position: (f64, f64),
-    pub drag: Option<(f64, f64, f64, f64)>,
+    pub mouse_position: (f64, f64), // FIXME: change to VectorD
+    pub drag: Option<(f64, f64)>,   // FIXME: change to VectorD
     pub quality: Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
+    pub rb_sender: Option<RenderThreadSender>,
+    hq_redraw_timeout_id: Option<SourceId>,
 }
 
 impl Default for ImageViewData {
@@ -59,19 +105,13 @@ impl Default for ImageViewData {
             quality: QUALITY_HIGH,
             annotations: Default::default(),
             hover: None,
+            rb_sender: None,
+            hq_redraw_timeout_id: None,
         }
     }
 }
 
 impl ImageViewData {
-    pub fn redraw(&mut self, quality: Filter) {
-        if let Some(view) = &self.view {
-            // self.zoom_overlay = None;
-            self.quality = quality;
-            view.queue_draw();
-        }
-    }
-
     pub fn apply_zoom(&mut self) {
         if let Some(view) = &self.view {
             let allocation = view.allocation();
@@ -102,30 +142,19 @@ impl ImageViewData {
     }
 
     pub fn update_zoom(&mut self, new_zoom: f64, anchor: (f64, f64)) {
-        let zoom_update = new_zoom / self.zoom.zoom_factor();
         self.zoom.update_zoom(new_zoom, anchor);
-        if let Some((_, zoom)) = &mut self.zoom_overlay {
-            let new_zoom = zoom.zoom_factor() * zoom_update;
-            zoom.update_zoom(new_zoom, anchor);
-        }
-
         if self.drag.is_some() {
             let (anchor_x, anchor_y) = anchor;
-            if let Some((_, zoom)) = &mut self.zoom_overlay {
-                self.drag = Some((
-                    anchor_x - self.zoom.offset_x(),
-                    anchor_y - self.zoom.offset_y(),
-                    anchor_x - zoom.offset_x(),
-                    anchor_y - zoom.offset_y(),
-                ))
-            } else {
-                self.drag = Some((
-                    anchor_x - self.zoom.offset_x(),
-                    anchor_y - self.zoom.offset_y(),
-                    0.0,
-                    0.0,
-                ))
-            }
+            self.drag = Some((
+                anchor_x - self.zoom.offset_x(),
+                anchor_y - self.zoom.offset_y(),
+            ))
+        }
+    }
+
+    pub fn rb_send(&self, command: RenderCommand) {
+        if let Some(sender) = &self.rb_sender {
+            sender.send_blocking(command);
         }
     }
 }

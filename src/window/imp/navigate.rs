@@ -42,16 +42,30 @@ impl MViewWindowImp {
         if !self.skip_loading.get() {
             if let Some(current) = w.file_view.current() {
                 let params = ImageParams {
-                    sender: &w.sender,
+                    tn_sender: Some(&w.tn_sender),
                     page_mode: &self.page_mode.get(),
                     allocation_height: self.obj().height(),
                 };
                 let backend = self.backend.borrow();
                 self.target_store.borrow_mut().insert(
                     backend.normalized_path(),
-                    TargetTime::new(&backend.entry(&current).into()),
+                    TargetTime::new(&backend.reference(&current).into()),
                 );
-                let image = backend.image(&current, &params);
+
+                let reference = backend.reference(&current);
+
+                let image = backend.image(&reference.item, &params);
+                // if reference.supports_bot() {
+                //     let command = RenderBotCommand {
+                //         id: 0,
+                //         cmd: Commands::Image((
+                //             reference,
+                //             *params.page_mode,
+                //             params.allocation_height,
+                //         )),
+                //     };
+                //     w.rb_send(command);
+                // }
                 w.info_view.update(&image);
                 if backend.is_thumbnail() {
                     w.image_view.set_image_pre(image);

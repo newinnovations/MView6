@@ -19,7 +19,7 @@
 
 use super::MViewWindowImp;
 
-use crate::file_view::{Column, Sort};
+use crate::file_view::{Column, FileView, Sort};
 use glib::{clone, idle_add_local, ControlFlow};
 use gtk4::{
     prelude::{TreeSortableExtManual, TreeViewExt},
@@ -27,26 +27,10 @@ use gtk4::{
 };
 
 impl MViewWindowImp {
-    pub fn change_sort(&self, sort_col: Column) {
+    pub fn change_sort(&self, sort_col: Column, file_view: &FileView) {
         let backend = self.backend.borrow();
         if backend.can_be_sorted() {
-            let store = backend.store();
-            let new_sort_column = SortColumn::Index(sort_col as u32);
-            let current_sort = store.sort_column_id();
-            let new_direction = match current_sort {
-                Some((current_column, current_direction)) => {
-                    if current_column.eq(&new_sort_column) {
-                        match current_direction {
-                            SortType::Ascending => SortType::Descending,
-                            _ => SortType::Ascending,
-                        }
-                    } else {
-                        SortType::Ascending
-                    }
-                }
-                None => SortType::Ascending,
-            };
-            store.set_sort_column_id(new_sort_column, new_direction);
+            file_view.change_sort(sort_col);
         }
     }
 

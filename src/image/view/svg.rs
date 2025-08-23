@@ -17,29 +17,27 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use cairo::Context;
 use resvg::{tiny_skia, usvg::Tree};
 
-use crate::{image::view::Zoom, rect::RectD};
+use crate::{
+    image::{provider::surface::SurfaceData, view::Zoom},
+    rect::RectD,
+};
 
-pub fn render_svg(context: &Context, zoom: &Zoom, viewport: &RectD, tree: &Tree) {
+pub fn render_svg(zoom: &Zoom, viewport: &RectD, tree: &Tree) -> Option<SurfaceData> {
     let intersection = zoom.intersection(viewport);
     if intersection.is_empty() {
         println!("No SVG to show");
-        return;
+        return None;
     }
 
-    let pixmap_size = zoom.pixmap_size(&intersection);
-    let width = pixmap_size.width().ceil() as u32;
-    let height = pixmap_size.height().ceil() as u32;
+    let width = intersection.width().ceil() as u32;
+    let height = intersection.height().ceil() as u32;
 
     // Create a high-resolution pixmap based on zoom level
     if let Some(mut pixmap) = tiny_skia::Pixmap::new(width, height) {
-        let (off_x, off_y) = zoom.pixmap_offset(&intersection);
-
-        let transform =
-            tiny_skia::Transform::from_scale(zoom.zoom_factor() as f32, zoom.zoom_factor() as f32)
-                .post_translate(off_x as f32, off_y as f32);
+        let transform = tiny_skia::Transform::from_scale(zoom.scale() as f32, zoom.scale() as f32)
+            .post_translate(-intersection.x0 as f32, -intersection.y0 as f32);
 
         // Render the SVG at high resolution
         resvg::render(tree, transform, &mut pixmap.as_mut());
@@ -51,45 +49,14 @@ pub fn render_svg(context: &Context, zoom: &Zoom, viewport: &RectD, tree: &Tree)
         }
 
         // Create a Cairo surface from the pixmap data
-        let stride = cairo::Format::ARgb32.stride_for_width(width).unwrap();
-        let surface = cairo::ImageSurface::create_for_data(
+        Some(SurfaceData::new(
             data,
             cairo::Format::ARgb32,
             width as i32,
             height as i32,
-            stride,
-        );
-
-        match surface {
-            Ok(surface) => {
-                let _ = context.set_source_surface(&surface, 0.0, 0.0);
-                let _ = context.fill();
-            }
-            Err(e) => {
-                eprintln!("Failed to create Cairo surface for SVG: {}", e);
-                draw_svg_fallback(context, viewport.width(), viewport.height());
-            }
-        }
+            4 * width as i32,
+        ))
     } else {
-        draw_svg_fallback(context, viewport.width(), viewport.height());
+        None
     }
-}
-
-fn draw_svg_fallback(context: &cairo::Context, width: f64, height: f64) {
-    context.set_source_rgba(0.9, 0.9, 0.9, 1.0);
-    context.rectangle(10.0, 10.0, width - 20.0, height - 20.0);
-    let _ = context.fill();
-
-    // Draw an "SVG" text indicator
-    context.set_source_rgba(0.5, 0.5, 0.5, 1.0);
-    context.select_font_face("Sans", cairo::FontSlant::Normal, cairo::FontWeight::Bold);
-    context.set_font_size(24.0);
-
-    let text = "SVG";
-    let text_extents = context.text_extents(text).unwrap();
-    let x = (width - text_extents.width()) / 2.0;
-    let y = (height + text_extents.height()) / 2.0;
-
-    context.move_to(x, y);
-    let _ = context.show_text(text);
 }

@@ -19,7 +19,6 @@
 
 use super::{Image, ImageParams};
 use chrono::{Local, TimeZone};
-use gtk4::ListStore;
 use human_bytes::human_bytes;
 use image::DynamicImage;
 use std::{
@@ -32,7 +31,10 @@ use zip::result::ZipResult;
 use crate::{
     category::Category,
     error::MviewResult,
-    file_view::{Column, Cursor},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor,
+    },
     image::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
@@ -40,32 +42,19 @@ use crate::{
     profile::performance::Performance,
 };
 
-use super::{
-    thumbnail::{TEntry, TReference},
-    Backend,
-};
+use super::Backend;
 
 pub struct ZipArchive {
-    filename: PathBuf,
-    store: ListStore,
+    path: PathBuf,
+    store: Vec<Row>,
 }
 
 impl ZipArchive {
     pub fn new(filename: &Path) -> Self {
         ZipArchive {
-            filename: filename.into(),
-            store: Self::create_store(filename),
+            path: filename.into(),
+            store: list_zip(filename).unwrap_or_default(),
         }
-    }
-
-    fn create_store(filename: &Path) -> ListStore {
-        println!("create_store ZipArchive {filename:?}");
-        let store = Column::empty_store();
-        match list_zip(filename, &store) {
-            Ok(()) => println!("OK"),
-            Err(e) => println!("ERROR {e:?}"),
-        };
-        store
     }
 
     // pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
@@ -83,14 +72,18 @@ impl ZipArchive {
     //     }
     // }
 
-    pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
-        let bytes = extract_zip(&src.filename, src.index as usize)?;
-        if let Some(image) = InternalImageLoader::thumb_from_bytes(&bytes) {
-            Ok(image)
+    pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
+        if let (BackendRef::ZipArchive(filename), ItemRef::Index(index)) = src.as_tuple() {
+            let bytes = extract_zip(filename, *index as usize)?;
+            if let Some(image) = InternalImageLoader::thumb_from_bytes(&bytes) {
+                Ok(image)
+            } else {
+                let image = RsImageLoader::dynimg_from_memory(&bytes)?;
+                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                Ok(image)
+            }
         } else {
-            let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-            Ok(image)
+            Err("invalid reference".into())
         }
     }
 }
@@ -105,28 +98,25 @@ impl Backend for ZipArchive {
     }
 
     fn path(&self) -> PathBuf {
-        self.filename.clone()
+        self.path.clone()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        match extract_zip(&self.filename, cursor.index() as usize) {
-            Ok(bytes) => {
-                ImageLoader::image_from_memory(bytes, cursor.name().to_lowercase().contains(".svg"))
-            }
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+        match extract_zip(&self.path, item.idx() as usize) {
+            Ok(bytes) => ImageLoader::image_from_memory(bytes),
             Err(error) => draw_error(error.into()),
         }
     }
 
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        TEntry::new(
-            cursor.category(),
-            &cursor.name(),
-            TReference::ZipReference(TZipReference::new(self, cursor.index())),
-        )
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::ZipArchive(self.path.clone()),
+            item: ItemRef::Index(cursor.index()),
+        }
     }
 }
 
@@ -143,7 +133,8 @@ fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_zip(zip_file: &Path, store: &ListStore) -> ZipResult<()> {
+fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
+    let mut result = Vec::new();
     let fname = std::path::Path::new(zip_file);
     let file = fs::File::open(fname)?;
     let reader = BufReader::new(file);
@@ -195,40 +186,17 @@ fn list_zip(zip_file: &Path, store: &ListStore) -> ZipResult<()> {
             .to_string_lossy()
             .to_string();
 
-        store.insert_with_values(
-            None,
-            &[
-                (Column::Cat as u32, &cat.id()),
-                (Column::Icon as u32, &cat.icon()),
-                (Column::Name as u32, &name),
-                (Column::Size as u32, &file_size),
-                (Column::Modified as u32, &modified),
-                (Column::Index as u32, &index),
-            ],
-        );
-    }
-    Ok(())
-}
-
-#[derive(Debug, Clone)]
-pub struct TZipReference {
-    filename: PathBuf,
-    index: u64,
-}
-
-impl TZipReference {
-    pub fn new(backend: &ZipArchive, index: u64) -> Self {
-        TZipReference {
-            filename: backend.filename.clone(),
+        let row = Row {
+            category: cat.id(),
+            name,
+            size: file_size,
+            modified,
             index,
-        }
-    }
+            icon: cat.icon().to_string(),
+            folder: Default::default(),
+        };
 
-    pub fn filename(&self) -> PathBuf {
-        self.filename.clone()
+        result.push(row);
     }
-
-    pub fn index(&self) -> u64 {
-        self.index
-    }
+    Ok(result)
 }

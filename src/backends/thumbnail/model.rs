@@ -19,15 +19,12 @@
 
 use std::time::SystemTime;
 
+use gtk4::ListStore;
 use image::DynamicImage;
 
 use crate::{
-    backends::{
-        archive_mar::TMarReference, archive_rar::TRarReference, archive_zip::TZipReference,
-        document::mupdf::TDocReference, filesystem::TFileReference, Backend,
-    },
-    category::Category,
-    file_view::Target,
+    backends::Backend,
+    file_view::{model::Entry, Target},
     image::colors::Color,
 };
 
@@ -35,43 +32,7 @@ pub struct TParent {
     pub backend: Box<dyn Backend>,
     pub target: Target,
     pub focus_pos: i32,
-}
-
-#[derive(Debug, Clone)]
-pub enum TReference {
-    FileReference(TFileReference),
-    ZipReference(TZipReference),
-    MarReference(TMarReference),
-    RarReference(TRarReference),
-    DocReference(TDocReference),
-    None,
-}
-
-#[derive(Debug, Clone)]
-pub struct TEntry {
-    pub category: Category,
-    pub name: String,
-    pub reference: TReference,
-}
-
-impl TEntry {
-    pub fn new(category: Category, name: &str, reference: TReference) -> Self {
-        TEntry {
-            category,
-            name: name.to_string(),
-            reference,
-        }
-    }
-}
-
-impl Default for TEntry {
-    fn default() -> Self {
-        Self {
-            category: Category::Unsupported,
-            name: Default::default(),
-            reference: TReference::None,
-        }
-    }
+    pub store: ListStore,
 }
 
 #[derive(Debug, Clone)]
@@ -132,12 +93,12 @@ pub struct TTask {
     pub id: i32,
     pub size: u32,
     pub position: (i32, i32),
-    pub source: TEntry,
+    pub source: Entry,
     pub annotation: Annotation,
 }
 
 impl TTask {
-    pub fn new(id: i32, size: u32, x: i32, y: i32, source: TEntry, annotation: Annotation) -> Self {
+    pub fn new(id: i32, size: u32, x: i32, y: i32, source: Entry, annotation: Annotation) -> Self {
         TTask {
             id,
             size,
@@ -287,9 +248,7 @@ impl TRect {
 pub struct Annotation {
     pub id: i32,
     pub position: TRect,
-    pub name: String,
-    pub category: Category,
-    pub reference: TReference,
+    pub entry: Entry,
 }
 
 impl PartialEq for Annotation {

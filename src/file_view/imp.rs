@@ -17,10 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-pub mod cursor;
-pub mod model;
-pub mod sort;
-
 use std::cell::OnceCell;
 
 use crate::file_view;
@@ -43,8 +39,8 @@ use gtk4::{
 };
 use human_bytes::human_bytes;
 
-use cursor::TreeModelMviewExt;
-use model::Column;
+use super::cursor::TreeModelMviewExt;
+use super::model::Column;
 
 #[derive(Debug)]
 #[allow(dead_code)]

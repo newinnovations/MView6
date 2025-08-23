@@ -17,58 +17,68 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use cairo::ImageSurface;
-use gtk4::ListStore;
-use mupdf::{Matrix, Rect};
+use image::DynamicImage;
 use pdfium::{PdfiumBitmap, PdfiumDocument, PdfiumPage, PdfiumRenderConfig};
 use std::path::{Path, PathBuf};
 
 use crate::{
     backends::{
-        document::{mupdf::TDocReference, pages, PageMode, Pages, MIN_DOC_HEIGHT},
-        thumbnail::{TEntry, TReference},
+        document::{pages, PageMode, Pages},
         Backend, ImageParams,
     },
     category::Category,
     error::MviewResult,
-    file_view::{Column, Cursor},
-    image::{draw::draw_error, provider::surface::Surface, view::Zoom, Image},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor,
+    },
+    image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom, Image},
     profile::performance::Performance,
+    rect::{RectD, SizeD, VectorD},
 };
 
 pub struct DocPdfium {
-    filename: PathBuf,
+    path: PathBuf,
     document: MviewResult<PdfiumDocument>,
-    store: ListStore,
+    store: Vec<Row>,
     last_page: i32,
 }
 
 impl DocPdfium {
     pub fn new(filename: &Path) -> Self {
-        let (store, document, last_page) = Self::create_store(filename);
+        let (document, store, last_page) = Self::create_store(filename);
         DocPdfium {
-            filename: filename.into(),
+            path: filename.into(),
             document,
             store,
             last_page,
         }
     }
 
-    fn create_store(filename: &Path) -> (ListStore, MviewResult<PdfiumDocument>, i32) {
-        let store = Column::empty_store();
-        match list_pages(filename, &store) {
-            Ok((document, last_page)) => (store, Ok(document), last_page),
+    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<Row>, i32) {
+        match list_pages(filename) {
+            Ok((document, store, last_page)) => (Ok(document), store, last_page),
             Err(e) => {
-                println!("ERROR {e:?}");
-                (store, Err(e), 0)
+                eprintln!("ERROR {e:?}");
+                (Err(e), Default::default(), Default::default())
             }
+        }
+    }
+
+    pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
+        if let (BackendRef::Pdfium(filename), ItemRef::Index(index)) = src.as_tuple() {
+            let image = extract_thumb(filename, *index as i32)?;
+            let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+            Ok(image)
+        } else {
+            Err("invalid reference".into())
         }
     }
 }
 
 impl Backend for DocPdfium {
     fn class_name(&self) -> &str {
-        "DocPdfium"
+        "PDFium"
     }
 
     fn is_container(&self) -> bool {
@@ -80,144 +90,148 @@ impl Backend for DocPdfium {
     }
 
     fn path(&self) -> PathBuf {
-        self.filename.clone()
+        self.path.clone()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
-    fn image(&self, cursor: &Cursor, params: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, params: &ImageParams) -> Image {
         (|| {
             let document = self.document.as_ref().map_err(|e| e.to_string())?;
-            extract_page(
+            page_size(
+                Reference {
+                    backend: BackendRef::Pdfium(self.path.clone()),
+                    item: item.clone(),
+                },
                 document,
-                cursor.index() as i32,
+                item.idx() as i32,
                 self.last_page,
                 params.page_mode,
-                params.allocation_height,
             )
             .map_err(|e| e.to_string())
         })()
         .unwrap_or_else(|e| draw_error(e.into()))
     }
 
-    fn entry(&self, cursor: &Cursor) -> TEntry {
-        TEntry::new(
-            cursor.category(),
-            &cursor.name(),
-            TReference::DocReference(TDocReference {
-                filename: self.filename.clone(),
-                index: cursor.index(),
-            }),
-        )
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::Pdfium(self.path.clone()),
+            item: ItemRef::Index(cursor.index()),
+        }
     }
 
-    fn image_zoom(
+    fn render(
         &self,
-        cursor: &Cursor,
-        params: &ImageParams,
-        current_height: f32,
-        clip: Rect,
-        zoom: Zoom,
-    ) -> Option<ImageSurface> {
+        item: &ItemRef,
+        page_mode: &PageMode,
+        zoom: &Zoom,
+        viewport: &RectD,
+    ) -> Option<SurfaceData> {
         let document = self.document.as_ref().ok()?;
-        extract_clip(
+        render(
             document,
-            cursor.index() as i32,
+            item.idx() as i32,
             self.last_page,
-            params.page_mode,
-            current_height,
-            clip,
-            zoom.zoom_factor() as f32,
+            page_mode,
+            zoom,
+            viewport,
         )
         .ok()
     }
 }
 
-fn extract_page(
+fn page_size(
+    reference: Reference,
     document: &PdfiumDocument,
     index: i32,
     last_page: i32,
     mode: &PageMode,
-    allocation_height: i32,
 ) -> MviewResult<Image> {
     match pages(index, last_page, mode) {
-        Pages::Single(page) => extract_page_single(document, page, allocation_height),
-        Pages::Dual(left) => extract_page_dual(document, left, allocation_height),
+        Pages::Single(page) => page_size_single(reference, mode, document, page),
+        Pages::Dual(left) => page_size_dual(reference, mode, document, left),
     }
 }
 
-fn extract_page_single(document: &PdfiumDocument, index: i32, height: i32) -> MviewResult<Image> {
-    let duration = Performance::start();
-    let surface = page_to_surface(document, index, height)?;
-    let result = Ok(Image::new_surface(surface, None));
-    duration.elapsed("pdfium single");
-    result
-}
-
-fn extract_page_dual(document: &PdfiumDocument, index: i32, height: i32) -> MviewResult<Image> {
-    let duration = Performance::start();
-    let surface_left = page_to_surface(document, index, height)?;
-    let surface_right = page_to_surface(document, index + 1, height)?;
-    let result = Ok(Image::new_dual_surface(
-        Some(surface_left),
-        Some(surface_right),
-        None,
-    ));
-    duration.elapsed("pdfium dual");
-    result
-}
-
-fn page_to_surface(
+fn page_size_single(
+    reference: Reference,
+    mode: &PageMode,
     document: &PdfiumDocument,
     index: i32,
-    height: i32,
-) -> MviewResult<ImageSurface> {
-    let page = document.page(index)?;
-    let bounds = page.boundaries().media()?;
-    if bounds.height() < MIN_DOC_HEIGHT {
-        return Err("page height too small".into());
-    }
-    let zoom = height as f32 / bounds.height();
-    let width = (bounds.width() * zoom) as i32;
-    let config = PdfiumRenderConfig::new()
-        .with_size(width, height)
-        .with_scale(zoom);
-    let bitmap = page.render(&config)?;
-    Surface::from_bgra8_bytes(width as u32, height as u32, bitmap.as_raw_bytes())
+) -> MviewResult<Image> {
+    let duration = Performance::start();
+    let size = page_size_as_rect(&document.page(index)?)?;
+    let image = Image::new_scalable(reference, *mode, size);
+    duration.elapsed("pdfium single");
+    Ok(image)
 }
 
-fn extract_clip(
+fn page_size_dual(
+    reference: Reference,
+    mode: &PageMode,
+    document: &PdfiumDocument,
+    index: i32,
+) -> MviewResult<Image> {
+    // The right page is scaled so its height is the same as the left page
+    let duration = Performance::start();
+    let size_left = page_size_as_rect(&document.page(index)?)?;
+    let size_right = page_size_as_rect(&document.page(index + 1)?)?;
+    let scale_right = size_left.height() / size_right.height();
+    let size = SizeD::new(
+        size_left.width() + scale_right * size_right.width(),
+        size_left.height(),
+    );
+    let image = Image::new_scalable(reference, *mode, size);
+    duration.elapsed("pdfium dual");
+    Ok(image)
+}
+
+fn extract_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
+    let document = PdfiumDocument::new_from_path(filename, None)?;
+    let page = document.page(index)?;
+    let zoom = 350.0 / page.height();
+    let width = (page.width() * zoom) as i32;
+    let config = PdfiumRenderConfig::new()
+        .with_size(width, 350)
+        .with_scale(zoom);
+    let bitmap = page.render(&config)?;
+    Ok(bitmap.as_rgba8_image()?)
+}
+
+fn page_size_as_rect(page: &PdfiumPage) -> MviewResult<SizeD> {
+    Ok(SizeD::new(page.width() as f64, page.height() as f64))
+}
+
+fn render(
     document: &PdfiumDocument,
     index: i32,
     last_page: i32,
     mode: &PageMode,
-    current_height: f32,
-    clip: Rect,
-    zoom: f32,
-) -> MviewResult<ImageSurface> {
+    zoom: &Zoom,
+    viewport: &RectD,
+) -> MviewResult<SurfaceData> {
     match pages(index, last_page, mode) {
-        Pages::Single(page) => extract_clip_single(document, page, current_height, clip, zoom),
-        Pages::Dual(left) => extract_clip_dual(document, left, current_height, clip, zoom),
+        Pages::Single(page) => render_single(document, page, zoom, viewport),
+        Pages::Dual(left) => render_dual(document, left, zoom, viewport),
     }
 }
 
-fn extract_clip_single(
+fn render_single(
     document: &PdfiumDocument,
     index: i32,
-    current_height: f32,
-    clip: Rect,
-    zoom: f32,
-) -> MviewResult<ImageSurface> {
+    zoom: &Zoom,
+    viewport: &RectD,
+) -> MviewResult<SurfaceData> {
     let duration = Performance::start();
     let page = document.page(index)?;
-    let surface = if let Some(bitmap) = page_extract_clip(&page, current_height, clip, zoom)? {
-        Ok(Surface::from_bgra8_bytes(
+    let surface = if let Some(bitmap) = page_render(&page, zoom, viewport)? {
+        Ok(SurfaceData::from_bgra8(
             bitmap.width() as u32,
             bitmap.height() as u32,
             bitmap.as_raw_bytes(),
-        )?)
+        ))
     } else {
         Err("empty clip".into())
     };
@@ -225,47 +239,46 @@ fn extract_clip_single(
     surface
 }
 
-fn extract_clip_dual(
+fn render_dual(
     document: &PdfiumDocument,
     index: i32,
-    current_height: f32,
-    clip: Rect,
-    zoom: f32,
-) -> MviewResult<ImageSurface> {
+    zoom: &Zoom,
+    viewport: &RectD,
+) -> MviewResult<SurfaceData> {
     let duration = Performance::start();
 
-    // let (page_left, bounds_left) = open_page(&document, index)?;
     let page_left = document.page(index)?;
-    let bounds_left = page_left.boundaries().media()?;
-    if bounds_left.height() < MIN_DOC_HEIGHT {
-        return Err("page height too small".into());
-    }
-
-    let offset_right = bounds_left.width() * current_height / bounds_left.height();
-    let clip_right = clip.translate(-offset_right, 0.0);
-
-    let pixmap_left = page_extract_clip(&page_left, current_height, clip, zoom)?;
+    let size_left = page_size_as_rect(&page_left)?;
+    let mut zoom_left = zoom.clone();
+    zoom_left.set_image_size(size_left);
+    let pixmap_left = page_render(&page_left, &zoom_left, viewport)?;
 
     let page_right = document.page(index + 1)?;
-    let pixmap_right = page_extract_clip(&page_right, current_height, clip_right, zoom)?;
+    let size_right = page_size_as_rect(&page_right)?;
+    let scale_right = size_left.height() / size_right.height();
+    let mut zoom_right = zoom.clone();
+    zoom_right.set_image_size(size_right);
+    zoom_right.set_zoom_factor(zoom.scale() * scale_right);
+    zoom_right.set_origin(zoom.image_to_screen(&VectorD::new(size_left.width(), 0.0)));
+    let pixmap_right = page_render(&page_right, &zoom_right, viewport)?;
 
     let surface = match (pixmap_left, pixmap_right) {
         (None, None) => return Err("empty clip".into()),
-        (Some(pixmap_left), None) => Surface::from_bgra8_bytes(
+        (Some(pixmap_left), None) => SurfaceData::from_bgra8(
             pixmap_left.width() as u32,
             pixmap_left.height() as u32,
             pixmap_left.as_raw_bytes(),
-        )?,
-        (None, Some(pixmap_right)) => Surface::from_bgra8_bytes(
+        ),
+        (None, Some(pixmap_right)) => SurfaceData::from_bgra8(
             pixmap_right.width() as u32,
             pixmap_right.height() as u32,
             pixmap_right.as_raw_bytes(),
-        )?,
+        ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
                 return Err("height mismatch".into());
             }
-            Surface::from_dual_bgra8_bytes(
+            SurfaceData::from_dual_bgra8(
                 pixmap_left.width() as u32,
                 pixmap_left.height() as u32,
                 pixmap_left.as_raw_bytes(),
@@ -280,72 +293,48 @@ fn extract_clip_dual(
     Ok(surface)
 }
 
-fn page_extract_clip(
+fn page_render(
     page: &PdfiumPage,
-    current_height: f32,
-    clip: Rect,
-    zoom: f32,
+    zoom: &Zoom,
+    viewport: &RectD,
 ) -> MviewResult<Option<PdfiumBitmap>> {
-    let bounds = page.boundaries().media()?;
-    if bounds.height() < MIN_DOC_HEIGHT {
-        return Err("page height too small".into());
-    }
-
-    // use `current_height` to determine `current_zoom`
-    let current_zoom = current_height / bounds.height();
-    if current_zoom < 1e-3 {
-        return Err("current_zoom value out of range".into());
-    }
-
-    // Clip is zoomed by `current_zoom`: unzoom
-    let matrix = Matrix::new_scale(1.0 / current_zoom, 1.0 / current_zoom);
-    let clip = clip.transform(&matrix);
-
-    // For the intersect algortihm to work we need to
-    // - convert the pdfium::PdfRect to mupdf::Rect
-    // - set the origin at (0,0) which is not always the case with pdfium
-    let page_bounds = Rect::new(0.0, 0.0, bounds.width(), bounds.height());
-
-    // Determine intersection between `clip`` and `page_bounds`
-    let intersect = page_bounds.intersect(&clip);
-
-    // New zoom is `zoom` * `current_zoom`
-    let new_zoom = zoom * current_zoom;
-    let matrix = Matrix::new_scale(new_zoom, new_zoom);
-    let intersect = intersect.transform(&matrix).round();
-
-    if intersect.is_empty() {
+    let intersection = zoom.intersection(viewport);
+    if intersection.is_empty() {
         Ok(None) // clip intersection is empty
     } else {
+        let width = intersection.width().ceil() as i32;
+        let height = intersection.height().ceil() as i32;
         let config = PdfiumRenderConfig::new()
-            .with_size(intersect.width(), intersect.height())
-            .with_scale(new_zoom)
-            .with_pan(-intersect.x0 as f32, -intersect.y0 as f32);
+            .with_size(width, height)
+            .with_scale(zoom.scale() as f32)
+            .with_pan(-intersection.x0 as f32, -intersection.y0 as f32);
         Ok(Some(page.render(&config)?))
     }
 }
 
-fn list_pages(filename: &Path, store: &ListStore) -> MviewResult<(PdfiumDocument, i32)> {
+fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
     let duration = Performance::start();
     let document = PdfiumDocument::new_from_path(filename, None)?;
     let page_count = document.page_count();
+    let mut result = Vec::new();
     println!("Total pages: {page_count}");
     if page_count > 0 {
         let cat = Category::Image;
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            store.insert_with_values(
-                None,
-                &[
-                    (Column::Cat as u32, &cat.id()),
-                    (Column::Icon as u32, &cat.icon()),
-                    (Column::Name as u32, &page),
-                    (Column::Index as u32, &i),
-                ],
-            );
+            let row = Row {
+                category: cat.id(),
+                name: page,
+                size: Default::default(),
+                modified: Default::default(),
+                index: i as u64,
+                icon: cat.icon().to_string(),
+                folder: Default::default(),
+            };
+            result.push(row);
         }
         duration.elapsed("pdfium list");
-        Ok((document, page_count - 1))
+        Ok((document, result, page_count - 1))
     } else {
         Err("No pages in document".into())
     }

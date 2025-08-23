@@ -17,22 +17,30 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::MViewWindowImp;
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 
-impl MViewWindowImp {
-    pub(super) fn on_mouse_press(&self, position: (f64, f64)) {
-        let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
-            let (x, y) = position;
-            let zoom = w.image_view.zoom();
-            let (x, y) = (x - zoom.offset_x(), y - zoom.offset_y());
-            let backend = self.backend.borrow();
-            if let Some((new_backend, goto)) =
-                backend.click(&backend.reference(&current).item, x, y)
-            {
-                drop(backend);
-                self.set_backend(new_backend, &goto);
-            }
-        }
+use async_channel::Sender;
+
+use crate::render_thread::model::{RenderCommand, RenderCommandMessage};
+
+#[derive(Debug, Clone)]
+pub struct RenderThreadSender {
+    sender: Sender<RenderCommandMessage>,
+    counter: Arc<AtomicU32>,
+}
+
+impl RenderThreadSender {
+    pub fn new(sender: Sender<RenderCommandMessage>, counter: Arc<AtomicU32>) -> Self {
+        Self { sender, counter }
+    }
+
+    pub fn send_blocking(&self, command: RenderCommand) {
+        let id = 1 + self.counter.load(Ordering::SeqCst);
+        self.counter.store(id, Ordering::SeqCst);
+        let msg = RenderCommandMessage { id, cmd: command };
+        let _ = self.sender.send_blocking(msg);
     }
 }

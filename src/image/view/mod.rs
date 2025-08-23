@@ -19,12 +19,11 @@
 
 pub mod data;
 mod imp;
-mod svg;
+pub mod svg;
 pub mod zoom;
 
 use std::time::SystemTime;
 
-use cairo::{Filter, ImageSurface};
 use gdk_pixbuf::Pixbuf;
 use gio::Menu;
 use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
@@ -37,14 +36,18 @@ use gtk4::{
     prelude::{GestureSingleExt, NativeExt, PopoverExt, WidgetExt},
     ApplicationWindow, GestureClick, PopoverMenu,
 };
-use mupdf::Rect;
 
-use crate::{backends::thumbnail::model::Annotations, rect::SizeD};
+use crate::{
+    backends::thumbnail::model::Annotations, image::provider::surface::SurfaceData, rect::SizeD,
+    window::imp::MViewWidgets,
+};
 
 use super::Image;
+pub use data::redraw::RedrawReason;
 pub use data::QUALITY_HIGH;
-pub use imp::{SIGNAL_CANVAS_RESIZED, SIGNAL_HQ_REDRAW};
 pub use zoom::{Zoom, ZoomMode};
+
+pub const SIGNAL_CANVAS_RESIZED: &str = "event-canvas-resized";
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -65,7 +68,16 @@ pub enum ViewCursor {
 
 impl ImageView {
     pub fn new() -> Self {
-        glib::Object::builder().build()
+        let view: Self = glib::Object::builder().build();
+        let mut p = view.imp().data.borrow_mut();
+        p.zoom_mode = ZoomMode::Fill;
+        drop(p);
+        view
+    }
+
+    pub fn init(&self, widgets: &MViewWidgets) {
+        let mut p = self.imp().data.borrow_mut();
+        p.rb_sender = Some(widgets.rt_sender.clone());
     }
 
     pub fn set_image(&self, image: Image) {
@@ -89,15 +101,13 @@ impl ImageView {
         p.annotations = annotations;
         self.imp().schedule_animation(&p.image, SystemTime::now());
         p.apply_zoom();
-        drop(p);
-        self.imp().hq_redraw(false);
-        // p.redraw(QUALITY_HIGH);
+        p.redraw(RedrawReason::ImagePost);
     }
 
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
         p.apply_zoom();
-        p.redraw(QUALITY_HIGH); // hq_redraw not needed, because image_modified only used with thumbnail sheets
+        p.redraw(RedrawReason::ImageChanged);
     }
 
     pub fn zoom_mode(&self) -> ZoomMode {
@@ -108,6 +118,8 @@ impl ImageView {
     pub fn set_zoom_mode(&self, mode: ZoomMode) {
         let mut p = self.imp().data.borrow_mut();
         p.zoom_mode = mode;
+        p.apply_zoom();
+        p.redraw(RedrawReason::ZoomSettingChanged);
     }
 
     pub fn zoom(&self) -> Zoom {
@@ -115,40 +127,9 @@ impl ImageView {
         p.zoom.clone()
     }
 
-    pub fn clip(&self) -> Rect {
-        let p = self.imp().data.borrow();
-        let a = self.allocation();
-        if let Ok(matrix) = p.zoom.transform_matrix().try_invert() {
-            let (x1, y1) = matrix.transform_point(0.0, 0.0);
-            let (x2, y2) = matrix.transform_point(a.width() as f64, a.height() as f64);
-            Rect {
-                x0: x1.min(x2) as f32,
-                y0: y1.min(y2) as f32,
-                x1: x1.max(x2) as f32,
-                y1: y1.max(y2) as f32,
-            }
-        } else {
-            Rect {
-                ..Default::default()
-            }
-        }
-    }
-
-    pub fn set_zoomed_surface(&self, surface: ImageSurface) {
+    pub fn hq_render_reply(&self, image_id: u32, surface_data: SurfaceData, orig_zoom: Zoom) {
         let mut p = self.imp().data.borrow_mut();
-        p.redraw(QUALITY_HIGH); // FIXME: handle the removal of existing surfaces better
-        let size = SizeD::new(surface.width() as f64, surface.height() as f64);
-        let ovl_zoom = p.zoom.new_unscaled(size);
-        if p.drag.is_some() {
-            let (anchor_x, anchor_y) = p.mouse_position;
-            p.drag = Some((
-                anchor_x - p.zoom.offset_x(),
-                anchor_y - p.zoom.offset_y(),
-                anchor_x - ovl_zoom.offset_x(),
-                anchor_y - ovl_zoom.offset_y(),
-            ))
-        }
-        p.zoom_overlay = Some((surface, ovl_zoom));
+        p.hq_render_reply(image_id, surface_data, orig_zoom);
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {
@@ -178,7 +159,7 @@ impl ImageView {
         let mut p = self.imp().data.borrow_mut();
         p.zoom.add_rotation(angle);
         p.apply_zoom();
-        p.redraw(QUALITY_HIGH);
+        p.redraw(RedrawReason::RotationChanged);
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {
@@ -239,19 +220,5 @@ impl ImageView {
         let relative_x = relative_x.clamp(0.0, widget_bounds.width() as f64);
         let relative_y = relative_y.clamp(0.0, widget_bounds.height() as f64);
         Ok((relative_x, relative_y))
-    }
-
-    // redraw stuff
-    pub fn apply_zoom(&self) {
-        let mut p = self.imp().data.borrow_mut();
-        p.apply_zoom();
-    }
-
-    pub fn redraw(&self, quality: Filter) {
-        // BorrowMutError: to reproduce press 'q' while hovering image in thumbnail sheet
-        match self.imp().data.try_borrow_mut() {
-            Ok(mut p) => p.redraw(quality),
-            Err(e) => eprintln!("Failed to redraw: {e}"),
-        }
     }
 }

@@ -147,8 +147,6 @@ impl MViewWindowImp {
         let w = self.widgets();
         w.set_action_string("zoom", zoom);
         w.image_view.set_zoom_mode(zoom.into());
-        w.image_view.apply_zoom();
-        self.hq_redraw();
     }
 
     pub fn change_page_mode(&self, page_mode: &str) {
@@ -214,25 +212,28 @@ impl MViewWindowImp {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if backend.is_container() {
-            let position = if let Some(cursor) = w.file_view.current() {
-                let target: Target = backend.entry(&cursor).into();
-                (target, cursor.position())
-            } else {
-                (Target::First, 0)
-            };
-            drop(backend);
-            let parent = TParent {
-                backend: self.backend.replace(<dyn Backend>::none()),
-                target: position.0,
-                focus_pos: position.1,
-            };
-            let thumbnail =
-                Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
-            let focus_page = thumbnail.focus_page();
-            let thumbnail = <dyn Backend>::thumbnail(thumbnail);
-            // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
-            self.set_backend(thumbnail, &focus_page);
-            self.show_info_widget(false);
+            if let Some(store) = w.file_view.store() {
+                let position = if let Some(cursor) = w.file_view.current() {
+                    let target: Target = backend.reference(&cursor).into();
+                    (target, cursor.position())
+                } else {
+                    (Target::First, 0)
+                };
+                drop(backend);
+                let parent = TParent {
+                    backend: self.backend.replace(<dyn Backend>::none()),
+                    target: position.0,
+                    focus_pos: position.1,
+                    store,
+                };
+                let thumbnail =
+                    Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
+                let focus_page = thumbnail.focus_page();
+                let thumbnail = <dyn Backend>::thumbnail(thumbnail);
+                // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
+                self.set_backend(thumbnail, &focus_page);
+                self.show_info_widget(false);
+            }
         } else if backend.is_thumbnail() {
             drop(backend);
             self.dir_leave();

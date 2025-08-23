@@ -21,19 +21,43 @@ use cairo::{Format, ImageSurface};
 
 use crate::error::MviewResult;
 
-pub struct Surface {}
+#[derive(Debug, Clone)]
+pub struct SurfaceData {
+    data: Vec<u8>,
+    format: Format,
+    width: i32,
+    height: i32,
+    stride: i32,
+}
 
-impl Surface {
-    pub fn from_rgba8_bytes(width: u32, height: u32, rgba8: &[u8]) -> MviewResult<ImageSurface> {
-        let mut surface = ImageSurface::create(Format::ARgb32, width as i32, height as i32)?;
+impl SurfaceData {
+    pub fn new(data: Vec<u8>, format: Format, width: i32, height: i32, stride: i32) -> Self {
+        Self {
+            data,
+            format,
+            width,
+            height,
+            stride,
+        }
+    }
+
+    pub fn surface(self) -> MviewResult<ImageSurface> {
+        Ok(ImageSurface::create_for_data(
+            self.data,
+            self.format,
+            self.width,
+            self.height,
+            self.stride,
+        )?)
+    }
+
+    pub fn from_rgba8(width: u32, height: u32, rgba8: &[u8]) -> SurfaceData {
+        let stride = 4 * width as usize;
+        let mut surface_data = vec![0; stride * height as usize];
         {
-            let img_stride = 4 * width as usize;
-            let surface_stride = surface.stride() as usize;
-            let mut surface_data = surface.data().unwrap();
-
             for (src_row, dst_row) in rgba8
-                .chunks_exact(img_stride)
-                .zip(surface_data.chunks_exact_mut(surface_stride))
+                .chunks_exact(stride)
+                .zip(surface_data.chunks_exact_mut(stride))
             {
                 for (src_pixel, dst_pixel) in
                     src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4))
@@ -42,20 +66,22 @@ impl Surface {
                 }
             }
         }
-        surface.mark_dirty();
-        Ok(surface)
+        SurfaceData::new(
+            surface_data,
+            Format::ARgb32,
+            width as i32,
+            height as i32,
+            stride as i32,
+        )
     }
 
-    pub fn from_bgra8_bytes(width: u32, height: u32, bgra8: &[u8]) -> MviewResult<ImageSurface> {
-        let mut surface = ImageSurface::create(Format::ARgb32, width as i32, height as i32)?;
+    pub fn from_bgra8(width: u32, height: u32, bgra8: &[u8]) -> SurfaceData {
+        let stride = 4 * width as usize;
+        let mut surface_data = vec![0; stride * height as usize];
         {
-            let img_stride = 4 * width as usize;
-            let surface_stride = surface.stride() as usize;
-            let mut surface_data = surface.data().unwrap();
-
             for (src_row, dst_row) in bgra8
-                .chunks_exact(img_stride)
-                .zip(surface_data.chunks_exact_mut(surface_stride))
+                .chunks_exact(stride)
+                .zip(surface_data.chunks_exact_mut(stride))
             {
                 for (src_pixel, dst_pixel) in
                     src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4))
@@ -64,18 +90,23 @@ impl Surface {
                 }
             }
         }
-        surface.mark_dirty();
-        Ok(surface)
+        SurfaceData::new(
+            surface_data,
+            Format::ARgb32,
+            width as i32,
+            height as i32,
+            stride as i32,
+        )
     }
 
-    pub fn from_dual_bgra8_bytes(
+    pub fn from_dual_bgra8(
         left_width: u32,
         left_height: u32,
         left_bgra8: &[u8],
         right_width: u32,
         right_height: u32,
         right_bgra8: &[u8],
-    ) -> MviewResult<ImageSurface> {
+    ) -> MviewResult<SurfaceData> {
         // Ensure both images have the same height
         if left_height != right_height {
             return Err("Left and right images must have the same height".into());
@@ -106,13 +137,12 @@ impl Surface {
             .into());
         }
 
-        let mut surface = ImageSurface::create(Format::ARgb32, total_width as i32, height as i32)?;
+        let surface_stride = 4 * total_width as usize;
+        let mut surface_data = vec![0; surface_stride * height as usize];
 
         {
             let left_stride = 4 * left_width as usize;
             let right_stride = 4 * right_width as usize;
-            let surface_stride = surface.stride() as usize;
-            let mut surface_data = surface.data().unwrap();
 
             for row in 0..height as usize {
                 let left_row_start = row * left_stride;
@@ -143,8 +173,58 @@ impl Surface {
             }
         }
 
-        surface.mark_dirty();
-        Ok(surface)
+        Ok(SurfaceData::new(
+            surface_data,
+            Format::ARgb32,
+            total_width as i32,
+            height as i32,
+            surface_stride as i32,
+        ))
+    }
+
+    pub fn from_rgb(width: u32, height: u32, rgb: &[u8]) -> SurfaceData {
+        let cairo_data: Vec<u8> = rgb
+            .chunks_exact(3)
+            .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255])
+            .collect();
+        SurfaceData::new(
+            cairo_data,
+            Format::Rgb24,
+            width as i32,
+            height as i32,
+            width as i32 * 4, // stride: bytes per row
+        )
+    }
+
+    pub fn from_dual_rgb(
+        width_left: u32,
+        width_right: u32,
+        height: u32,
+        rgb_left: &[u8],
+        rgb_right: &[u8],
+    ) -> SurfaceData {
+        let combined_width = width_left + width_right;
+        // Create iterator that alternates between left and right pixels row by row
+        let cairo_data: Vec<u8> = (0..height)
+            .flat_map(|row| {
+                let row_start_left = (row * width_left * 3) as usize;
+                let row_end_left = row_start_left + (width_left * 3) as usize;
+                let row_start_right = (row * width_right * 3) as usize;
+                let row_end_right = row_start_right + (width_right * 3) as usize;
+                // Combine left row + right row
+                rgb_left[row_start_left..row_end_left]
+                    .chunks_exact(3)
+                    .chain(rgb_right[row_start_right..row_end_right].chunks_exact(3))
+                    .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255]) // RGB -> BGRA
+            })
+            .collect();
+        SurfaceData::new(
+            cairo_data,
+            Format::Rgb24,
+            combined_width as i32,
+            height as i32,
+            combined_width as i32 * 4, // stride
+        )
     }
 }
 

@@ -21,10 +21,12 @@ use super::{Image, ImageParams};
 use crate::{
     category::Category,
     config::config,
-    file_view::{Column, Cursor},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Cursor,
+    },
     image::draw::draw_text,
 };
-use gtk4::ListStore;
 use std::{
     cell::RefCell,
     fs, io,
@@ -35,7 +37,7 @@ use std::{
 use super::{Backend, Target};
 
 pub struct Bookmarks {
-    store: ListStore,
+    store: Vec<Row>,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
 }
@@ -43,13 +45,14 @@ pub struct Bookmarks {
 impl Bookmarks {
     pub fn new(parent_backend: Box<dyn Backend>, parent_target: Target) -> Self {
         Bookmarks {
-            store: Self::create_store(),
+            store: Self::read_bookmarks().unwrap_or_default(),
             parent_backend: parent_backend.into(),
             parent_target,
         }
     }
 
-    fn read_directory(store: &ListStore) -> io::Result<()> {
+    fn read_bookmarks() -> io::Result<Vec<Row>> {
+        let mut result = Vec::new();
         let config = config();
         for entry in &config.bookmarks {
             let metadata = match fs::metadata(&entry.folder) {
@@ -67,30 +70,19 @@ impl Bookmarks {
             };
             let file_size = metadata.len();
             let cat = Category::Folder;
-            store.insert_with_values(
-                None,
-                &[
-                    (Column::Cat as u32, &cat.id()),
-                    (Column::Icon as u32, &cat.icon()),
-                    (Column::Name as u32, &entry.name),
-                    (Column::Folder as u32, &entry.folder),
-                    (Column::Size as u32, &file_size),
-                    (Column::Modified as u32, &modified),
-                ],
-            );
-        }
-        Ok(())
-    }
+            let row = Row {
+                category: cat.id(),
+                name: entry.name.clone(),
+                size: file_size,
+                modified,
+                index: Default::default(),
+                icon: cat.icon().to_string(),
+                folder: entry.folder.clone(),
+            };
 
-    fn create_store() -> ListStore {
-        let store = Column::empty_store();
-        match Self::read_directory(&store) {
-            Ok(()) => (),
-            Err(e) => {
-                println!("read_dir failed {e:?}");
-            }
+            result.push(row);
         }
-        store
+        Ok(result)
     }
 }
 
@@ -107,8 +99,8 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn store(&self) -> ListStore {
-        self.store.clone()
+    fn store(&self) -> &Vec<Row> {
+        &self.store
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
@@ -122,14 +114,21 @@ impl Backend for Bookmarks {
         ))
     }
 
-    fn image(&self, cursor: &Cursor, _: &ImageParams) -> Image {
-        let folder = cursor.folder();
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+        let folder = item.str();
         let folder_lower = folder.to_lowercase();
         let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
             Category::Archive
         } else {
             Category::Folder
         };
-        draw_text(&cat.name(), &folder, cat.colors())
+        draw_text(&cat.name(), folder, cat.colors())
+    }
+
+    fn reference(&self, cursor: &Cursor) -> Reference {
+        Reference {
+            backend: BackendRef::Bookmarks,
+            item: ItemRef::String(cursor.folder()),
+        }
     }
 }

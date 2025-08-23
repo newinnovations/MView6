@@ -31,7 +31,7 @@ use image::{DynamicImage, GenericImageView, ImageReader, RgbImage, RgbaImage};
 
 use crate::{
     error::MviewResult,
-    image::{provider::surface::Surface, Image},
+    image::{provider::surface::SurfaceData, Image},
 };
 
 use super::{webp::WebP, ExifReader};
@@ -218,6 +218,6 @@ impl RsImageLoader {
 
     pub fn rgba8_image_to_surface(img: &RgbaImage) -> MviewResult<ImageSurface> {
         let (width, height) = img.dimensions();
-        Surface::from_rgba8_bytes(width, height, img)
+        SurfaceData::from_rgba8(width, height, img).surface()
     }
 }

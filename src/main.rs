@@ -29,6 +29,7 @@ mod image;
 mod info_view;
 mod profile;
 mod rect;
+mod render_thread;
 mod util;
 mod window;
 

@@ -72,9 +72,9 @@ impl Cursor {
         self.store.category(&self.iter)
     }
 
-    pub fn store_size(&self) -> i32 {
-        self.store.iter_n_children(None)
-    }
+    // pub fn store_size(&self) -> i32 {
+    //     self.store.iter_n_children(None)
+    // }
 
     pub fn update(&self, new_category: Category, new_filename: &str) {
         self.store.set(
