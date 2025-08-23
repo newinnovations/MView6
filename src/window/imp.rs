@@ -432,13 +432,10 @@ impl ObjectImpl for MViewWindowImp {
             #[strong(rename_to = _sender)]
             w.tn_sender,
             async move {
-                // let mut current_task = 0;
-                // let mut command = TCommand::default();
                 while let Ok(msg) = from_rt_receiver.recv().await {
-                    // dbg!(msg);
                     match msg.reply {
-                        RenderReply::RenderDone(image_id, surface_data, orig_zoom) => {
-                            image_view.hq_render_reply(image_id, surface_data, orig_zoom);
+                        RenderReply::RenderDone(image_id, surface_data, zoom, viewport) => {
+                            image_view.hq_render_reply(image_id, surface_data, zoom, viewport);
                             println!("Got reply HqRender");
                         }
                     }

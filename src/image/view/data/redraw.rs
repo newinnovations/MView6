@@ -33,7 +33,7 @@ use crate::{
         },
         ImageData,
     },
-    rect::{RectD, SizeD},
+    rect::RectD,
     render_thread::model::RenderCommand,
     util::remove_source_id,
 };
@@ -179,41 +179,13 @@ impl ImageViewData {
         }
     }
 
-    // pub fn clip(&self, a: Rectangle) -> RectD {
-    //     if let Ok(matrix) = self.zoom.transform_matrix().try_invert() {
-    //         let (x1, y1) = matrix.transform_point(0.0, 0.0);
-    //         let (x2, y2) = matrix.transform_point(a.width() as f64, a.height() as f64);
-    //         dbg!(x1, y1);
-    //         dbg!(x2, y2);
-    //         RectD {
-    //             x0: x1.min(x2),
-    //             y0: y1.min(y2),
-    //             x1: x1.max(x2),
-    //             y1: y1.max(y2),
-    //         }
-    //     } else {
-    //         RectD {
-    //             ..Default::default()
-    //         }
-    //     }
-    // }
-
-    // pub fn clip(&self, a: RectD) -> RectD {
-    //     let origin = self.zoom.origin();
-    //     let scale = 1.0 / self.zoom.zoom_factor();
-    //     let top_left = VectorD::new(-origin.x(), -origin.y()).scale(scale);
-    //     let bottom_right =
-    //         VectorD::new(a.width() - origin.x(), a.height() - origin.y()).scale(scale);
-    //     // dbg!(top_left, bottom_right);
-    //     RectD {
-    //         x0: top_left.x().min(bottom_right.x()),
-    //         y0: top_left.y().min(bottom_right.y()),
-    //         x1: top_left.x().max(bottom_right.x()),
-    //         y1: top_left.y().max(bottom_right.y()),
-    //     }
-    // }
-
-    pub fn hq_render_reply(&mut self, image_id: u32, surface_data: SurfaceData, orig_zoom: Zoom) {
+    pub fn hq_render_reply(
+        &mut self,
+        image_id: u32,
+        surface_data: SurfaceData,
+        zoom: Zoom,
+        viewport: RectD,
+    ) {
         if self.image.id() != image_id {
             println!(
                 "Got hq render for different image {} != {image_id}",
@@ -221,17 +193,16 @@ impl ImageViewData {
             );
             return;
         }
-        if self.zoom != orig_zoom {
+        if self.zoom != zoom {
             println!(
-                "Got hq render for different zoom {:?} != {orig_zoom:?}",
+                "Got hq render for different zoom {:?} != {zoom:?}",
                 self.zoom
             );
             return;
         }
         if let Ok(surface) = surface_data.surface() {
-            let size = SizeD::new(surface.width() as f64, surface.height() as f64);
-            let zoom = orig_zoom.new_unscaled(size);
-            self.zoom_overlay = Some(ZoomedImage::new(surface, zoom.origin(), orig_zoom));
+            let rect = zoom.intersection_screen_coord(&viewport);
+            self.zoom_overlay = Some(ZoomedImage::new(surface, zoom.top_left(&rect), zoom));
             self.redraw(RedrawReason::OverlayUpdated);
         }
     }

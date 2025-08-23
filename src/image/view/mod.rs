@@ -38,7 +38,9 @@ use gtk4::{
 };
 
 use crate::{
-    backends::thumbnail::model::Annotations, image::provider::surface::SurfaceData, rect::SizeD,
+    backends::thumbnail::model::Annotations,
+    image::provider::surface::SurfaceData,
+    rect::{RectD, SizeD},
     window::imp::MViewWidgets,
 };
 
@@ -127,9 +129,15 @@ impl ImageView {
         p.zoom.clone()
     }
 
-    pub fn hq_render_reply(&self, image_id: u32, surface_data: SurfaceData, orig_zoom: Zoom) {
+    pub fn hq_render_reply(
+        &self,
+        image_id: u32,
+        surface_data: SurfaceData,
+        zoom: Zoom,
+        viewport: RectD,
+    ) {
         let mut p = self.imp().data.borrow_mut();
-        p.hq_render_reply(image_id, surface_data, orig_zoom);
+        p.hq_render_reply(image_id, surface_data, zoom, viewport);
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {

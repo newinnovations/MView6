@@ -309,38 +309,38 @@ impl Zoom {
         }
     }
 
-    /// Creates an unscaled [`Zoom`] instance for high-resolution rendering
+    /// Returns the top-left corner of the image in screen coordinates after rotation.
     ///
-    /// This matrix is used when displaying hi-res rendered overlays (such as PDF and SVG content)
-    /// where the overlay is pre-rendered at the target resolution rather than using Cairo's
-    /// built-in scaling. The matrix handles rotation and translation but omits the zoom scaling
-    /// since the overlay content is already rendered at the correct scale.
+    /// This function determines which corner of the rotated rectangle corresponds to
+    /// the visual "top-left" position on screen. As an image rotates, different corners
+    /// of the original rectangle become the top-left corner in screen space.
     ///
-    /// The screen offsets are clamped to positive values to ensure proper positioning. Negative
-    /// values will be handled during rendering of the high-resolution overlay by transposing
-    /// the source content in the target overlay by that amount. Which needs the overlay to be
-    /// positioned at the origin.
+    /// # Visual Example
+    /// ```
+    ///             ┌─────┐
+    ///             │180° │   ┌────────┐
+    ///             │     │   │    270°│
+    ///             │   TL│   │TL      │
+    ///             └─────┘   └────────┘
+    ///                       ────→ x
+    ///          ┌────────┐ │ ┌─────┐
+    ///          │      TL│ │ │TL   │
+    ///          │90°     │ ↓ │     │
+    ///          └────────┘ y │   0°│
+    ///                       └─────┘
+    /// ```
     ///
     /// # Arguments
-    /// * `size` - overlay pixmap dimensions as SizeD (width, height)
+    /// * `rect` - The image rectangle in its current rotated state
     ///
     /// # Returns
-    /// * `Zoom` - Unscaled instance for overlay positioning
-    pub fn new_unscaled(&self, size: SizeD) -> Self {
-        let i = self.image_rect_transformed();
-        let x0 = i.x0.max(0.0);
-        let y0 = i.y0.max(0.0);
-        let (offset_x, offset_y) = match self.rotation % 360 {
-            90 => (x0 + size.height(), y0),
-            180 => (x0 + size.width(), y0 + size.height()),
-            270 => (x0, y0 + size.width()),
-            _ => (x0, y0),
-        };
-        Self {
-            scale: 1.0,
-            rotation: self.rotation,
-            offset: VectorD::new(offset_x, offset_y),
-            image_size: size,
+    /// The coordinates of the visual top-left corner in screen space.
+    pub fn top_left(&self, rect: &RectD) -> VectorD {
+        match self.rotation % 360 {
+            270 => VectorD::new(rect.x0, rect.y1), // Bottom-left
+            180 => VectorD::new(rect.x1, rect.y1), // Bottom-right
+            90 => VectorD::new(rect.x1, rect.y0),  // Top-right
+            _ => VectorD::new(rect.x0, rect.y0),   // Original top-left
         }
     }
 

@@ -86,7 +86,7 @@ impl RenderWorker {
                             }
                             let reply = RenderReplyMessage {
                                 _id: command.id,
-                                reply: RenderReply::RenderDone(image_id, surface, zoom),
+                                reply: RenderReply::RenderDone(image_id, surface, zoom, viewport),
                             };
                             if let Err(e) = self.from_rt_sender.send_blocking(reply) {
                                 eprintln!("Failed to send reply {e}");
@@ -107,7 +107,7 @@ impl RenderWorker {
                             }
                             let reply = RenderReplyMessage {
                                 _id: command.id,
-                                reply: RenderReply::RenderDone(image_id, surface, zoom),
+                                reply: RenderReply::RenderDone(image_id, surface, zoom, viewport),
                             };
                             if let Err(e) = self.from_rt_sender.send_blocking(reply) {
                                 eprintln!("Failed to send reply {e}");

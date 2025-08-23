@@ -42,7 +42,7 @@ pub struct RenderCommandMessage {
 #[derive(Debug, Clone)]
 pub enum RenderReply {
     // Image((Reference, PageMode, i32)),
-    RenderDone(u32, SurfaceData, Zoom),
+    RenderDone(u32, SurfaceData, Zoom, RectD),
 }
 
 #[derive(Debug, Clone)]
