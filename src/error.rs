@@ -76,6 +76,8 @@ pub enum MviewError {
     MuPdf(mupdf::Error),
 
     Pdfium(PdfiumError),
+
+    Svg(resvg::usvg::Error),
 }
 
 impl MviewError {
@@ -163,6 +165,12 @@ impl From<PdfiumError> for MviewError {
     }
 }
 
+impl From<resvg::usvg::Error> for MviewError {
+    fn from(err: resvg::usvg::Error) -> MviewError {
+        MviewError::Svg(err)
+    }
+}
+
 impl fmt::Display for MviewError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match self {
@@ -177,6 +185,7 @@ impl fmt::Display for MviewError {
             MviewError::Glib(err) => err.fmt(fmt),
             MviewError::MuPdf(err) => err.fmt(fmt),
             MviewError::Pdfium(err) => err.fmt(fmt),
+            MviewError::Svg(err) => err.fmt(fmt),
         }
     }
 }

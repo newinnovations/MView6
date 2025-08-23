@@ -224,7 +224,10 @@ impl ObjectImpl for MViewWindowImp {
 
         let header_bar = HeaderBar::new();
 
-        let back_button = Button::builder().icon_name("go-previous-symbolic").build();
+        let back_button = Button::builder()
+            .icon_name("go-previous-symbolic")
+            .can_focus(false)
+            .build();
         back_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,
@@ -248,7 +251,10 @@ impl ObjectImpl for MViewWindowImp {
         // Pack the menu button at the start of the header bar
         header_bar.pack_start(&menu_button);
 
-        let forward_button = Button::builder().icon_name("go-next-symbolic").build();
+        let forward_button = Button::builder()
+            .icon_name("go-next-symbolic")
+            .can_focus(false)
+            .build();
         forward_button.connect_clicked(clone!(
             #[weak(rename_to = this)]
             self,

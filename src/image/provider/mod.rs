@@ -23,13 +23,15 @@ pub mod internal;
 pub mod surface;
 pub mod webp;
 
-use crate::{category::Category, image::Image, profile::performance::Performance};
+use crate::{
+    category::Category, error::MviewResult, image::Image, profile::performance::Performance,
+};
 use exif::Exif;
 use gdk::GdkImageLoader;
 use image::DynamicImage;
 use image_rs::RsImageLoader;
 use internal::InternalImageLoader;
-use resvg::usvg::{self, Tree};
+use resvg::usvg::{self, fontdb::Database, Options, Tree};
 use std::{
     fs,
     io::{BufRead, BufReader, Cursor, Seek},
@@ -71,12 +73,10 @@ impl ImageLoader {
             .map(|ext| ext.to_string_lossy().starts_with("svg"))
             .unwrap_or_default();
         if is_svg {
-            // FIXME: error handling
-            let svg_data = fs::read(path).expect("Failed to read SVG file");
-            let svg_options = usvg::Options::default();
-            let tree = Tree::from_data(&svg_data, &svg_options).expect("Failed to parse SVG");
-            duration.elapsed("decode svg (file)");
-            return Image::new_svg(tree, None, ZoomMode::NotSpecified);
+            if let Ok(svg) = Self::read_svg(path) {
+                duration.elapsed("decode svg (file)");
+                return Image::new_svg(svg, None, ZoomMode::NotSpecified);
+            }
         }
 
         let input = match std::fs::File::open(path) {
@@ -145,6 +145,23 @@ impl ImageLoader {
         } else {
             None
         }
+    }
+
+    fn read_svg(path: &Path) -> MviewResult<Tree> {
+        let mut fontdb = Database::new();
+        fontdb.load_system_fonts(); // This loads system fonts
+
+        // You can also load specific fonts:
+        // fontdb.load_font_file("path/to/font.ttf")?;
+
+        // Create usvg options with the font database
+        let svg_options = Options::<'_> {
+            fontdb: fontdb.into(),
+            ..Default::default()
+        };
+
+        let svg_data = fs::read(path)?;
+        Ok(Tree::from_data(&svg_data, &svg_options)?)
     }
 }
 
