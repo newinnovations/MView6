@@ -29,7 +29,7 @@ use crate::{
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
-        view::{zoom::ZOOM_MULTIPLIER, RedrawReason, SIGNAL_CANVAS_RESIZED},
+        view::{data::zoom::ZOOM_MULTIPLIER, RedrawReason, SIGNAL_CANVAS_RESIZED},
         Image, ImageData,
     },
     rect::RectD,

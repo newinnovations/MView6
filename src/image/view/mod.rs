@@ -19,8 +19,6 @@
 
 pub mod data;
 mod imp;
-pub mod svg;
-pub mod zoom;
 
 use std::time::SystemTime;
 
@@ -46,8 +44,8 @@ use crate::{
 
 use super::Image;
 pub use data::redraw::RedrawReason;
+pub use data::zoom::{Zoom, ZoomMode};
 pub use data::QUALITY_HIGH;
-pub use zoom::{Zoom, ZoomMode};
 
 pub const SIGNAL_CANVAS_RESIZED: &str = "event-canvas-resized";
 

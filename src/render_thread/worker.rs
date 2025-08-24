@@ -31,7 +31,7 @@ use async_channel::{Receiver, Sender};
 use crate::{
     backends::Backend,
     file_view::model::BackendRef,
-    image::view::svg::render_svg,
+    image::svg::render::render_svg,
     render_thread::model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
 };
 

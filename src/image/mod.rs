@@ -21,6 +21,7 @@ pub mod animation;
 pub mod colors;
 pub mod draw;
 pub mod provider;
+pub mod svg;
 pub mod view;
 
 use animation::Animation;

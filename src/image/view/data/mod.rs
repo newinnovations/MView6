@@ -18,6 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod redraw;
+pub mod zoom;
 
 use cairo::{Filter, ImageSurface, Matrix};
 use glib::SourceId;
@@ -25,12 +26,12 @@ use gtk4::prelude::WidgetExt;
 
 use crate::{
     backends::thumbnail::model::Annotations,
-    image::{view::zoom::Zoom, Image},
+    image::Image,
     rect::{RectD, SizeD, VectorD},
     render_thread::{model::RenderCommand, RenderThreadSender},
 };
 
-use super::{ImageView, ZoomMode};
+use super::{ImageView, Zoom, ZoomMode};
 
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
 pub const QUALITY_LOW: Filter = Filter::Fast;
