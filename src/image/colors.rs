@@ -25,14 +25,38 @@ use cairo::Context;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
-    White,            // #ffffff
     Black,            // #000000
+    White,            // #ffffff
     Red,              // #ff0000
-    BlackBean,        // #331a1a
+    Lime,             // #00ff00
+    Blue,             // #0000ff
+    Yellow,           // #ffff00
+    Cyan,             // #00ffff
+    Magenta,          // #ff00ff
+    Maroon,           // #800000
+    Olive,            // #808000
+    Green,            // #008000
+    Purple,           // #800080
+    Teal,             // #008080
+    Navy,             // #000080
+    DimGray,          // #696969
+    Gainsboro,        // #dcdcdc
+    WhiteSmoke,       // #f5f5f5
+    AshGray,          // #b2beb5
+    BlueGray,         // #7393b3
+    Charcoal,         // #36454f
+    DarkGray,         // #a9a9a9
+    Glaucous,         // #6082b6
     Gray,             // #808080
-    Silver,           // #cccccc
-    RussianViolet,    // #330033
-    Citrine,          // #e6cc33
+    GunmetalGray,     // #818589
+    LightGray,        // #d3d3d3
+    Pewter,           // #899499
+    Platinum,         // #e5e4e2
+    SageGreen,        // #8a9a5b
+    Silver,           // #c0c0c0
+    SlateGray,        // #708090
+    Smoke,            // #848884
+    SteelGray,        // #71797e
     FolderBack,       // #1e3319
     FolderTitle,      // #94bc8a
     FolderMsg,        // #c0cebf
@@ -50,14 +74,38 @@ pub enum Color {
 impl Color {
     pub fn to_mview(self) -> MViewColor {
         match self {
-            Self::White => WHITE,
             Self::Black => BLACK,
+            Self::White => WHITE,
             Self::Red => RED,
-            Self::BlackBean => BLACK_BEAN,
+            Self::Lime => LIME,
+            Self::Blue => BLUE,
+            Self::Yellow => YELLOW,
+            Self::Cyan => CYAN,
+            Self::Magenta => MAGENTA,
+            Self::Maroon => MAROON,
+            Self::Olive => OLIVE,
+            Self::Green => GREEN,
+            Self::Purple => PURPLE,
+            Self::Teal => TEAL,
+            Self::Navy => NAVY,
+            Self::DimGray => DIM_GRAY,
+            Self::Gainsboro => GAINSBORO,
+            Self::WhiteSmoke => WHITE_SMOKE,
+            Self::AshGray => ASH_GRAY,
+            Self::BlueGray => BLUE_GRAY,
+            Self::Charcoal => CHARCOAL,
+            Self::DarkGray => DARK_GRAY,
+            Self::Glaucous => GLAUCOUS,
             Self::Gray => GRAY,
+            Self::GunmetalGray => GUNMETAL_GRAY,
+            Self::LightGray => LIGHT_GRAY,
+            Self::Pewter => PEWTER,
+            Self::Platinum => PLATINUM,
+            Self::SageGreen => SAGE_GREEN,
             Self::Silver => SILVER,
-            Self::RussianViolet => RUSSIAN_VIOLET,
-            Self::Citrine => CITRINE,
+            Self::SlateGray => SLATE_GRAY,
+            Self::Smoke => SMOKE,
+            Self::SteelGray => STEEL_GRAY,
             Self::FolderBack => FOLDER_BACK,
             Self::FolderTitle => FOLDER_TITLE,
             Self::FolderMsg => FOLDER_MSG,
@@ -102,45 +150,165 @@ impl MViewColor {
     }
 }
 
-const WHITE: MViewColor = MViewColor {
-    r: 0xff,
-    g: 0xff,
-    b: 0xff,
-};
 const BLACK: MViewColor = MViewColor {
     r: 0x00,
     g: 0x00,
     b: 0x00,
+};
+const WHITE: MViewColor = MViewColor {
+    r: 0xff,
+    g: 0xff,
+    b: 0xff,
 };
 const RED: MViewColor = MViewColor {
     r: 0xff,
     g: 0x00,
     b: 0x00,
 };
-const BLACK_BEAN: MViewColor = MViewColor {
-    r: 0x33,
-    g: 0x1a,
-    b: 0x1a,
+const LIME: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0xff,
+    b: 0x00,
+};
+const BLUE: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0x00,
+    b: 0xff,
+};
+const YELLOW: MViewColor = MViewColor {
+    r: 0xff,
+    g: 0xff,
+    b: 0x00,
+};
+const CYAN: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0xff,
+    b: 0xff,
+};
+const MAGENTA: MViewColor = MViewColor {
+    r: 0xff,
+    g: 0x00,
+    b: 0xff,
+};
+const MAROON: MViewColor = MViewColor {
+    r: 0x80,
+    g: 0x00,
+    b: 0x00,
+};
+const OLIVE: MViewColor = MViewColor {
+    r: 0x80,
+    g: 0x80,
+    b: 0x00,
+};
+const GREEN: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0x80,
+    b: 0x00,
+};
+const PURPLE: MViewColor = MViewColor {
+    r: 0x80,
+    g: 0x00,
+    b: 0x80,
+};
+const TEAL: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0x80,
+    b: 0x80,
+};
+const NAVY: MViewColor = MViewColor {
+    r: 0x00,
+    g: 0x00,
+    b: 0x80,
+};
+const DIM_GRAY: MViewColor = MViewColor {
+    r: 0x69,
+    g: 0x69,
+    b: 0x69,
+};
+const GAINSBORO: MViewColor = MViewColor {
+    r: 0xdc,
+    g: 0xdc,
+    b: 0xdc,
+};
+const WHITE_SMOKE: MViewColor = MViewColor {
+    r: 0xf5,
+    g: 0xf5,
+    b: 0xf5,
+};
+const ASH_GRAY: MViewColor = MViewColor {
+    r: 0xb2,
+    g: 0xbe,
+    b: 0xb5,
+};
+const BLUE_GRAY: MViewColor = MViewColor {
+    r: 0x73,
+    g: 0x93,
+    b: 0xb3,
+};
+const CHARCOAL: MViewColor = MViewColor {
+    r: 0x36,
+    g: 0x45,
+    b: 0x4f,
+};
+const DARK_GRAY: MViewColor = MViewColor {
+    r: 0xa9,
+    g: 0xa9,
+    b: 0xa9,
+};
+const GLAUCOUS: MViewColor = MViewColor {
+    r: 0x60,
+    g: 0x82,
+    b: 0xb6,
 };
 const GRAY: MViewColor = MViewColor {
     r: 0x80,
     g: 0x80,
     b: 0x80,
 };
+const GUNMETAL_GRAY: MViewColor = MViewColor {
+    r: 0x81,
+    g: 0x85,
+    b: 0x89,
+};
+const LIGHT_GRAY: MViewColor = MViewColor {
+    r: 0xd3,
+    g: 0xd3,
+    b: 0xd3,
+};
+const PEWTER: MViewColor = MViewColor {
+    r: 0x89,
+    g: 0x94,
+    b: 0x99,
+};
+const PLATINUM: MViewColor = MViewColor {
+    r: 0xe5,
+    g: 0xe4,
+    b: 0xe2,
+};
+const SAGE_GREEN: MViewColor = MViewColor {
+    r: 0x8a,
+    g: 0x9a,
+    b: 0x5b,
+};
 const SILVER: MViewColor = MViewColor {
-    r: 0xcc,
-    g: 0xcc,
-    b: 0xcc,
+    r: 0xc0,
+    g: 0xc0,
+    b: 0xc0,
 };
-const RUSSIAN_VIOLET: MViewColor = MViewColor {
-    r: 0x33,
-    g: 0x00,
-    b: 0x33,
+const SLATE_GRAY: MViewColor = MViewColor {
+    r: 0x70,
+    g: 0x80,
+    b: 0x90,
 };
-const CITRINE: MViewColor = MViewColor {
-    r: 0xe6,
-    g: 0xcc,
-    b: 0x33,
+const SMOKE: MViewColor = MViewColor {
+    r: 0x84,
+    g: 0x88,
+    b: 0x84,
+};
+const STEEL_GRAY: MViewColor = MViewColor {
+    r: 0x71,
+    g: 0x79,
+    b: 0x7e,
 };
 const FOLDER_BACK: MViewColor = MViewColor {
     r: 0x1e,

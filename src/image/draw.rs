@@ -24,13 +24,13 @@ use gtk4::gdk::pixbuf_get_from_surface;
 use crate::{
     backends::thumbnail::TMessage,
     error::{MviewError, MviewResult},
-    image::{svg::draw::draw_impl_svg, Image},
+    image::{svg::draw::svg_text_sheet, Image},
 };
 
 use super::colors::{CairoColorExt, Color};
 
 pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Image {
-    match draw_impl_svg(title, msg, colors) {
+    match svg_text_sheet(title, msg, colors) {
         Ok(image) => image,
         Err(e) => {
             println!("Failed to draw text: {e:?}");
@@ -42,7 +42,7 @@ pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Image
 pub fn draw_error(error: MviewError) -> Image {
     println!("{error:#?}");
     let msg = &format!("{error:?}");
-    match draw_impl_svg(
+    match svg_text_sheet(
         "error",
         msg,
         (Color::ErrorBack, Color::ErrorTitle, Color::ErrorMsg),

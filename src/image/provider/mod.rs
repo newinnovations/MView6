@@ -26,7 +26,7 @@ pub mod webp;
 use crate::{
     category::Category,
     error::MviewResult,
-    image::{view::data::TransparencyMode, Image},
+    image::{svg::draw::svg_hexdump, view::data::TransparencyMode, Image},
     profile::performance::Performance,
 };
 use exif::Exif;
@@ -59,13 +59,20 @@ impl ImageLoader {
             Err(_) => Category::Unsupported,
         };
 
+        let name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or_default();
         match cat {
-            Category::Folder | Category::Archive | Category::Document | Category::Unsupported => {
-                let name = path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or_default();
+            Category::Unsupported => {
+                if let Ok(image) = svg_hexdump(name, path) {
+                    return image;
+                } else {
+                    return draw_text(&cat.name(), name, cat.colors());
+                }
+            }
+            Category::Folder | Category::Archive | Category::Document => {
                 return draw_text(&cat.name(), name, cat.colors());
             }
             _ => (),

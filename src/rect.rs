@@ -58,12 +58,12 @@ where
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
-pub struct Vector<T> {
+pub struct VectorPoint<T> {
     x: T,
     y: T,
 }
 
-impl<T> Vector<T>
+impl<T> VectorPoint<T>
 where
     T: Default
         + Copy
@@ -85,7 +85,7 @@ where
     }
 
     /// Returns a new vector translated by the given offsets.
-    pub fn translate(&self, offset: Vector<T>) -> Self {
+    pub fn translate(&self, offset: VectorPoint<T>) -> Self {
         Self::new(self.x + offset.x(), self.y + offset.y())
     }
 
@@ -114,11 +114,11 @@ where
     }
 }
 
-impl<T> std::ops::Add for Vector<T>
+impl<T> std::ops::Add for VectorPoint<T>
 where
     T: Copy + std::ops::Add<Output = T>,
 {
-    type Output = Vector<T>;
+    type Output = VectorPoint<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::Output {
@@ -128,11 +128,21 @@ where
     }
 }
 
-impl<T> std::ops::Sub for Vector<T>
+impl<T> std::ops::AddAssign for VectorPoint<T>
+where
+    T: Copy + std::ops::Add<Output = T>,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.x = self.x + rhs.x;
+        self.y = self.y + rhs.y;
+    }
+}
+
+impl<T> std::ops::Sub for VectorPoint<T>
 where
     T: Copy + std::ops::Sub<Output = T>,
 {
-    type Output = Vector<T>;
+    type Output = VectorPoint<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Self::Output {
@@ -300,7 +310,7 @@ where
 
     /// Returns a new rectangle translated by the given offsets.
     /// Both corner points are moved by (xoff, yoff).
-    pub fn translate(&self, offset: Vector<T>) -> Self {
+    pub fn translate(&self, offset: VectorPoint<T>) -> Self {
         Self::new(
             self.x0 + offset.x(),
             self.y0 + offset.y(),
@@ -311,8 +321,8 @@ where
 
     pub fn rotate(&self, rotation: i32) -> Self {
         if self.is_valid() {
-            let tl = Vector::new(self.x0, self.y0).rotate(rotation);
-            let br = Vector::new(self.x1, self.y1).rotate(rotation);
+            let tl = VectorPoint::new(self.x0, self.y0).rotate(rotation);
+            let br = VectorPoint::new(self.x1, self.y1).rotate(rotation);
             Self::new(
                 if tl.x < br.x { tl.x } else { br.x },
                 if tl.y < br.y { tl.y } else { br.y },
@@ -435,9 +445,12 @@ pub type RectD = Rect<f64>;
 pub type SizeI = Size<i32>;
 pub type SizeF = Size<f32>;
 pub type SizeD = Size<f64>;
-pub type VectorI = Vector<i32>;
-pub type VectorF = Vector<f32>;
-pub type VectorD = Vector<f64>;
+pub type PointI = VectorPoint<i32>;
+pub type PointF = VectorPoint<f32>;
+pub type PointD = VectorPoint<f64>;
+pub type VectorI = VectorPoint<i32>;
+pub type VectorF = VectorPoint<f32>;
+pub type VectorD = VectorPoint<f64>;
 
 #[cfg(test)]
 mod tests {
