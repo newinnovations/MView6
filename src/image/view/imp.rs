@@ -29,7 +29,10 @@ use crate::{
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
-        view::{data::zoom::ZOOM_MULTIPLIER, RedrawReason, SIGNAL_CANVAS_RESIZED},
+        view::{
+            data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
+            RedrawReason, SIGNAL_CANVAS_RESIZED,
+        },
         Image, ImageData,
     },
     rect::RectD,
@@ -144,24 +147,36 @@ impl ImageViewImp {
         let _ = context.fill();
 
         if alpha {
-            if let Some(transparency_background) = &p.transparency_background {
-                // Create a checkerboard pattern
-                let pattern = SurfacePattern::create(transparency_background);
-                pattern.set_extend(Extend::Repeat);
-                let _ = context.set_source(&pattern);
-                // make the checkerboard one pixel smaller at every side to not extend the
-                // images in case of rounding errors
+            let transparency_mode = if p.image.transparency_mode == TransparencyMode::NotSpecified {
+                p.transparency_mode
+            } else {
+                p.image.transparency_mode
+            };
+
+            match transparency_mode {
+                TransparencyMode::White => context.color(Color::White),
+                TransparencyMode::Black => context.color(Color::Black),
+                _ => {
+                    if let Some(checkerboard) = &p.checkerboard {
+                        // Create a checkerboard pattern
+                        let pattern = SurfacePattern::create(checkerboard);
+                        pattern.set_extend(Extend::Repeat);
+                        let _ = context.set_source(&pattern);
+                    } else {
+                        context.color(Color::Black);
+                    }
+                }
             }
-        } else {
-            context.color(Color::White);
+            // make the transparency background one pixel smaller at every side to not extend the
+            // images in case of rounding errors
+            context.rectangle(
+                intersect.x0 + 1.0,
+                intersect.y0 + 1.0,
+                intersect.width() - 2.0,
+                intersect.height() - 2.0,
+            );
+            let _ = context.fill();
         }
-        context.rectangle(
-            intersect.x0 + 1.0,
-            intersect.y0 + 1.0,
-            intersect.width() - 2.0,
-            intersect.height() - 2.0,
-        );
-        let _ = context.fill();
 
         // Viewport offset is handled in the transformation matrix so drawing here happens
         // at the virtual origin (0.0, 0.0)
@@ -359,7 +374,7 @@ impl WidgetImpl for ImageViewImp {
         self.parent_realize();
 
         let mut p = self.data.borrow_mut();
-        p.transparency_background = transparency_background().ok();
+        p.checkerboard = transparency_background().ok();
 
         self.obj().set_draw_func(clone!(
             #[weak(rename_to = this)]

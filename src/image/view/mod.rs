@@ -37,7 +37,7 @@ use gtk4::{
 
 use crate::{
     backends::thumbnail::model::Annotations,
-    image::provider::surface::SurfaceData,
+    image::{provider::surface::SurfaceData, view::data::TransparencyMode},
     rect::{RectD, SizeD},
     window::imp::MViewWidgets,
 };
@@ -120,6 +120,12 @@ impl ImageView {
         p.zoom_mode = mode;
         p.apply_zoom();
         p.redraw(RedrawReason::ZoomSettingChanged);
+    }
+
+    pub fn set_transparency_mode(&self, mode: TransparencyMode) {
+        let mut p = self.imp().data.borrow_mut();
+        p.transparency_mode = mode;
+        p.redraw(RedrawReason::TransparencyBackgroundChanged);
     }
 
     pub fn zoom(&self) -> Zoom {

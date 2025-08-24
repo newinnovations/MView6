@@ -37,8 +37,10 @@ use std::{
 use view::ZoomMode;
 
 use crate::{
-    backends::document::PageMode, file_view::model::Reference,
-    image::provider::gdk::GdkImageLoader, rect::SizeD,
+    backends::document::PageMode,
+    file_view::model::Reference,
+    image::{provider::gdk::GdkImageLoader, view::data::TransparencyMode},
+    rect::SizeD,
 };
 
 static IMAGE_ID: AtomicU32 = AtomicU32::new(1);
@@ -123,6 +125,7 @@ pub struct Image {
     animation: Animation,
     pub exif: Option<Exif>,
     zoom_mode: ZoomMode,
+    transparency_mode: TransparencyMode,
     tag: Option<String>,
 }
 
@@ -135,6 +138,7 @@ impl Image {
             animation: Animation::None,
             exif,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
@@ -147,6 +151,7 @@ impl Image {
             animation: Animation::None,
             exif: None,
             zoom_mode: ZoomMode::NoZoom,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
@@ -159,6 +164,7 @@ impl Image {
             animation: Animation::None,
             exif,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
@@ -175,6 +181,7 @@ impl Image {
             animation: Animation::None,
             exif,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
@@ -191,6 +198,7 @@ impl Image {
             animation: Animation::None,
             exif,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
@@ -209,11 +217,17 @@ impl Image {
             animation,
             exif: None,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
         }
     }
 
-    pub fn new_svg(svg: Tree, tag: Option<String>, zoom_mode: ZoomMode) -> Self {
+    pub fn new_svg(
+        svg: Tree,
+        tag: Option<String>,
+        zoom_mode: ZoomMode,
+        transparency_mode: TransparencyMode,
+    ) -> Self {
         Image {
             id: get_image_id(),
             reference: Default::default(),
@@ -221,6 +235,7 @@ impl Image {
             animation: Animation::None,
             exif: None,
             zoom_mode,
+            transparency_mode,
             tag,
         }
     }
@@ -233,6 +248,7 @@ impl Image {
             animation: Animation::None,
             exif: None,
             zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::White,
             tag: None,
         }
     }
@@ -282,6 +298,10 @@ impl Image {
 
     pub fn zoom_mode(&self) -> ZoomMode {
         self.zoom_mode
+    }
+
+    pub fn transparency_mode(&self) -> TransparencyMode {
+        self.transparency_mode
     }
 
     pub fn is_movable(&self) -> bool {

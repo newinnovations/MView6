@@ -21,7 +21,11 @@ use resvg::usvg::{self, fontdb, Options, Tree};
 
 use crate::{
     error::MviewResult,
-    image::{colors::Color, view::ZoomMode, Image},
+    image::{
+        colors::Color,
+        view::{data::TransparencyMode, ZoomMode},
+        Image,
+    },
 };
 
 fn svg_options<'a>() -> Options<'a> {
@@ -41,7 +45,12 @@ fn svg_options<'a>() -> Options<'a> {
 
 pub fn draw_impl_svg(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Image> {
     let tree = draw_impl(title, msg, colors)?;
-    Ok(Image::new_svg(tree, None, ZoomMode::NotSpecified))
+    Ok(Image::new_svg(
+        tree,
+        None,
+        ZoomMode::NotSpecified,
+        TransparencyMode::Black,
+    ))
 }
 
 fn draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Tree> {

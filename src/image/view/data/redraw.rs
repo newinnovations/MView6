@@ -56,6 +56,7 @@ pub enum RedrawReason {
     InteractiveDrag = 7,
     InteractiveZoom = 8,
     ImagePost = 9,
+    TransparencyBackgroundChanged = 10,
 }
 
 impl RedrawReason {

@@ -36,6 +36,37 @@ use super::{ImageView, Zoom, ZoomMode};
 pub const QUALITY_HIGH: Filter = Filter::Bilinear;
 pub const QUALITY_LOW: Filter = Filter::Fast;
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransparencyMode {
+    #[default]
+    NotSpecified,
+    Checkerboard,
+    White,
+    Black,
+}
+
+impl From<&str> for TransparencyMode {
+    fn from(value: &str) -> Self {
+        match value {
+            "checkerboard" => Self::Checkerboard,
+            "white" => Self::White,
+            "black" => Self::Black,
+            _ => Self::NotSpecified,
+        }
+    }
+}
+
+impl From<TransparencyMode> for &str {
+    fn from(value: TransparencyMode) -> Self {
+        match value {
+            TransparencyMode::NotSpecified => "",
+            TransparencyMode::Checkerboard => "checkerboard",
+            TransparencyMode::White => "white",
+            TransparencyMode::Black => "black",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ZoomedImage {
     surface: ImageSurface,
@@ -81,7 +112,8 @@ pub struct ImageViewData {
     pub zoom: Zoom,
     pub zoom_mode: ZoomMode,
     pub zoom_overlay: Option<ZoomedImage>,
-    pub transparency_background: Option<ImageSurface>,
+    pub checkerboard: Option<ImageSurface>,
+    pub transparency_mode: TransparencyMode,
     pub view: Option<ImageView>,
     pub mouse_position: (f64, f64), // FIXME: change to VectorD
     pub drag: Option<(f64, f64)>,   // FIXME: change to VectorD
@@ -99,7 +131,8 @@ impl Default for ImageViewData {
             zoom: Zoom::default(),
             zoom_mode: ZoomMode::NotSpecified,
             zoom_overlay: None,
-            transparency_background: None,
+            checkerboard: None,
+            transparency_mode: TransparencyMode::Checkerboard,
             view: None,
             mouse_position: (0.0, 0.0),
             drag: None,

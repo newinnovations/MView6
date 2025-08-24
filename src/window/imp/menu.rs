@@ -36,6 +36,11 @@ impl MViewWindowImp {
         zoom_submenu.append(Some("Fill window"), Some("win.zoom::fill"));
         zoom_submenu.append(Some("Maximum zoom"), Some("win.zoom::max"));
 
+        let transparency_submenu = Menu::new();
+        transparency_submenu.append(Some("Checkerboard"), Some("win.transparency::checkerboard"));
+        transparency_submenu.append(Some("White"), Some("win.transparency::white"));
+        transparency_submenu.append(Some("Black"), Some("win.transparency::black"));
+
         let rotate_submenu = Menu::new();
         rotate_submenu.append(Some("90° Clockwise"), Some("win.rotate::270"));
         rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::90"));
@@ -74,6 +79,7 @@ impl MViewWindowImp {
         flag_section.append_submenu(Some("Thumbnails"), &thumbnail_submenu);
         flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
         flag_section.append_submenu(Some("Zoom"), &zoom_submenu);
+        flag_section.append_submenu(Some("Transparency"), &transparency_submenu);
         flag_section.append_submenu(Some("PDF"), &pdf_submenu);
         flag_section.append_submenu(Some("Panes"), &panes_submenu);
 
@@ -98,6 +104,12 @@ impl MViewWindowImp {
         self.add_action_bool(&action_group, "fullscreen", false, Self::toggle_fullscreen);
         self.add_action_int(&action_group, "rotate", 0, Self::rotate_image);
         self.add_action_string(&action_group, "zoom", "fill", Self::change_zoom);
+        self.add_action_string(
+            &action_group,
+            "transparency",
+            "checkerboard",
+            Self::change_transparency,
+        );
         self.add_action_string(&action_group, "page", "deo", Self::change_page_mode);
         self.add_action_string(&action_group, "pdf", "mupdf", Self::change_pdf_provider);
         self.add_action_bool(&action_group, "pane.files", true, Self::toggle_pane_files);

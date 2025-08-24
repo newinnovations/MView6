@@ -24,7 +24,10 @@ pub mod surface;
 pub mod webp;
 
 use crate::{
-    category::Category, error::MviewResult, image::Image, profile::performance::Performance,
+    category::Category,
+    error::MviewResult,
+    image::{view::data::TransparencyMode, Image},
+    profile::performance::Performance,
 };
 use exif::Exif;
 use gdk::GdkImageLoader;
@@ -75,7 +78,12 @@ impl ImageLoader {
         if is_svg {
             if let Ok(svg) = Self::read_svg(path) {
                 duration.elapsed("decode svg (file)");
-                return Image::new_svg(svg, None, ZoomMode::NotSpecified);
+                return Image::new_svg(
+                    svg,
+                    None,
+                    ZoomMode::NotSpecified,
+                    TransparencyMode::NotSpecified,
+                );
             }
         }
 
@@ -112,7 +120,12 @@ impl ImageLoader {
             let svg_options = usvg::Options::default();
             if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");
-                return Image::new_svg(tree, None, ZoomMode::NotSpecified);
+                return Image::new_svg(
+                    tree,
+                    None,
+                    ZoomMode::NotSpecified,
+                    TransparencyMode::NotSpecified,
+                );
             }
         }
 
@@ -141,7 +154,12 @@ impl ImageLoader {
     pub fn image_from_svg_data(buf: &[u8], tag: Option<String>) -> Option<Image> {
         let svg_options = usvg::Options::default();
         if let Ok(tree) = Tree::from_data(buf, &svg_options) {
-            Some(Image::new_svg(tree, tag, ZoomMode::Fill))
+            Some(Image::new_svg(
+                tree,
+                tag,
+                ZoomMode::Fill,
+                TransparencyMode::NotSpecified,
+            ))
         } else {
             None
         }

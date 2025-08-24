@@ -149,6 +149,12 @@ impl MViewWindowImp {
         w.image_view.set_zoom_mode(zoom.into());
     }
 
+    pub fn change_transparency(&self, transparency: &str) {
+        let w = self.widgets();
+        w.set_action_string("transparency", transparency);
+        w.image_view.set_transparency_mode(transparency.into());
+    }
+
     pub fn change_page_mode(&self, page_mode: &str) {
         dbg!(page_mode);
         self.widgets().set_action_string("page", page_mode);
