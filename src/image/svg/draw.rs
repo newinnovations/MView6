@@ -32,16 +32,35 @@ use crate::{
 
 fn svg_options<'a>() -> Options<'a> {
     let mut fontdb = fontdb::Database::new();
-    fontdb.load_system_fonts(); // This loads system fonts
-
-    // You can also load specific fonts:
-    // fontdb.load_font_file("path/to/font.ttf")?;
-
-    // Create usvg options with the font database
-
+    load_font_file(&mut fontdb, "LiberationSans-Regular.ttf");
+    load_font_file(&mut fontdb, "LiberationSans-Bold.ttf");
+    load_font_file(&mut fontdb, "CascadiaMono-Regular.ttf");
     Options::<'_> {
         fontdb: fontdb.into(),
         ..Default::default()
+    }
+}
+
+fn load_font_file(fontdb: &mut fontdb::Database, name: &str) {
+    let path = {
+        #[cfg(windows)]
+        {
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.to_path_buf()));
+            match exe_dir {
+                Some(exe_dir) => exe_dir.join(name),
+                None => {
+                    eprintln!("Failed to obtain directory of executable");
+                    return;
+                }
+            }
+        }
+        #[cfg(not(windows))]
+        Path::new("/usr/lib/mview6").join(name)
+    };
+    if fontdb.load_font_file(&path).is_err() {
+        eprintln!("Failed to load font {path:?}");
     }
 }
 

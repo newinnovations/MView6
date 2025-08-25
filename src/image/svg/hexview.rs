@@ -24,7 +24,7 @@ use crate::{
 };
 
 const BYTES_PER_LINE: usize = 16;
-const FONT_FAMILY: &str = "CaskaydiaCove Nerd Font Mono,monospace";
+const FONT_FAMILY: &str = "Cascadia Mono";
 const FONT_SIZE_TITLE: u32 = 24;
 const FONT_SIZE: u32 = 14;
 const WIDTH_ADDRESS: f64 = 6.5;

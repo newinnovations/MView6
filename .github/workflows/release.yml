@@ -33,7 +33,7 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           sed -i "s/^version =.*$/version = \"${version}\"/" Cargo.toml
 
-      - name: Install Ubuntu dependencies enviroment for MView6
+      - name: Install Ubuntu dependencies environment for MView6
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -44,7 +44,7 @@ jobs:
           mkdir -p tools/linux/debian/usr/lib/mview6
           mv libpdfium.so tools/linux/debian/usr/lib/mview6/.
 
-      - name: Install Windows build enviroment for MView6
+      - name: Install Windows build environment for MView6
         if: runner.os == 'Windows'
         run: |
           $WebClient = New-Object System.Net.WebClient
@@ -81,6 +81,7 @@ jobs:
           mkdir -p dist .debpkg/usr/bin
           cp target/release/MView6 .debpkg/usr/bin/mview6
           cp -rv tools/linux/debian/* .debpkg/.
+          cp resources/fonts/*.ttf .debpkg/usr/lib/mview6/.
           chmod +x .debpkg/DEBIAN/* .debpkg/usr/bin/*
 
       - name: Create .deb package
@@ -106,7 +107,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p mview6-windows/bin mview6-windows/lib mview6-windows/share/glib-2.0
-          cp target/release/MView6.exe mview6-windows/bin/.
+          cp target/release/MView6.exe resources/fonts/*.ttf mview6-windows/bin/.
           cp /c/pdfium.dll mview6-windows/bin/.
           cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
           cp -r /c/gtk-build/gtk/x64/release/share/glib-2.0/schemas mview6-windows/share/glib-2.0/.

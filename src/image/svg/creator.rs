@@ -297,7 +297,7 @@ impl SvgCanvas {
     /// Add a title text with predefined styling
     pub fn add_title(&mut self, position: PointD, text: &str, color: Color) -> &mut Self {
         let style = TextStyle::new()
-            .font_family("Ubuntu")
+            .font_family("Liberation Sans")
             .font_size(85)
             .font_weight(FontWeight::Bold)
             .fill(color)
