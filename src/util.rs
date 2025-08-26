@@ -17,11 +17,27 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::path::Path;
+
 use glib::{ffi::g_source_remove, result_from_gboolean, BoolError, SourceId};
 
 /// Safer alternative to SourceId::remove()
 pub fn remove_source_id(id: &SourceId) -> Result<(), BoolError> {
     unsafe { result_from_gboolean!(g_source_remove(id.as_raw()), "Failed to remove source") }
+}
+
+pub fn path_to_filename(path: &Path) -> String {
+    path.file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+}
+
+pub fn path_to_directory(path: &Path) -> String {
+    match path.parent() {
+        Some(path) => path.to_string_lossy().to_string(),
+        None => Default::default(),
+    }
 }
 
 // pub fn has_changed_by_percentage(original: f64, new: f64, threshold_percent: f64) -> bool {

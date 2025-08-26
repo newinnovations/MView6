@@ -452,6 +452,7 @@ fn escape_xml(input: &str) -> String {
             '&' => result.push_str("&amp;"),
             '"' => result.push_str("&quot;"),
             '\'' => result.push_str("&#39;"),
+            ' ' => result.push('\u{00A0}'),
             _ => result.push(c),
         }
     }
@@ -477,7 +478,7 @@ mod tests {
         );
 
         let svg = canvas.render();
-        assert!(svg.contains("Hello World"));
+        assert!(svg.contains("Hello\u{00A0}World"));
         assert!(svg.contains("width=\"400\""));
     }
 }

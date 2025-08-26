@@ -26,6 +26,7 @@ use crate::{
         Cursor, Direction,
     },
     image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
+    util::path_to_filename,
 };
 use image::DynamicImage;
 use regex::Regex;
@@ -56,11 +57,7 @@ impl FileSystem {
         for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
-            let filename = path
-                .file_name()
-                .unwrap_or_default()
-                .to_str()
-                .unwrap_or_default();
+            let filename = path_to_filename(&path);
 
             if filename.starts_with('.') {
                 continue;
@@ -150,13 +147,10 @@ impl Backend for FileSystem {
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.directory.parent() {
-            let my_name = self
-                .directory
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            Some((Box::new(FileSystem::new(parent)), Target::Name(my_name)))
+            Some((
+                Box::new(FileSystem::new(parent)),
+                Target::Name(path_to_filename(&self.directory)),
+            ))
         } else {
             None
         }

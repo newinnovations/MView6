@@ -30,6 +30,7 @@ use crate::{
     backends::{Backend, ImageParams},
     category::Category,
     file_view::{Direction, Filter, Target},
+    util::path_to_filename,
     window::imp::TargetTime,
 };
 use glib::subclass::types::ObjectSubclassExt;
@@ -108,17 +109,13 @@ impl MViewWindowImp {
 
     pub fn navigate_to(&self, path: &Path) {
         println!("navigate_to {}", path.display());
-        let filename = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+        let filename = path_to_filename(path);
         let directory = path.parent().unwrap_or_else(|| Path::new(""));
         let category = Category::determine(path, path.is_dir());
-        dbg!(filename, directory, category);
+        dbg!(&filename, directory, category);
         let new_backend = <dyn Backend>::new(directory);
         self.open_container.set(category.is_container());
-        self.set_backend(new_backend, &Target::Name(filename.to_string()));
+        self.set_backend(new_backend, &Target::Name(filename));
     }
 
     pub fn hop(&self, direction: Direction) {

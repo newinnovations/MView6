@@ -150,6 +150,19 @@ impl Category {
         .into()
     }
 
+    pub fn short(&self) -> String {
+        match self {
+            Category::Folder => "dir",
+            Category::Favorite => "fav",
+            Category::Image => "img",
+            Category::Archive => "arc",
+            Category::Document => "doc",
+            Category::Trash => "del",
+            Category::Unsupported => "---",
+        }
+        .into()
+    }
+
     pub fn is_container(&self) -> bool {
         matches!(
             self,

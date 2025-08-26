@@ -25,7 +25,7 @@ use crate::{
         model::{BackendRef, ItemRef, Row},
         Cursor,
     },
-    image::draw::draw_text,
+    image::provider::ImageLoader,
 };
 use std::{
     cell::RefCell,
@@ -111,14 +111,14 @@ impl Backend for Bookmarks {
     }
 
     fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
-        let folder = item.str();
-        let folder_lower = folder.to_lowercase();
-        let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
-            Category::Archive
-        } else {
-            Category::Folder
-        };
-        draw_text(&cat.name(), folder, cat.colors())
+        let path = Path::new(item.str());
+        ImageLoader::image_from_file(path)
+        // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
+        //     Category::Archive
+        // } else {
+        //     Category::Folder
+        // };
+        // draw_text(&cat.name(), folder, cat.colors())
     }
 
     fn backend_ref(&self) -> BackendRef {

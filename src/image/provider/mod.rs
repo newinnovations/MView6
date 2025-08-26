@@ -24,10 +24,16 @@ pub mod surface;
 pub mod webp;
 
 use crate::{
+    backends::Backend,
     category::Category,
     error::MviewResult,
-    image::{svg::draw::svg_hexdump, view::data::TransparencyMode, Image},
+    image::{
+        svg::draw::{svg_directory_list, svg_hexdump},
+        view::data::TransparencyMode,
+        Image,
+    },
     profile::performance::Performance,
+    util::path_to_filename,
 };
 use exif::Exif;
 use gdk::GdkImageLoader;
@@ -59,21 +65,26 @@ impl ImageLoader {
             Err(_) => Category::Unsupported,
         };
 
-        let name = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+        let name = path_to_filename(path);
         match cat {
             Category::Unsupported => {
-                if let Ok(image) = svg_hexdump(name, path) {
+                if let Ok(image) = svg_hexdump(path) {
                     return image;
                 } else {
-                    return draw_text(&cat.name(), name, cat.colors());
+                    return draw_text(&cat.name(), &name, cat.colors());
                 }
             }
-            Category::Folder | Category::Archive | Category::Document => {
-                return draw_text(&cat.name(), name, cat.colors());
+            Category::Folder | Category::Archive => {
+                let backend = <dyn Backend>::new(path);
+                let store = backend.store();
+                if let Ok(image) = svg_directory_list(path, store) {
+                    return image;
+                } else {
+                    return draw_text(&cat.name(), &name, cat.colors());
+                }
+            }
+            Category::Document => {
+                return draw_text(&cat.name(), &name, cat.colors());
             }
             _ => (),
         };

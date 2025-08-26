@@ -23,6 +23,7 @@ use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeVi
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
     file_view::{Column, Sort, Target},
+    util::path_to_filename,
 };
 
 use super::MViewWindowImp;
@@ -71,12 +72,7 @@ impl MViewWindowImp {
         ));
 
         // TODO: think about title management
-        let path = new_backend.path();
-        let filename = path
-            .file_name()
-            .unwrap_or_default()
-            .to_str()
-            .unwrap_or_default();
+        let filename = path_to_filename(&new_backend.path());
         if new_backend.is_doc() {
             self.obj().set_title(Some(&format!(
                 "{filename} ({}) - MView6",

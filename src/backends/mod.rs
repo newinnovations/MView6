@@ -42,6 +42,7 @@ use crate::{
     },
     image::{provider::surface::SurfaceData, view::Zoom, Image},
     rect::RectD,
+    util::path_to_filename,
 };
 
 mod archive_mar;
@@ -69,13 +70,10 @@ pub trait Backend {
     }
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.path().parent() {
-            let my_name = self
-                .path()
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
-            Some((Box::new(FileSystem::new(parent)), Target::Name(my_name)))
+            Some((
+                Box::new(FileSystem::new(parent)),
+                Target::Name(path_to_filename(&self.path())),
+            ))
         } else {
             None
         }

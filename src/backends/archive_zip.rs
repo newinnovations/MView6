@@ -40,6 +40,7 @@ use crate::{
         provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
     },
     profile::performance::Performance,
+    util::path_to_filename,
 };
 
 use super::Backend;
@@ -176,15 +177,9 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        let name = outpath
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
-
         let row = Row {
             category: cat.id(),
-            name,
+            name: path_to_filename(&outpath),
             size: file_size,
             modified,
             index,
