@@ -50,7 +50,7 @@ impl HexdumpViewer {
             sheet
                 .base_style()
                 .font_family("Liberation Sans")
-                .fill(Color::FolderTitle),
+                .color(Color::FolderTitle),
         );
         sheet.delta_y(0.5);
         sheet.add_line(
@@ -58,7 +58,7 @@ impl HexdumpViewer {
             sheet
                 .base_style()
                 .font_size(FONT_SIZE_TITLE)
-                .fill(Color::Yellow)
+                .color(Color::Yellow)
                 .font_weight(FontWeight::Bold),
         );
         sheet.delta_y(0.8);
@@ -92,7 +92,7 @@ impl HexdumpViewer {
         for (i, &byte) in line_data.iter().enumerate() {
             self.sheet.add_fragment(
                 &format!("{:02x}", byte),
-                self.sheet.base_style().fill(Color::White),
+                self.sheet.base_style().color(Color::White),
             );
             self.sheet.delta_x(WIDTH_HEX);
             if i % 8 == 7 {
@@ -130,7 +130,7 @@ impl HexdumpViewer {
                 }
             })
             .collect();
-        sheet.add_fragment(&ascii_string, sheet.base_style().fill(Color::Cyan));
+        sheet.add_fragment(&ascii_string, sheet.base_style().color(Color::Cyan));
     }
 
     fn split_bytes(data: &[u8]) -> (&[u8], &[u8]) {

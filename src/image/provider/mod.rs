@@ -26,14 +26,15 @@ pub mod webp;
 use crate::{
     backends::Backend,
     category::Category,
+    config::config,
     error::MviewResult,
     image::{
-        svg::draw::{svg_directory_list, svg_hexdump},
+        svg::draw::{svg_directory_list, svg_hexdump, svg_highlight},
         view::data::TransparencyMode,
         Image,
     },
     profile::performance::Performance,
-    util::path_to_filename,
+    util::{path_to_extension, path_to_filename},
 };
 use exif::Exif;
 use gdk::GdkImageLoader;
@@ -68,7 +69,13 @@ impl ImageLoader {
         let name = path_to_filename(path);
         match cat {
             Category::Unsupported => {
-                if let Ok(image) = svg_hexdump(path) {
+                let syntax = config()
+                    .ps
+                    .find_syntax_by_extension(&path_to_extension(path));
+                if let Ok(image) = match syntax {
+                    Some(syntax) => svg_highlight(path, syntax),
+                    None => svg_hexdump(path),
+                } {
                     return image;
                 } else {
                     return draw_text(&cat.name(), &name, cat.colors());

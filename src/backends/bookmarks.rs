@@ -54,7 +54,7 @@ impl Bookmarks {
     fn read_bookmarks() -> io::Result<Vec<Row>> {
         let mut result = Vec::new();
         let config = config();
-        for entry in &config.bookmarks {
+        for entry in &config.config_file.bookmarks {
             let metadata = match fs::metadata(&entry.folder) {
                 Ok(m) => m,
                 Err(e) => {

@@ -18,8 +18,10 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::{
-    image::colors::Color,
-    image::svg::creator::{SvgCanvas, TextAnchor, TextStyle},
+    image::{
+        colors::{Color, MViewColor},
+        svg::creator::{SvgCanvas, TextAnchor, TextStyle},
+    },
     rect::PointD,
 };
 
@@ -38,7 +40,7 @@ impl TextSheet {
             style: TextStyle::new()
                 .font_family(FONT_FAMILY)
                 .font_size(font_size)
-                .fill(Color::DarkGray)
+                .color(Color::DarkGray)
                 .anchor(TextAnchor::Start),
             pos: PointD::new(30.0, 10.0),
         }
@@ -50,11 +52,15 @@ impl TextSheet {
 
     pub fn add_line(&mut self, line: &str, style: TextStyle) {
         self.pos += self.style.delta_y(1.5);
-        Self::show_text(&mut self.canvas, self.pos, line, style);
+        self.canvas.add_text(self.pos, line, style);
     }
 
     pub fn add_fragment(&mut self, fragment: &str, style: TextStyle) {
-        Self::show_text(&mut self.canvas, self.pos, fragment, style);
+        self.canvas.add_text(self.pos, fragment, style);
+    }
+
+    pub fn add_mulit_color_fragment(&mut self, spans: Vec<(&str, MViewColor)>, style: TextStyle) {
+        self.canvas.add_multicolor_text(self.pos, spans, style);
     }
 
     pub fn delta_x(&mut self, delta: f64) {
@@ -73,12 +79,11 @@ impl TextSheet {
         self.pos = pos;
     }
 
-    fn show_text(canvas: &mut SvgCanvas, pos: PointD, text: &str, style: TextStyle) {
-        canvas.add_text(pos, text, style);
-    }
-
     pub fn finish(mut self) -> SvgCanvas {
-        self.canvas.add_watermark(PointD::new(780.0, 780.0));
+        self.canvas.add_watermark(PointD::new(
+            self.canvas.width() as f64 - 20.0,
+            self.canvas.height() as f64 - 20.0,
+        ));
         self.canvas
     }
 }

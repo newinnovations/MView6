@@ -21,6 +21,7 @@ use chrono::{offset::LocalResult, Local, TimeZone};
 use human_bytes::human_bytes;
 use resvg::usvg::{fontdb, Options, Tree};
 use std::{fs::File, io::Read, path::Path};
+use syntect::parsing::SyntaxReference;
 
 use crate::{
     category::Category,
@@ -31,12 +32,13 @@ use crate::{
         svg::{
             creator::{FontWeight, SvgCanvas},
             hexview::HexdumpViewer,
+            highlight::TextHighLighter,
             text_sheet::TextSheet,
         },
         view::{data::TransparencyMode, ZoomMode},
         Image,
     },
-    util::{path_to_directory, path_to_filename},
+    util::{path_to_directory, path_to_filename, read_lines_with_limits},
 };
 
 const FONT_SIZE_TITLE: u32 = 24;
@@ -103,6 +105,20 @@ pub fn svg_hexdump(path: &Path) -> MviewResult<Image> {
     ))
 }
 
+pub fn svg_highlight(path: &Path, syntax: &SyntaxReference) -> MviewResult<Image> {
+    let lines = read_lines_with_limits(path, Some(1000), Some(16384))?;
+    let mut hexview = TextHighLighter::new(path, syntax);
+    hexview.draw(&lines);
+    let svg_content = hexview.finish().render();
+    let tree = Tree::from_str(&svg_content, &svg_options())?;
+    Ok(Image::new_svg(
+        tree,
+        None,
+        ZoomMode::NotSpecified,
+        TransparencyMode::Black,
+    ))
+}
+
 pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
     let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
     sheet.add_line(
@@ -110,7 +126,7 @@ pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
         sheet
             .base_style()
             .font_family("Liberation Sans")
-            .fill(Color::FolderTitle),
+            .color(Color::FolderTitle),
     );
     sheet.delta_y(0.5);
     sheet.add_line(
@@ -118,7 +134,7 @@ pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
         sheet
             .base_style()
             .font_size(FONT_SIZE_TITLE)
-            .fill(Color::Yellow)
+            .color(Color::Yellow)
             .font_weight(FontWeight::Bold),
     );
     sheet.delta_y(0.8);
@@ -144,7 +160,7 @@ pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
             "{cat_text} {modified_text:<19} {size_text:>10} {}",
             row.name
         );
-        sheet.add_line(&line, sheet.base_style().fill(colors.1));
+        sheet.add_line(&line, sheet.base_style().color(colors.1));
     }
     let svg_content = sheet.finish().render();
     let tree = Tree::from_str(&svg_content, &svg_options())?;

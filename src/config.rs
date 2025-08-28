@@ -28,6 +28,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use syntect::{highlighting::ThemeSet, parsing::SyntaxSet};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Bookmark {
@@ -36,17 +37,24 @@ pub struct Bookmark {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Config {
+pub struct ConfigFile {
     pub bookmarks: Vec<Bookmark>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contrast: Option<i32>,
+}
+
+#[derive(Debug)]
+pub struct Config {
+    pub config_file: ConfigFile,
+    pub ps: SyntaxSet,
+    pub ts: ThemeSet,
 }
 
 fn pathbuf_to_string(pathbuf: &Path) -> String {
     pathbuf.to_str().unwrap_or_default().to_string()
 }
 
-impl Config {
+impl ConfigFile {
     fn config_dir() -> PathBuf {
         let mut dir = dirs::config_dir().unwrap_or_default();
         dir.push("mview6");
@@ -67,7 +75,7 @@ impl Config {
     }
 }
 
-impl Default for Config {
+impl Default for ConfigFile {
     fn default() -> Self {
         let mut bookmarks = Vec::<Bookmark>::new();
 
@@ -115,17 +123,21 @@ impl Default for Config {
     }
 }
 
-fn read_config() -> Result<Config> {
-    println!("Config file location {:?}", Config::config_file());
-    let file = File::open(Config::config_file())?;
-    let config: Config = serde_json::from_reader(file)?;
+fn read_config() -> Result<ConfigFile> {
+    println!("Config file location {:?}", ConfigFile::config_file());
+    let file = File::open(ConfigFile::config_file())?;
+    let config: ConfigFile = serde_json::from_reader(file)?;
     // println!("deserialized = {:?}", config);
     Ok(config)
 }
 
 pub fn config<'a>() -> &'a Config {
     static CONFIG: OnceLock<Config> = OnceLock::new();
-    CONFIG.get_or_init(|| read_config().unwrap_or_default())
+    CONFIG.get_or_init(|| Config {
+        config_file: read_config().unwrap_or_default(),
+        ps: SyntaxSet::load_defaults_nonewlines(),
+        ts: ThemeSet::load_defaults(),
+    })
 }
 
 static CONTRAST: AtomicI32 = AtomicI32::new(0);
@@ -136,7 +148,7 @@ pub fn contrast_delta(delta: i32) {
 
 pub fn contrast() -> u8 {
     let mut contrast = CONTRAST.load(Ordering::Relaxed);
-    if let Some(initial) = config().contrast {
+    if let Some(initial) = config().config_file.contrast {
         contrast += initial;
     }
     contrast as u8

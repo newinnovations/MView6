@@ -20,5 +20,6 @@
 pub mod creator;
 pub mod draw;
 pub mod hexview;
+pub mod highlight;
 pub mod render;
 pub mod text_sheet;

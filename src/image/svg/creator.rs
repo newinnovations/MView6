@@ -20,7 +20,7 @@
 #![allow(dead_code)]
 
 use crate::{
-    image::colors::Color,
+    image::colors::{Color, MViewColor},
     rect::{PointD, VectorD},
 };
 
@@ -64,7 +64,7 @@ pub struct TextStyle {
     pub font_family: String,
     pub font_size: u32,
     pub font_weight: FontWeight,
-    pub fill: Color,
+    pub fill_hex: String,
     pub anchor: TextAnchor,
 }
 
@@ -74,7 +74,7 @@ impl Default for TextStyle {
             font_family: "Arial".to_string(),
             font_size: 16,
             font_weight: FontWeight::Normal,
-            fill: Color::Black,
+            fill_hex: Color::Black.to_hex(),
             anchor: TextAnchor::Start,
         }
     }
@@ -100,8 +100,13 @@ impl TextStyle {
         self
     }
 
-    pub fn fill(mut self, color: Color) -> Self {
-        self.fill = color;
+    pub fn color(mut self, color: Color) -> Self {
+        self.fill_hex = color.to_hex();
+        self
+    }
+
+    pub fn color_hex(mut self, color_hex: String) -> Self {
+        self.fill_hex = color_hex;
         self
     }
 
@@ -211,7 +216,7 @@ enum SvgElement {
     },
     MultiColorText {
         position: PointD,
-        spans: Vec<(String, Color)>,
+        spans: Vec<(String, MViewColor)>,
         style: TextStyle,
     },
 }
@@ -233,6 +238,14 @@ impl SvgCanvas {
             background: Color::White,
             elements: Vec::new(),
         }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     /// Set the background color of the canvas
@@ -278,10 +291,10 @@ impl SvgCanvas {
     pub fn add_multicolor_text(
         &mut self,
         position: PointD,
-        spans: Vec<(&str, Color)>,
+        spans: Vec<(&str, MViewColor)>,
         style: TextStyle,
     ) -> &mut Self {
-        let escaped_spans: Vec<(String, Color)> = spans
+        let escaped_spans: Vec<(String, MViewColor)> = spans
             .into_iter()
             .map(|(text, color)| (escape_xml(text), color))
             .collect();
@@ -300,7 +313,7 @@ impl SvgCanvas {
             .font_family("Liberation Sans")
             .font_size(85)
             .font_weight(FontWeight::Bold)
-            .fill(color)
+            .color(color)
             .anchor(TextAnchor::Middle);
 
         self.add_text(position, text, style);
@@ -312,7 +325,7 @@ impl SvgCanvas {
         let style = TextStyle::new()
             .font_family("Liberation Sans")
             .font_size(70)
-            .fill(color)
+            .color(color)
             .anchor(TextAnchor::Middle);
 
         self.add_text(position, text, style);
@@ -327,7 +340,7 @@ impl SvgCanvas {
             .font_weight(FontWeight::Bold)
             .anchor(TextAnchor::End);
 
-        let spans = vec![("M", Color::Red), ("View6", Color::White)];
+        let spans = vec![("M", Color::Red.into()), ("View6", Color::White.into())];
         self.add_multicolor_text(position, spans, style);
         self
     }
@@ -355,7 +368,7 @@ impl SvgCanvas {
                     svg.push_str(&format!(
                         r#"<text x="{}" y="{}" text-anchor="{}" font-family="{}" font-size="{}" font-weight="{}" fill="{}">{}</text>"#,
                         position.x(), position.y(), style.anchor.to_svg(), style.font_family,
-                        style.font_size, style.font_weight.to_svg(), style.fill.to_hex(), content
+                        style.font_size, style.font_weight.to_svg(), style.fill_hex, content
                     ));
                 }
                 SvgElement::Line { start, end, style } => {
@@ -473,7 +486,7 @@ mod tests {
             "Hello World",
             TextStyle::new()
                 .font_size(24)
-                .fill(Color::White)
+                .color(Color::White)
                 .anchor(TextAnchor::Middle),
         );
 

@@ -17,9 +17,15 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::Path;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 use glib::{ffi::g_source_remove, result_from_gboolean, BoolError, SourceId};
+
+use crate::error::MviewResult;
 
 /// Safer alternative to SourceId::remove()
 pub fn remove_source_id(id: &SourceId) -> Result<(), BoolError> {
@@ -38,6 +44,48 @@ pub fn path_to_directory(path: &Path) -> String {
         Some(path) => path.to_string_lossy().to_string(),
         None => Default::default(),
     }
+}
+
+pub fn path_to_extension(path: &Path) -> String {
+    path.extension()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_lowercase()
+}
+
+pub fn read_lines_with_limits<P: AsRef<Path>>(
+    path: P,
+    max_lines: Option<usize>,
+    max_bytes: Option<usize>,
+) -> MviewResult<Vec<String>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let mut lines = Vec::new();
+    let mut total_bytes = 0;
+
+    for line in reader.lines() {
+        let line = line?;
+        let line_bytes = line.len() + 1; // +1 for newline character
+
+        // Check byte limit
+        if let Some(max_bytes) = max_bytes {
+            if total_bytes + line_bytes > max_bytes {
+                break;
+            }
+        }
+
+        // Check line limit
+        if let Some(max_lines) = max_lines {
+            if lines.len() >= max_lines {
+                break;
+            }
+        }
+
+        total_bytes += line_bytes;
+        lines.push(line);
+    }
+
+    Ok(lines)
 }
 
 // pub fn has_changed_by_percentage(original: f64, new: f64, threshold_percent: f64) -> bool {
