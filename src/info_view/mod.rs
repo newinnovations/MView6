@@ -23,7 +23,7 @@ use convert_case::{Case, Casing};
 use exif::In;
 use gtk4::{glib, prelude::TreeViewExt, ListStore};
 
-use crate::image::Image;
+use crate::content::Content;
 
 glib::wrapper! {
 pub struct InfoView(ObjectSubclass<imp::InfoViewImp>)
@@ -65,7 +65,7 @@ fn insert(store: &ListStore, key: &str, value: &str) {
 }
 
 impl InfoView {
-    pub fn update(&self, image: &Image) {
+    pub fn update(&self, image: &Content) {
         let store = Columns::store();
 
         let size = image.size();

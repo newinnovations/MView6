@@ -23,23 +23,24 @@ use gtk4::gdk::pixbuf_get_from_surface;
 
 use crate::{
     backends::thumbnail::TMessage,
+    content::Content,
     error::{MviewError, MviewResult},
-    image::{svg::draw::svg_text_sheet, Image},
+    image::svg::draw::svg_text_sheet,
 };
 
 use super::colors::{CairoColorExt, Color};
 
-pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Image {
+pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Content {
     match svg_text_sheet(title, msg, colors) {
         Ok(image) => image,
         Err(e) => {
             println!("Failed to draw text: {e:?}");
-            Image::default()
+            Content::default()
         }
     }
 }
 
-pub fn draw_error(error: MviewError) -> Image {
+pub fn draw_error(error: MviewError) -> Content {
     println!("{error:#?}");
     let msg = &format!("{error:?}");
     match svg_text_sheet(
@@ -50,12 +51,12 @@ pub fn draw_error(error: MviewError) -> Image {
         Ok(image) => image,
         Err(e) => {
             println!("Failed to draw text: {e:?}");
-            Image::default()
+            Content::default()
         }
     }
 }
 
-fn _draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Image> {
+fn _draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Content> {
     let (_color_back, color_title, color_msg) = colors;
     let surface = ImageSurface::create(Format::ARgb32, 600, 600)?;
     let context = Context::new(&surface)?;
@@ -94,10 +95,10 @@ fn _draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewRes
 
     logo(&context, 595, 598, 25.0, true)?;
 
-    Ok(Image::new_surface_nozoom(surface))
+    Ok(Content::new_surface_nozoom(surface))
 }
 
-pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Image> {
+pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Content> {
     let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width, height)?;
     let context = Context::new(&surface)?;
     context.color(Color::Black);
@@ -126,7 +127,7 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
         logo(&context, width - margin, height - margin, 30.0, true)?;
     }
 
-    Ok(Image::new_surface_nozoom(surface))
+    Ok(Content::new_surface_nozoom(surface))
 }
 
 fn logo(context: &Context, x_right: i32, y: i32, size: f64, draw: bool) -> MviewResult<f64> {

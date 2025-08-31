@@ -25,7 +25,7 @@ use std::{
 
 use image::DynamicImage;
 
-use crate::{config::contrast, error::MviewResult, image::Image};
+use crate::{config::contrast, content::Content, error::MviewResult};
 
 use super::{gdk::GdkImageLoader, image_rs::RsImageLoader};
 
@@ -213,7 +213,7 @@ impl InternalImageLoader {
         }
     }
 
-    pub fn image_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<Image> {
+    pub fn image_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<Content> {
         let image = InternalImage::new(reader, false)?;
         let mut mem_reader = Cursor::new(image.data());
         let res = GdkImageLoader::image_from_reader(&mut mem_reader);

@@ -25,11 +25,11 @@ use std::{
 };
 
 use crate::{
+    content::Content,
     error::MviewResult,
     image::{
         animation::Animation,
         provider::{surface::convert_rgba_pixel, ExifReader},
-        Image,
     },
     profile::performance::Performance,
 };
@@ -44,7 +44,7 @@ use gtk4::prelude::{PixbufAnimationExt, PixbufAnimationExtManual, PixbufLoaderEx
 pub struct GdkImageLoader {}
 
 impl GdkImageLoader {
-    pub fn image_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<Image> {
+    pub fn image_from_reader<T: BufRead + Seek>(reader: &mut T) -> MviewResult<Content> {
         let mut buf = [0u8; 65536];
         let loader = PixbufLoader::new();
         loop {
@@ -58,10 +58,10 @@ impl GdkImageLoader {
         loader.close()?;
         if let Some(animation) = loader.animation() {
             if animation.is_static_image() {
-                Ok(Image::new_pixbuf(animation.static_image(), reader.exif()))
+                Ok(Content::new_pixbuf(animation.static_image(), reader.exif()))
             } else {
                 let iter = animation.iter(Some(SystemTime::now()));
-                Ok(Image::new_animation(Animation::Gdk(iter)))
+                Ok(Content::new_animation(Animation::Gdk(iter)))
             }
         } else {
             Err("No image data".into())

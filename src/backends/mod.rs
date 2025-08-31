@@ -36,12 +36,12 @@ use crate::{
         document::{mupdf::DocMuPdf, pdf_engine, pdfium::DocPdfium, PageMode, PdfEngine},
         thumbnail::model::TParent,
     },
-    content::{Content, ContentData},
+    content::Content,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
         Column, Cursor, Direction, Target,
     },
-    image::{provider::surface::SurfaceData, view::Zoom, Image},
+    image::{provider::surface::SurfaceData, view::Zoom},
     rect::RectD,
     util::path_to_filename,
 };
@@ -87,20 +87,21 @@ pub trait Backend {
         None
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Image;
+    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content;
     fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
 
-    fn content(&self, item: &ItemRef) -> Content {
-        Content {
-            reference: Reference {
-                backend: self.backend_ref(),
-                item: item.clone(),
-            },
-            data: ContentData::Reference,
-        }
-    }
+    // fn content(&self, item: &ItemRef, params: &ImageParams) -> Content2 {
+    //     let image = self.image(item, params);
+    //     Content2::new(
+    //         Reference {
+    //             backend: self.backend_ref(),
+    //             item: item.clone(),
+    //         },
+    //         ContentData::Image(image),
+    //     )
+    // }
 
     // fn image_zoom(
     //     &self,

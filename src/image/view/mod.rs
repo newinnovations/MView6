@@ -37,12 +37,12 @@ use gtk4::{
 
 use crate::{
     backends::thumbnail::model::Annotations,
+    content::Content,
     image::{provider::surface::SurfaceData, view::data::TransparencyMode},
     rect::{RectD, SizeD},
     window::imp::MViewWidgets,
 };
 
-use super::Image;
 pub use data::redraw::RedrawReason;
 pub use data::zoom::{Zoom, ZoomMode};
 pub use data::QUALITY_HIGH;
@@ -80,15 +80,15 @@ impl ImageView {
         p.rb_sender = Some(widgets.rt_sender.clone());
     }
 
-    pub fn set_image(&self, image: Image) {
+    pub fn set_image(&self, image: Content) {
         self.set_image_pre(image);
         self.set_image_post(Default::default());
     }
 
-    pub fn set_image_pre(&self, image: Image) {
+    pub fn set_image_pre(&self, image: Content) {
         let mut p = self.imp().data.borrow_mut();
         self.imp().cancel_animation();
-        p.image = image;
+        p.content = image;
         p.zoom.set_rotation(0);
         p.zoom_overlay = None;
         p.annotations = None;
@@ -99,15 +99,15 @@ impl ImageView {
         // dbg!(&annotations);
         let mut p = self.imp().data.borrow_mut();
         p.annotations = annotations;
-        self.imp().schedule_animation(&p.image, SystemTime::now());
+        self.imp().schedule_animation(&p.content, SystemTime::now());
         p.apply_zoom();
-        p.redraw(RedrawReason::ImagePost);
+        p.redraw(RedrawReason::ContentPost);
     }
 
     pub fn image_modified(&self) {
         let mut p = self.imp().data.borrow_mut();
         p.apply_zoom();
-        p.redraw(RedrawReason::ImageChanged);
+        p.redraw(RedrawReason::ContentChanged);
     }
 
     pub fn zoom_mode(&self) -> ZoomMode {
@@ -155,16 +155,16 @@ impl ImageView {
     // Operations on image
 
     pub fn image_id(&self) -> u32 {
-        self.imp().data.borrow().image.id()
+        self.imp().data.borrow().content.id()
     }
 
     pub fn image_size(&self) -> SizeD {
-        self.imp().data.borrow().image.size()
+        self.imp().data.borrow().content.size()
     }
 
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
         let p = self.imp().data.borrow();
-        p.image.draw_pixbuf(pixbuf, dest_x, dest_y);
+        p.content.draw_pixbuf(pixbuf, dest_x, dest_y);
     }
 
     pub fn rotate(&self, angle: i32) {
@@ -176,7 +176,7 @@ impl ImageView {
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {
-        self.imp().data.borrow().image.has_tag(tag)
+        self.imp().data.borrow().content.has_tag(tag)
     }
 
     pub fn add_context_menu(&self, menu: Menu) {

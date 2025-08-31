@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Image, ImageParams};
+use super::{Content, ImageParams};
 use crate::{
     category::Category,
     config::config,
@@ -110,7 +110,7 @@ impl Backend for Bookmarks {
         ))
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let path = Path::new(item.str());
         ImageLoader::image_from_file(path)
         // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {

@@ -20,14 +20,15 @@
 pub mod redraw;
 pub mod zoom;
 
-use cairo::{Filter, ImageSurface, Matrix};
+use cairo::{Filter, ImageSurface};
 use glib::SourceId;
 use gtk4::prelude::WidgetExt;
 
 use crate::{
     backends::thumbnail::model::Annotations,
-    image::Image,
-    rect::{RectD, SizeD, VectorD},
+    content::{Content, ContentData},
+    image::{Image, RenderedImage},
+    rect::RectD,
     render_thread::{model::RenderCommand, RenderThreadSender},
 };
 
@@ -67,51 +68,11 @@ impl From<TransparencyMode> for &str {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ZoomedImage {
-    surface: ImageSurface,
-    origin: VectorD,
-    orig_image_zoom: Zoom,
-}
-
-impl ZoomedImage {
-    pub fn new(surface: ImageSurface, origin: VectorD, orig_image_zoom: Zoom) -> Self {
-        Self {
-            surface,
-            origin,
-            orig_image_zoom,
-        }
-    }
-
-    pub fn surface(&self) -> &ImageSurface {
-        &self.surface
-    }
-
-    pub fn size(&self) -> SizeD {
-        SizeD::new(self.surface.width() as f64, self.surface.height() as f64)
-    }
-
-    /// Creates a Cairo transformation matrix for displaying this zoomed image
-    ///
-    /// It corrects for the situation that the current zoom (scale and position) may have
-    /// changed from the original zoom for which this rendering was made. And that until
-    /// we have an updated rendering for the current zoom, we must scale and transpose this one.
-    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
-        let scale = current_image_zoom.scale() / self.orig_image_zoom.scale();
-        let new_origin = current_image_zoom.origin() + self.origin.scale(scale)
-            - self.orig_image_zoom.origin().scale(scale);
-        let mut zoom = self.orig_image_zoom.clone();
-        zoom.set_origin(new_origin);
-        zoom.set_zoom_factor(scale);
-        zoom.transform_matrix()
-    }
-}
-
 pub struct ImageViewData {
-    pub image: Image,
+    pub content: Content,
     pub zoom: Zoom,
     pub zoom_mode: ZoomMode,
-    pub zoom_overlay: Option<ZoomedImage>,
+    pub zoom_overlay: Option<RenderedImage>,
     pub checkerboard: Option<ImageSurface>,
     pub transparency_mode: TransparencyMode,
     pub view: Option<ImageView>,
@@ -127,7 +88,7 @@ pub struct ImageViewData {
 impl Default for ImageViewData {
     fn default() -> Self {
         Self {
-            image: Image::default(),
+            content: Content::default(),
             zoom: Zoom::default(),
             zoom_mode: ZoomMode::NotSpecified,
             zoom_overlay: None,
@@ -159,17 +120,17 @@ impl ImageViewData {
                 allocation.width() as f64,
                 allocation.height() as f64,
             );
-            let size = self.image.size();
+            let size = self.content.size();
             let zoom_mode = if size.width() < 0.1 || size.height() < 0.1 {
                 ZoomMode::NoZoom
-            } else if self.image.zoom_mode == ZoomMode::NotSpecified {
+            } else if self.content.zoom_mode == ZoomMode::NotSpecified {
                 if self.zoom_mode == ZoomMode::NotSpecified {
                     ZoomMode::NoZoom
                 } else {
                     self.zoom_mode
                 }
             } else {
-                self.image.zoom_mode
+                self.content.zoom_mode
             };
             self.zoom.apply_zoom(zoom_mode, size, viewport);
         }
@@ -189,6 +150,18 @@ impl ImageViewData {
     pub fn rb_send(&self, command: RenderCommand) {
         if let Some(sender) = &self.rb_sender {
             sender.send_blocking(command);
+        }
+    }
+
+    pub fn image(&'_ self) -> Image<'_> {
+        if let Some(rendered) = &self.zoom_overlay {
+            Image::Rendered(rendered)
+        } else {
+            match &self.content.image_data {
+                ContentData::Single(single) => Image::Single(single),
+                ContentData::Dual(dual) => Image::Dual(dual),
+                _ => Image::None,
+            }
         }
     }
 }

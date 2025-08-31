@@ -27,12 +27,13 @@ use crate::{
         Backend, ImageParams,
     },
     category::Category,
+    content::Content,
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
         Cursor,
     },
-    image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom, Image},
+    image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom},
     profile::performance::Performance,
     rect::{RectD, SizeD, VectorD},
 };
@@ -89,7 +90,7 @@ impl Backend for DocPdfium {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content {
         (|| {
             let document = self.document.as_ref().map_err(|e| e.to_string())?;
             page_size(
@@ -141,7 +142,7 @@ fn page_size(
     index: i32,
     last_page: i32,
     mode: &PageMode,
-) -> MviewResult<Image> {
+) -> MviewResult<Content> {
     match pages(index, last_page, mode) {
         Pages::Single(page) => page_size_single(reference, mode, document, page),
         Pages::Dual(left) => page_size_dual(reference, mode, document, left),
@@ -153,10 +154,10 @@ fn page_size_single(
     mode: &PageMode,
     document: &PdfiumDocument,
     index: i32,
-) -> MviewResult<Image> {
+) -> MviewResult<Content> {
     let duration = Performance::start();
     let size = page_size_as_rect(&document.page(index)?)?;
-    let image = Image::new_scalable(reference, *mode, size);
+    let image = Content::new_doc(reference, *mode, size);
     duration.elapsed("pdfium single");
     Ok(image)
 }
@@ -166,7 +167,7 @@ fn page_size_dual(
     mode: &PageMode,
     document: &PdfiumDocument,
     index: i32,
-) -> MviewResult<Image> {
+) -> MviewResult<Content> {
     // The right page is scaled so its height is the same as the left page
     let duration = Performance::start();
     let size_left = page_size_as_rect(&document.page(index)?)?;
@@ -176,7 +177,7 @@ fn page_size_dual(
         size_left.width() + scale_right * size_right.width(),
         size_left.height(),
     );
-    let image = Image::new_scalable(reference, *mode, size);
+    let image = Content::new_doc(reference, *mode, size);
     duration.elapsed("pdfium dual");
     Ok(image)
 }

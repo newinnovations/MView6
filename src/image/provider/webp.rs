@@ -28,36 +28,36 @@ use image::{RgbImage, RgbaImage};
 use image_webp::WebPDecoder;
 
 use crate::{
+    content::Content,
     error::MviewResult,
     image::{
         animation::{Animation, WebPAnimation},
         provider::image_rs::RsImageLoader,
-        Image,
     },
 };
 
 pub struct WebP {}
 
 impl WebP {
-    pub fn image_from_file(reader: BufReader<File>, exif: Option<Exif>) -> MviewResult<Image> {
+    pub fn image_from_file(reader: BufReader<File>, exif: Option<Exif>) -> MviewResult<Content> {
         let mut decoder = WebPDecoder::new(reader)?;
         if decoder.is_animated() {
-            Ok(Image::new_animation(Animation::WebPFile(Box::new(
+            Ok(Content::new_animation(Animation::WebPFile(Box::new(
                 WebPAnimation::<BufReader<File>>::new(decoder)?,
             ))))
         } else {
-            Ok(Image::new_surface(Self::read_image(&mut decoder)?, exif))
+            Ok(Content::new_surface(Self::read_image(&mut decoder)?, exif))
         }
     }
 
-    pub fn image_from_memory(reader: Cursor<Vec<u8>>, exif: Option<Exif>) -> MviewResult<Image> {
+    pub fn image_from_memory(reader: Cursor<Vec<u8>>, exif: Option<Exif>) -> MviewResult<Content> {
         let mut decoder = WebPDecoder::new(reader)?;
         if decoder.is_animated() {
-            Ok(Image::new_animation(Animation::WebPMemory(Box::new(
+            Ok(Content::new_animation(Animation::WebPMemory(Box::new(
                 WebPAnimation::<Cursor<Vec<u8>>>::new(decoder)?,
             ))))
         } else {
-            Ok(Image::new_surface(Self::read_image(&mut decoder)?, exif))
+            Ok(Content::new_surface(Self::read_image(&mut decoder)?, exif))
         }
     }
 

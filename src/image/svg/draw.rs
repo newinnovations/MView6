@@ -25,6 +25,7 @@ use syntect::parsing::SyntaxReference;
 
 use crate::{
     category::Category,
+    content::Content,
     error::MviewResult,
     file_view::model::Row,
     image::{
@@ -36,7 +37,6 @@ use crate::{
             text_sheet::TextSheet,
         },
         view::{data::TransparencyMode, ZoomMode},
-        Image,
     },
     util::{path_to_directory, path_to_filename, read_lines_with_limits},
 };
@@ -78,10 +78,14 @@ fn load_font_file(fontdb: &mut fontdb::Database, name: &str) {
     }
 }
 
-pub fn svg_text_sheet(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Image> {
+pub fn svg_text_sheet(
+    title: &str,
+    msg: &str,
+    colors: (Color, Color, Color),
+) -> MviewResult<Content> {
     let svg_content = SvgCanvas::create_text_sheet(title, msg, colors);
     let tree = Tree::from_str(&svg_content, &svg_options())?;
-    Ok(Image::new_svg(
+    Ok(Content::new_svg(
         tree,
         None,
         ZoomMode::NotSpecified,
@@ -89,7 +93,7 @@ pub fn svg_text_sheet(title: &str, msg: &str, colors: (Color, Color, Color)) -> 
     ))
 }
 
-pub fn svg_hexdump(path: &Path) -> MviewResult<Image> {
+pub fn svg_hexdump(path: &Path) -> MviewResult<Content> {
     let file = File::open(path)?;
     let mut buffer = Vec::new();
     file.take(1024).read_to_end(&mut buffer)?;
@@ -97,7 +101,7 @@ pub fn svg_hexdump(path: &Path) -> MviewResult<Image> {
     hexview.draw();
     let svg_content = hexview.finish().render();
     let tree = Tree::from_str(&svg_content, &svg_options())?;
-    Ok(Image::new_svg(
+    Ok(Content::new_svg(
         tree,
         None,
         ZoomMode::NotSpecified,
@@ -105,13 +109,13 @@ pub fn svg_hexdump(path: &Path) -> MviewResult<Image> {
     ))
 }
 
-pub fn svg_highlight(path: &Path, syntax: &SyntaxReference) -> MviewResult<Image> {
+pub fn svg_highlight(path: &Path, syntax: &SyntaxReference) -> MviewResult<Content> {
     let lines = read_lines_with_limits(path, Some(1000), Some(16384))?;
     let mut hexview = TextHighLighter::new(path, syntax);
     hexview.draw(&lines);
     let svg_content = hexview.finish().render();
     let tree = Tree::from_str(&svg_content, &svg_options())?;
-    Ok(Image::new_svg(
+    Ok(Content::new_svg(
         tree,
         None,
         ZoomMode::NotSpecified,
@@ -119,7 +123,7 @@ pub fn svg_highlight(path: &Path, syntax: &SyntaxReference) -> MviewResult<Image
     ))
 }
 
-pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
+pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Content> {
     let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
     sheet.add_line(
         &path_to_directory(path),
@@ -164,7 +168,7 @@ pub fn svg_directory_list(path: &Path, store: &[Row]) -> MviewResult<Image> {
     }
     let svg_content = sheet.finish().render();
     let tree = Tree::from_str(&svg_content, &svg_options())?;
-    Ok(Image::new_svg(
+    Ok(Content::new_svg(
         tree,
         None,
         ZoomMode::NotSpecified,

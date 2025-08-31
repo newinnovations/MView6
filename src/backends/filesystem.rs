@@ -17,10 +17,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Image, ImageParams};
+use super::{Content, ImageParams};
 use crate::{
     category::Category,
-    content::{Content, ContentData, MAX_CONTENT_SIZE},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -32,8 +31,8 @@ use crate::{
 use image::DynamicImage;
 use regex::Regex;
 use std::{
-    fs::{metadata, read_dir, rename, File},
-    io::{self, Read},
+    fs::{metadata, read_dir, rename},
+    io::{self},
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -157,25 +156,24 @@ impl Backend for FileSystem {
         }
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let filename = self.directory.join(item.str());
         ImageLoader::image_from_file(&filename)
     }
 
-    fn content(&self, item: &ItemRef) -> Content {
-        // let trait_obj: &dyn Backend = self;
-        let filename = self.directory.join(item.str());
-        Content {
-            reference: Reference {
-                backend: self.backend_ref(),
-                item: item.clone(),
-            },
-            data: match read_bytes(&filename) {
-                Ok(bytes) => ContentData::Raw(bytes),
-                Err(error) => ContentData::Error(error),
-            },
-        }
-    }
+    // fn content(&self, item: &ItemRef) -> Content {
+    //     let filename = self.directory.join(item.str());
+    //     Content::new(
+    //         Reference {
+    //             backend: self.backend_ref(),
+    //             item: item.clone(),
+    //         },
+    //         match read_bytes(&filename) {
+    //             Ok(bytes) => ContentData::Raw(bytes),
+    //             Err(error) => ContentData::Error(error.into()),
+    //         },
+    //     )
+    // }
 
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
         let cat = cursor.category();
@@ -236,9 +234,9 @@ impl Backend for FileSystem {
     }
 }
 
-fn read_bytes(path: &Path) -> MviewResult<Vec<u8>> {
-    let file = File::open(path)?;
-    let mut buffer = Vec::new();
-    file.take(MAX_CONTENT_SIZE).read_to_end(&mut buffer)?;
-    Ok(buffer)
-}
+// fn _read_bytes(path: &Path) -> MviewResult<Vec<u8>> {
+//     let file = File::open(path)?;
+//     let mut buffer = Vec::new();
+//     file.take(_MAX_CONTENT_SIZE).read_to_end(&mut buffer)?;
+//     Ok(buffer)
+// }

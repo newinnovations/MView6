@@ -29,10 +29,7 @@ use gdk_pixbuf::Pixbuf;
 use glib::Bytes;
 use image::{DynamicImage, GenericImageView, ImageReader, RgbImage, RgbaImage};
 
-use crate::{
-    error::MviewResult,
-    image::{provider::surface::SurfaceData, Image},
-};
+use crate::{content::Content, error::MviewResult, image::provider::surface::SurfaceData};
 
 use super::{webp::WebP, ExifReader};
 
@@ -49,7 +46,7 @@ impl RsImageLoader {
 }
 
 impl RsImageLoader {
-    pub fn image_from_file(mut reader: BufReader<File>) -> MviewResult<Image> {
+    pub fn image_from_file(mut reader: BufReader<File>) -> MviewResult<Content> {
         let exif = reader.exif();
         let image_reader = ImageReader::new(reader);
         let image_reader = image_reader.with_guessed_format()?;
@@ -63,7 +60,7 @@ impl RsImageLoader {
         }
     }
 
-    pub fn image_from_memory(mut reader: Cursor<Vec<u8>>) -> MviewResult<Image> {
+    pub fn image_from_memory(mut reader: Cursor<Vec<u8>>) -> MviewResult<Content> {
         let exif = reader.exif();
         let image_reader = ImageReader::new(reader);
         let image_reader = image_reader.with_guessed_format()?;
@@ -84,8 +81,8 @@ impl RsImageLoader {
     pub fn image<T: BufRead + Seek>(
         reader: ImageReader<T>,
         exif: Option<Exif>,
-    ) -> MviewResult<Image> {
-        Ok(Image::new_surface(Self::surface(reader)?, exif))
+    ) -> MviewResult<Content> {
+        Ok(Content::new_surface(Self::surface(reader)?, exif))
     }
 
     // pub fn pixbuf<T: BufRead + Seek>(reader: ImageReader<T>) -> MviewResult<Pixbuf> {

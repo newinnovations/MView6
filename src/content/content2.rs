@@ -17,62 +17,68 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::PathBuf;
+#![allow(dead_code)]
 
-use super::{Content, ImageParams};
+use std::sync::atomic::{AtomicU32, Ordering};
 
-use crate::file_view::{
-    model::{BackendRef, ItemRef, Row},
-    Cursor,
-};
+use crate::{content::Content, file_view::model::Reference, image::view::ZoomMode, rect::SizeD};
 
-use super::{Backend, Target};
+pub const _MAX_CONTENT_SIZE: u64 = 50 * 1024 * 1024;
 
-#[derive(Clone)]
-pub struct NoneBackend {
-    store: Vec<Row>,
+pub enum ContentData {
+    // Lines(String, Vec<String>),
+    // Raw(Vec<u8>),
+    Image(Content),
+    // Error(MviewError),
+    // Reference,
 }
 
-impl NoneBackend {
-    pub fn new() -> Self {
-        NoneBackend {
-            store: Default::default(),
+pub struct Content2 {
+    id: u32,
+    pub reference: Reference,
+    pub data: ContentData,
+}
+
+impl Default for Content2 {
+    fn default() -> Self {
+        Self {
+            id: get_content_id(),
+            reference: Reference::default(),
+            data: ContentData::Image(Content::default()),
         }
     }
 }
 
-impl Default for NoneBackend {
-    fn default() -> Self {
-        Self::new()
+impl Content2 {
+    pub fn new(reference: Reference, data: ContentData) -> Self {
+        Self {
+            id: get_content_id(),
+            reference,
+            data,
+        }
+    }
+
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
+    fn image(&self) -> &Content {
+        match &self.data {
+            ContentData::Image(image) => image,
+        }
+    }
+
+    pub fn size(&self) -> SizeD {
+        self.image().size()
+    }
+
+    pub fn zoom_mode(&self) -> ZoomMode {
+        self.image().zoom_mode()
     }
 }
 
-impl Backend for NoneBackend {
-    fn class_name(&self) -> &str {
-        "Invalid"
-    }
+static CONTENT_ID: AtomicU32 = AtomicU32::new(1);
 
-    fn path(&self) -> PathBuf {
-        "invalid".into()
-    }
-
-    fn store(&self) -> &Vec<Row> {
-        &self.store
-    }
-
-    fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
-        None
-    }
-
-    fn image(&self, _: &ItemRef, _: &ImageParams) -> Content {
-        Content::default()
-    }
-
-    fn backend_ref(&self) -> BackendRef {
-        BackendRef::None
-    }
-
-    fn item_ref(&self, _cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(0)
-    }
+fn get_content_id() -> u32 {
+    CONTENT_ID.fetch_add(1, Ordering::SeqCst)
 }

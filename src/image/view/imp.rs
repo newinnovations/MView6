@@ -26,6 +26,7 @@ use std::{
 use super::{data::ImageViewData, ImageView, ViewCursor};
 use crate::{
     category::Category,
+    content::Content,
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
@@ -33,7 +34,6 @@ use crate::{
             data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
             RedrawReason, SIGNAL_CANVAS_RESIZED,
         },
-        Image, ImageData,
     },
     rect::RectD,
     util::remove_source_id,
@@ -70,7 +70,7 @@ impl ImageViewImp {
         }
     }
 
-    pub fn schedule_animation(&self, image: &Image, ts_previous_cb: SystemTime) {
+    pub fn schedule_animation(&self, image: &Content, ts_previous_cb: SystemTime) {
         if image.is_animation() {
             if let Some(interval) = image.animation_delay_time(ts_previous_cb) {
                 // dbg!(interval);
@@ -98,8 +98,8 @@ impl ImageViewImp {
         let start = SystemTime::now();
         self.animation_timeout_id.replace(None);
         let mut p = self.data.borrow_mut();
-        if p.image.animation_advance(SystemTime::now()) {
-            self.schedule_animation(&p.image, start);
+        if p.content.animation_advance(SystemTime::now()) {
+            self.schedule_animation(&p.content, start);
             p.redraw(RedrawReason::AnimationCallback);
         }
     }
@@ -108,20 +108,12 @@ impl ImageViewImp {
         let p = self.data.borrow();
         let z = &p.zoom;
 
+        let image = p.image();
+
         context.set_fill_rule(FillRule::EvenOdd);
 
         let viewport = clip_extents_to_rect(context);
         let intersect = z.intersection_screen_coord(&viewport);
-
-        let (matrix, size, alpha) = if let Some(zr) = &p.zoom_overlay {
-            (zr.transform_matrix(z), zr.size(), true)
-        // } else if let ImageData::Svg(_tree) = &p.image.image_data {
-        //     let size = z.pixmap_size(&intersect);
-        //     (z.unscaled_transform_matrix(size), size, true)
-        } else {
-            (z.transform_matrix(), p.image.size(), p.image.has_alpha())
-        };
-
         // Create black border around image
         context.color(Color::Black);
         // With FillRule::EvenOdd:
@@ -146,11 +138,13 @@ impl ImageViewImp {
         // Result: black background with a unpainted "hole" in the middle
         let _ = context.fill();
 
-        if alpha {
-            let transparency_mode = if p.image.transparency_mode == TransparencyMode::NotSpecified {
+        // NOTE: uses image.transparency_mode to see if it needs to override user setting
+        if image.has_alpha() {
+            let transparency_mode = if p.content.transparency_mode == TransparencyMode::NotSpecified
+            {
                 p.transparency_mode
             } else {
-                p.image.transparency_mode
+                p.content.transparency_mode
             };
 
             match transparency_mode {
@@ -180,30 +174,9 @@ impl ImageViewImp {
 
         // Viewport offset is handled in the transformation matrix so drawing here happens
         // at the virtual origin (0.0, 0.0)
-        context.transform(matrix);
-
-        context.rectangle(0.0, 0.0, size.width(), size.height());
-        if let Some(zr) = &p.zoom_overlay {
-            let _ = context.set_source_surface(zr.surface(), 0.0, 0.0);
-            let _ = context.fill();
-        // } else if let ImageData::Svg(tree) = &p.image.image_data {
-        //     render_svg(context, &p.zoom, &viewport, tree);
-        } else {
-            if let ImageData::Single(surface) = &p.image.image_data {
-                let _ = context.set_source_surface(surface, 0.0, 0.0);
-            } else if let ImageData::Dual(surface_left, surface_right) = &p.image.image_data {
-                let (off_x_left, off_y_left, off_x_right, off_y_right) =
-                    p.image.image_data.offset();
-                let _ = context.set_source_surface(surface_left, off_x_left, off_y_left);
-                context.source().set_filter(p.quality);
-                let _ = context.fill();
-                context.rectangle(0.0, 0.0, size.width(), size.height());
-                let _ = context.set_source_surface(surface_right, off_x_right, off_y_right);
-            }
-            context.source().set_filter(p.quality);
-            let _ = context.fill();
-            self.draw_annotations(context);
-        }
+        context.transform(image.transform_matrix(&p.zoom));
+        image.render(context, p.quality);
+        self.draw_annotations(context);
     }
 
     fn draw_annotations(&self, context: &Context) {
@@ -245,7 +218,7 @@ impl ImageViewImp {
 
     fn button_press_event(&self, position: (f64, f64)) {
         let mut p = self.data.borrow_mut();
-        if p.drag.is_none() && p.image.is_movable() {
+        if p.drag.is_none() && p.content.is_movable() {
             let (position_x, position_y) = position;
             p.drag = Some((
                 position_x - p.zoom.offset_x(),
@@ -290,7 +263,7 @@ impl ImageViewImp {
     fn scroll_event(&self, dy: f64) -> Propagation {
         let mut p = self.data.borrow_mut();
         let mouse_position = p.mouse_position;
-        if p.image.is_movable() {
+        if p.content.is_movable() {
             let zoom = if dy < -0.01 {
                 p.zoom.scale() * ZOOM_MULTIPLIER
             } else if dy > 0.01 {

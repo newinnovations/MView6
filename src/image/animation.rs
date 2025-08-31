@@ -27,9 +27,9 @@ use cairo::ImageSurface;
 use gdk_pixbuf::PixbufAnimationIter;
 use image_webp::WebPDecoder;
 
-use crate::error::MviewResult;
+use crate::{content::Content, error::MviewResult};
 
-use super::{provider::webp::WebP, Image};
+use super::provider::webp::WebP;
 
 #[derive(Default)]
 pub enum Animation {
@@ -52,7 +52,7 @@ pub struct WebPAnimation<T> {
     pub(super) frames: Vec<AnimationFrame>,
 }
 
-impl Image {
+impl Content {
     pub fn is_animation(&self) -> bool {
         !matches!(self.animation, Animation::None)
     }

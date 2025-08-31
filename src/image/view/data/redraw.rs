@@ -25,13 +25,13 @@ use glib::{clone, ControlFlow};
 use gtk4::prelude::WidgetExt;
 
 use crate::{
+    content::ContentData,
     image::{
         provider::surface::SurfaceData,
         view::{
-            data::{ZoomedImage, QUALITY_LOW},
+            data::{RenderedImage, QUALITY_LOW},
             Zoom, QUALITY_HIGH,
         },
-        ImageData,
     },
     rect::RectD,
     render_thread::model::RenderCommand,
@@ -48,15 +48,15 @@ pub enum RedrawReason {
     Unknown = -1,
     AnimationCallback = 0,
     AnnotationChanged = 1,
-    ImageChanged = 2,
-    OverlayUpdated = 3,
-    RotationChanged = 4,
-    CanvasResized = 5,
-    ZoomSettingChanged = 6,
-    InteractiveDrag = 7,
-    InteractiveZoom = 8,
-    ImagePost = 9,
-    TransparencyBackgroundChanged = 10,
+    CanvasResized = 2,
+    ContentChanged = 3,
+    ContentPost = 4,
+    InteractiveDrag = 5,
+    InteractiveZoom = 6,
+    RenderingUpdated = 7,
+    RotationChanged = 8,
+    TransparencyBackgroundChanged = 9,
+    ZoomSettingChanged = 10,
 }
 
 impl RedrawReason {
@@ -84,14 +84,15 @@ impl From<i32> for RedrawReason {
         match value {
             0 => RedrawReason::AnimationCallback,
             1 => RedrawReason::AnnotationChanged,
-            2 => RedrawReason::ImageChanged,
-            3 => RedrawReason::OverlayUpdated,
-            4 => RedrawReason::RotationChanged,
-            5 => RedrawReason::CanvasResized,
-            6 => RedrawReason::ZoomSettingChanged,
-            7 => RedrawReason::InteractiveDrag,
-            8 => RedrawReason::InteractiveZoom,
-            9 => RedrawReason::ImagePost,
+            2 => RedrawReason::CanvasResized,
+            3 => RedrawReason::ContentChanged,
+            4 => RedrawReason::ContentPost,
+            5 => RedrawReason::InteractiveDrag,
+            6 => RedrawReason::InteractiveZoom,
+            7 => RedrawReason::RenderingUpdated,
+            8 => RedrawReason::RotationChanged,
+            9 => RedrawReason::TransparencyBackgroundChanged,
+            10 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
         }
     }
@@ -102,18 +103,19 @@ impl ImageViewData {
         println!("-- redraw  reason={reason:?}");
         self.quality = quality;
         if let Some(view) = &self.view {
-            if quality == QUALITY_HIGH && reason != RedrawReason::OverlayUpdated {
-                if let ImageData::Doc(pm, _s) = &self.image.image_data {
+            if quality == QUALITY_HIGH && reason != RedrawReason::RenderingUpdated {
+                if let ContentData::Doc(pm, _s) = &self.content.image_data {
                     let a = view.allocation();
                     let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
                     self.rb_send(RenderCommand::RenderDoc(
-                        self.image.reference.clone(),
-                        self.image.id(),
+                        self.content.reference.clone(),
+                        self.content.id(),
                         *pm,
                         self.zoom.clone(),
                         viewport,
                     ));
-                    if reason == RedrawReason::ImagePost || reason == RedrawReason::RotationChanged
+                    if reason == RedrawReason::ContentPost
+                        || reason == RedrawReason::RotationChanged
                     {
                         return; // postpone actual redraw, because nothing to show
                                 // TO CONSIDER
@@ -122,16 +124,17 @@ impl ImageViewData {
                                 // (which we may not get because, the images might already
                                 //  have been updated for something else)
                     }
-                } else if let ImageData::Svg(tree) = &self.image.image_data {
+                } else if let ContentData::Svg(tree) = &self.content.image_data {
                     let a = view.allocation();
                     let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
                     self.rb_send(RenderCommand::RenderSvg(
-                        self.image.id(),
+                        self.content.id(),
                         self.zoom.clone(),
                         viewport,
                         tree.clone(),
                     ));
-                    if reason == RedrawReason::ImagePost || reason == RedrawReason::RotationChanged
+                    if reason == RedrawReason::ContentPost
+                        || reason == RedrawReason::RotationChanged
                     {
                         return;
                     }
@@ -189,10 +192,10 @@ impl ImageViewData {
         zoom: Zoom,
         viewport: RectD,
     ) {
-        if self.image.id() != image_id {
+        if self.content.id() != image_id {
             println!(
                 "Got hq render for different image {} != {image_id}",
-                self.image.id()
+                self.content.id()
             );
             return;
         }
@@ -205,8 +208,8 @@ impl ImageViewData {
         }
         if let Ok(surface) = surface_data.surface() {
             let rect = zoom.intersection_screen_coord(&viewport);
-            self.zoom_overlay = Some(ZoomedImage::new(surface, zoom.top_left(&rect), zoom));
-            self.redraw(RedrawReason::OverlayUpdated);
+            self.zoom_overlay = Some(RenderedImage::new(surface, zoom.top_left(&rect), zoom));
+            self.redraw(RedrawReason::RenderingUpdated);
         }
     }
 }

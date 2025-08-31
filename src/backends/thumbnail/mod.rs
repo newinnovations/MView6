@@ -25,7 +25,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{Backend, Image, ImageParams, Target};
+use super::{Backend, Content, ImageParams, Target};
 use crate::{
     backends::thumbnail::model::TParent,
     category::Category,
@@ -203,7 +203,7 @@ impl Backend for Thumbnail {
         ))
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content {
         let page = item.idx() as i32;
         let capacity = self.capacity();
         if capacity > 0 {

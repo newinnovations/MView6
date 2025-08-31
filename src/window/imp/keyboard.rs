@@ -28,8 +28,9 @@ use gtk4::{
 use crate::{
     backends::{document::PageMode, Backend, ImageParams},
     config::{contrast, contrast_delta},
+    content::{Content, ContentData},
     file_view::{Column, Direction, Filter, Target},
-    image::{view::ZoomMode, Image, ImageData},
+    image::view::ZoomMode,
 };
 
 impl MViewWindowImp {
@@ -214,10 +215,14 @@ impl MViewWindowImp {
                     let image1 = b.image(&b.reference(&current).item, &params);
                     if current.next() {
                         let image2 = b.image(&b.reference(&current).item, &params);
-                        if let (ImageData::Single(surface), ImageData::Single(surface2)) =
+                        if let (ContentData::Single(single1), ContentData::Single(single2)) =
                             (image1.image_data, image2.image_data)
                         {
-                            let i2 = Image::new_dual_surface(Some(surface), Some(surface2), None);
+                            let i2 = Content::new_dual_surface(
+                                Some(single1.surface()),
+                                Some(single2.surface()),
+                                None,
+                            );
                             w.info_view.update(&i2);
                             w.image_view.set_image(i2);
                         }

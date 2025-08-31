@@ -27,11 +27,11 @@ use crate::{
     backends::Backend,
     category::Category,
     config::config,
+    content::Content,
     error::MviewResult,
     image::{
         svg::draw::{svg_directory_list, svg_hexdump, svg_highlight},
         view::data::TransparencyMode,
-        Image,
     },
     profile::performance::Performance,
     util::{path_to_extension, path_to_filename},
@@ -56,7 +56,7 @@ use super::{
 pub struct ImageLoader {}
 
 impl ImageLoader {
-    pub fn image_from_file(path: &Path) -> Image {
+    pub fn image_from_file(path: &Path) -> Content {
         let duration = Performance::start();
 
         // let path = Path::new(&filename);
@@ -103,7 +103,7 @@ impl ImageLoader {
         if is_svg {
             if let Ok(svg) = Self::read_svg(path) {
                 duration.elapsed("decode svg (file)");
-                return Image::new_svg(
+                return Content::new_svg(
                     svg,
                     None,
                     ZoomMode::NotSpecified,
@@ -138,14 +138,14 @@ impl ImageLoader {
         image
     }
 
-    pub fn image_from_memory(buf: Vec<u8>) -> Image {
+    pub fn image_from_memory(buf: Vec<u8>) -> Content {
         let duration = Performance::start();
 
         if buf.starts_with(&[0x3c, 0x3f]) || buf.starts_with(&[0x1f, 0x8b]) {
             let svg_options = usvg::Options::default();
             if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");
-                return Image::new_svg(
+                return Content::new_svg(
                     tree,
                     None,
                     ZoomMode::NotSpecified,
@@ -176,10 +176,10 @@ impl ImageLoader {
         image
     }
 
-    pub fn image_from_svg_data(buf: &[u8], tag: Option<String>) -> Option<Image> {
+    pub fn image_from_svg_data(buf: &[u8], tag: Option<String>) -> Option<Content> {
         let svg_options = usvg::Options::default();
         if let Ok(tree) = Tree::from_data(buf, &svg_options) {
-            Some(Image::new_svg(
+            Some(Content::new_svg(
                 tree,
                 tag,
                 ZoomMode::Fill,

@@ -24,300 +24,209 @@ pub mod provider;
 pub mod svg;
 pub mod view;
 
-use animation::Animation;
-use cairo::{Context, Format, ImageSurface};
-use exif::Exif;
+use cairo::{Context, Filter, Format, ImageSurface, Matrix};
 use gdk_pixbuf::Pixbuf;
 use gtk4::gdk::prelude::GdkCairoContextExt;
-use resvg::usvg::Tree;
-use std::{
-    cmp::max,
-    sync::atomic::{AtomicU32, Ordering},
-};
-use view::ZoomMode;
+use std::cmp::max;
 
 use crate::{
-    backends::document::PageMode,
-    file_view::model::Reference,
-    image::{provider::gdk::GdkImageLoader, view::data::TransparencyMode},
-    rect::SizeD,
+    image::view::Zoom,
+    rect::{SizeD, VectorD},
 };
 
-static IMAGE_ID: AtomicU32 = AtomicU32::new(1);
-
-fn get_image_id() -> u32 {
-    IMAGE_ID.fetch_add(1, Ordering::SeqCst);
-    IMAGE_ID.load(Ordering::SeqCst)
+#[derive(Debug, Clone)]
+pub struct RenderedImage {
+    surface: ImageSurface,
+    origin: VectorD,
+    orig_image_zoom: Zoom,
 }
 
-#[derive(Default)]
-pub enum ImageData {
-    #[default]
-    None,
-    Single(ImageSurface),
-    Dual(ImageSurface, ImageSurface),
-    Svg(Box<Tree>),
-    Doc(PageMode, SizeD),
-}
-
-impl From<Option<Pixbuf>> for ImageData {
-    fn from(value: Option<Pixbuf>) -> Self {
-        GdkImageLoader::surface_from_pixbuf_option(value.as_ref()).into()
-    }
-}
-
-impl From<(Option<Pixbuf>, Option<Pixbuf>)> for ImageData {
-    fn from(value: (Option<Pixbuf>, Option<Pixbuf>)) -> Self {
-        let (p1, p2) = value;
-        let s1 = GdkImageLoader::surface_from_pixbuf_option(p1.as_ref());
-        let s2 = GdkImageLoader::surface_from_pixbuf_option(p2.as_ref());
-        (s1, s2).into()
-    }
-}
-
-impl From<Option<ImageSurface>> for ImageData {
-    fn from(value: Option<ImageSurface>) -> Self {
-        match value {
-            Some(surface) => ImageData::Single(surface),
-            None => ImageData::None,
-        }
-    }
-}
-
-impl From<(Option<ImageSurface>, Option<ImageSurface>)> for ImageData {
-    fn from(value: (Option<ImageSurface>, Option<ImageSurface>)) -> Self {
-        match value {
-            (Some(surface), None) => ImageData::Single(surface),
-            (None, Some(surface)) => ImageData::Single(surface),
-            (Some(surface1), Some(surface2)) => ImageData::Dual(surface1, surface2),
-            (None, None) => ImageData::None,
-        }
-    }
-}
-
-impl ImageData {
-    pub fn offset(&self) -> (f64, f64, f64, f64) {
-        match self {
-            ImageData::Dual(surface_left, surface_right) => {
-                let width_left = surface_left.width() as f64;
-                let height_left = surface_left.height() as f64;
-                let height_right = surface_right.height() as f64;
-                if height_left > height_right {
-                    (0.0, 0.0, width_left, (height_left - height_right) / 2.0)
-                } else {
-                    (0.0, (height_right - height_left) / 2.0, width_left, 0.0)
-                }
-            }
-            _ => (0.0, 0.0, 0.0, 0.0),
+impl RenderedImage {
+    pub fn new(surface: ImageSurface, origin: VectorD, orig_image_zoom: Zoom) -> Self {
+        Self {
+            surface,
+            origin,
+            orig_image_zoom,
         }
     }
 
-    pub fn is_svg(&self) -> bool {
-        matches!(self, ImageData::Svg(_))
-    }
-}
-
-#[derive(Default)]
-pub struct Image {
-    id: u32,
-    reference: Reference,
-    pub image_data: ImageData,
-    animation: Animation,
-    pub exif: Option<Exif>,
-    zoom_mode: ZoomMode,
-    transparency_mode: TransparencyMode,
-    tag: Option<String>,
-}
-
-impl Image {
-    pub fn new_surface(surface: ImageSurface, exif: Option<Exif>) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: ImageData::Single(surface),
-            animation: Animation::None,
-            exif,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_surface_nozoom(surface: ImageSurface) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: ImageData::Single(surface),
-            animation: Animation::None,
-            exif: None,
-            zoom_mode: ZoomMode::NoZoom,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_pixbuf(pixbuf: Option<Pixbuf>, exif: Option<Exif>) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: pixbuf.into(),
-            animation: Animation::None,
-            exif,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_dual_pixbuf(
-        pixbuf_left: Option<Pixbuf>,
-        pixbuf_right: Option<Pixbuf>,
-        exif: Option<Exif>,
-    ) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: (pixbuf_left, pixbuf_right).into(),
-            animation: Animation::None,
-            exif,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_dual_surface(
-        surface_left: Option<ImageSurface>,
-        surface_right: Option<ImageSurface>,
-        exif: Option<Exif>,
-    ) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: (surface_left, surface_right).into(),
-            animation: Animation::None,
-            exif,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_animation(animation: Animation) -> Self {
-        let surface = match &animation {
-            Animation::None => None,
-            Animation::Gdk(a) => GdkImageLoader::surface_from_pixbuf(&a.pixbuf()).ok(),
-            Animation::WebPFile(a) => a.surface_get(0),
-            Animation::WebPMemory(a) => a.surface_get(0),
-        };
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: surface.into(),
-            animation,
-            exif: None,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::NotSpecified,
-            tag: None,
-        }
-    }
-
-    pub fn new_svg(
-        svg: Tree,
-        tag: Option<String>,
-        zoom_mode: ZoomMode,
-        transparency_mode: TransparencyMode,
-    ) -> Self {
-        Image {
-            id: get_image_id(),
-            reference: Default::default(),
-            image_data: ImageData::Svg(Box::new(svg)),
-            animation: Animation::None,
-            exif: None,
-            zoom_mode,
-            transparency_mode,
-            tag,
-        }
-    }
-
-    pub fn new_scalable(reference: Reference, page_mode: PageMode, size: SizeD) -> Self {
-        Image {
-            id: get_image_id(),
-            reference,
-            image_data: ImageData::Doc(page_mode, size),
-            animation: Animation::None,
-            exif: None,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::White,
-            tag: None,
-        }
-    }
-
-    pub fn id(&self) -> u32 {
-        self.id
+    pub fn render(&self, context: &Context) {
+        let size = self.size();
+        context.rectangle(0.0, 0.0, size.width(), size.height());
+        let _ = context.set_source_surface(&self.surface, 0.0, 0.0);
+        let _ = context.fill();
     }
 
     pub fn size(&self) -> SizeD {
-        match &self.image_data {
-            ImageData::None => Default::default(),
-            ImageData::Single(pixbuf) => SizeD::new(pixbuf.width().into(), pixbuf.height().into()),
-            ImageData::Dual(pixbuf1, pixbuf2) => SizeD::new(
-                (pixbuf1.width() + pixbuf2.width()).into(),
-                max(pixbuf1.height(), pixbuf2.height()).into(),
-            ),
-            ImageData::Svg(tree) => {
-                let size = tree.size();
-                SizeD::new(size.width().into(), size.height().into())
-            }
-            ImageData::Doc(_, size) => *size,
-        }
-    }
-
-    pub fn reference(&self) -> &Reference {
-        &self.reference
+        SizeD::new(self.surface.width() as f64, self.surface.height() as f64)
     }
 
     pub fn has_alpha(&self) -> bool {
-        match &self.image_data {
-            ImageData::None => false,
-            ImageData::Single(pixbuf) => pixbuf.format() == Format::ARgb32,
-            ImageData::Dual(pixbuf1, pixbuf2) => {
-                pixbuf1.format() == Format::ARgb32 || pixbuf2.format() == Format::ARgb32
-            }
-            ImageData::Svg(_tree) => true,
-            ImageData::Doc(_, _size) => true,
-        }
+        self.surface.format() == Format::ARgb32
     }
 
-    pub fn has_tag(&self, tag: &str) -> bool {
-        match &self.tag {
-            Some(t) => t.eq(tag),
-            None => false,
-        }
+    /// Creates a Cairo transformation matrix for displaying this rendered image
+    ///
+    /// It corrects for the situation that the current zoom (scale and position) may have
+    /// changed from the original zoom for which this rendering was made. And that until
+    /// we have an updated rendering for the current zoom, we must scale and transpose this one.
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        let scale = current_image_zoom.scale() / self.orig_image_zoom.scale();
+        let new_origin = current_image_zoom.origin() + self.origin.scale(scale)
+            - self.orig_image_zoom.origin().scale(scale);
+        let mut zoom = self.orig_image_zoom.clone();
+        zoom.set_origin(new_origin);
+        zoom.set_zoom_factor(scale);
+        zoom.transform_matrix()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SingleImage {
+    surface: ImageSurface,
+}
+
+impl SingleImage {
+    pub fn new(surface: ImageSurface) -> Self {
+        Self { surface }
     }
 
-    pub fn zoom_mode(&self) -> ZoomMode {
-        self.zoom_mode
+    pub fn surface(self) -> ImageSurface {
+        self.surface
     }
 
-    pub fn transparency_mode(&self) -> TransparencyMode {
-        self.transparency_mode
+    pub fn render(&self, context: &Context, quality: Filter) {
+        let size = self.size();
+        context.rectangle(0.0, 0.0, size.width(), size.height());
+        let _ = context.set_source_surface(&self.surface, 0.0, 0.0);
+        context.source().set_filter(quality);
+        let _ = context.fill();
     }
 
-    pub fn is_movable(&self) -> bool {
-        self.zoom_mode != ZoomMode::NoZoom
+    pub fn size(&self) -> SizeD {
+        SizeD::new(self.surface.width() as f64, self.surface.height() as f64)
     }
 
-    pub fn exif(&self) -> Option<&Exif> {
-        self.exif.as_ref()
+    pub fn has_alpha(&self) -> bool {
+        self.surface.format() == Format::ARgb32
+    }
+
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        current_image_zoom.transform_matrix()
     }
 
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
-        if let ImageData::Single(my_surface) = &self.image_data {
-            if let Ok(ctx) = Context::new(my_surface) {
-                ctx.set_source_pixbuf(pixbuf, dest_x as f64, dest_y as f64);
-                let _ = ctx.paint();
-            }
+        if let Ok(ctx) = Context::new(&self.surface) {
+            ctx.set_source_pixbuf(pixbuf, dest_x as f64, dest_y as f64);
+            let _ = ctx.paint();
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DualImage {
+    surface_left: ImageSurface,
+    surface_right: ImageSurface,
+    offset_y_left: f64,
+    offset_x_right: f64,
+    offset_y_right: f64,
+}
+
+impl DualImage {
+    pub fn new(surface_left: ImageSurface, surface_right: ImageSurface) -> Self {
+        let width_left = surface_left.width() as f64;
+        let height_left = surface_left.height() as f64;
+        let height_right = surface_right.height() as f64;
+        let (offset_y_left, offset_x_right, offset_y_right) = if height_left > height_right {
+            (0.0, width_left, (height_left - height_right) / 2.0)
+        } else {
+            ((height_right - height_left) / 2.0, width_left, 0.0)
+        };
+        Self {
+            surface_left,
+            surface_right,
+            offset_y_left,
+            offset_x_right,
+            offset_y_right,
+        }
+    }
+
+    pub fn render(&self, context: &Context, quality: Filter) {
+        let size = self.size();
+
+        context.rectangle(0.0, 0.0, size.width(), size.height());
+        let _ = context.set_source_surface(&self.surface_left, 0.0, self.offset_y_left);
+        context.source().set_filter(quality);
+        let _ = context.fill();
+
+        context.rectangle(0.0, 0.0, size.width(), size.height());
+        let _ = context.set_source_surface(
+            &self.surface_right,
+            self.offset_x_right,
+            self.offset_y_right,
+        );
+        context.source().set_filter(quality);
+        let _ = context.fill();
+    }
+
+    pub fn size(&self) -> SizeD {
+        SizeD::new(
+            (self.surface_left.width() + self.surface_right.width()).into(),
+            max(self.surface_left.height(), self.surface_right.height()).into(),
+        )
+    }
+
+    pub fn has_alpha(&self) -> bool {
+        self.surface_left.format() == Format::ARgb32
+            || self.surface_right.format() == Format::ARgb32
+    }
+
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        current_image_zoom.transform_matrix()
+    }
+}
+
+pub enum Image<'a> {
+    Single(&'a SingleImage),
+    Dual(&'a DualImage),
+    Rendered(&'a RenderedImage),
+    None,
+}
+
+impl<'a> Image<'a> {
+    pub fn render(&self, context: &Context, quality: Filter) {
+        match self {
+            Image::Single(image) => image.render(context, quality),
+            Image::Dual(image) => image.render(context, quality),
+            Image::Rendered(image) => image.render(context),
+            Image::None => (),
+        }
+    }
+
+    // pub fn size(&self) -> SizeD {
+    //     match self {
+    //         Image::Single(image) => image.size(),
+    //         Image::Dual(image) => image.size(),
+    //         Image::Zoomed(image) => image.size(),
+    //         Image::None => SizeD::default(),
+    //     }
+    // }
+
+    pub fn has_alpha(&self) -> bool {
+        match self {
+            Image::Single(image) => image.has_alpha(),
+            Image::Dual(image) => image.has_alpha(),
+            Image::Rendered(image) => image.has_alpha(),
+            Image::None => false,
+        }
+    }
+
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        match self {
+            Image::Single(image) => image.transform_matrix(current_image_zoom),
+            Image::Dual(image) => image.transform_matrix(current_image_zoom),
+            Image::Rendered(image) => image.transform_matrix(current_image_zoom),
+            Image::None => Matrix::identity(),
         }
     }
 }

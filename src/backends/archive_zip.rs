@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Image, ImageParams};
+use super::{Content, ImageParams};
 use chrono::{Local, TimeZone};
 use human_bytes::human_bytes;
 use image::DynamicImage;
@@ -30,7 +30,6 @@ use zip::result::ZipResult;
 
 use crate::{
     category::Category,
-    content::{Content, ContentData},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -103,25 +102,25 @@ impl Backend for ZipArchive {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_zip(&self.path, item.idx() as usize) {
             Ok(bytes) => ImageLoader::image_from_memory(bytes),
             Err(error) => draw_error(error.into()),
         }
     }
 
-    fn content(&self, item: &ItemRef) -> Content {
-        Content {
-            reference: Reference {
-                backend: self.backend_ref(),
-                item: item.clone(),
-            },
-            data: match extract_zip(&self.path, item.idx() as usize) {
-                Ok(bytes) => ContentData::Raw(bytes),
-                Err(error) => ContentData::Error(error.into()),
-            },
-        }
-    }
+    // fn content(&self, item: &ItemRef) -> Content {
+    //     Content::new(
+    //         Reference {
+    //             backend: self.backend_ref(),
+    //             item: item.clone(),
+    //         },
+    //         match extract_zip(&self.path, item.idx() as usize) {
+    //             Ok(bytes) => ContentData::Raw(bytes),
+    //             Err(error) => ContentData::Error(error.into()),
+    //         },
+    //     )
+    // }
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::ZipArchive(self.path.clone())

@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Image, ImageParams};
+use super::{Content, ImageParams};
 use image::DynamicImage;
 use std::{
     fs,
@@ -107,7 +107,7 @@ impl Backend for MarArchive {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Image {
+    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_mar(&self.path, item.idx()) {
             Ok(image) => image,
             Err(error) => draw_error(error),
@@ -123,7 +123,7 @@ impl Backend for MarArchive {
     }
 }
 
-fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Image> {
+fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Content> {
     let duration = Performance::start();
     let fname = std::path::Path::new(filename);
     let file = fs::File::open(fname)?;
