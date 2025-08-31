@@ -19,6 +19,7 @@
 
 mod actions;
 mod backend;
+mod dependencies;
 mod keyboard;
 mod menu;
 mod mouse;
@@ -42,6 +43,7 @@ use crate::{
         model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
         RenderThread, RenderThreadSender,
     },
+    window::imp::dependencies::check_dependencies,
 };
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
@@ -458,6 +460,7 @@ impl ObjectImpl for MViewWindowImp {
             #[upgrade_or]
             ControlFlow::Break,
             move || {
+                check_dependencies(&this.obj(), false);
                 if let Some(filename) = &filename {
                     println!("Opening {filename}");
                     // match path::absolute(filename) {
