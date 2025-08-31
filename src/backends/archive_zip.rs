@@ -30,6 +30,7 @@ use zip::result::ZipResult;
 
 use crate::{
     category::Category,
+    content::{Content, ContentData},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -108,6 +109,20 @@ impl Backend for ZipArchive {
             Err(error) => draw_error(error.into()),
         }
     }
+
+    fn content(&self, item: &ItemRef) -> Content {
+        Content {
+            reference: Reference {
+                backend: self.backend_ref(),
+                item: item.clone(),
+            },
+            data: match extract_zip(&self.path, item.idx() as usize) {
+                Ok(bytes) => ContentData::Raw(bytes),
+                Err(error) => ContentData::Error(error.into()),
+            },
+        }
+    }
+
     fn backend_ref(&self) -> BackendRef {
         BackendRef::ZipArchive(self.path.clone())
     }

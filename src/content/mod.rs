@@ -17,49 +17,22 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#![windows_subsystem = "windows"]
+pub mod analyze;
+pub mod analyze2;
 
-mod application;
-mod backends;
-mod category;
-mod config;
-mod content;
-mod error;
-mod file_view;
-mod image;
-mod info_view;
-mod profile;
-mod rect;
-mod render_thread;
-mod util;
-mod window;
+use crate::{error::MviewError, file_view::model::Reference};
 
-use gtk4::{
-    gdk::Display, prelude::ApplicationExtManual, style_context_add_provider_for_display,
-    CssProvider, IconTheme, STYLE_PROVIDER_PRIORITY_APPLICATION,
-};
+pub const MAX_CONTENT_SIZE: u64 = 50 * 1024 * 1024;
 
-fn main() {
-    gtk4::init().expect("Failed to initialize gtk");
+pub enum ContentData {
+    Lines(String, Vec<String>),
+    Raw(Vec<u8>),
+    Image(),
+    Error(MviewError),
+    Reference,
+}
 
-    gio::resources_register_include!("mview6.gresource").unwrap();
-
-    let display = Display::default().expect("Could not connect to a display.");
-
-    let css_provider = CssProvider::new();
-    css_provider.load_from_resource("/css/mview6.css");
-    style_context_add_provider_for_display(
-        &display,
-        &css_provider,
-        STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
-
-    let icon_theme = IconTheme::for_display(&display);
-    icon_theme.add_resource_path("/icons");
-
-    pdfium::set_library_location("/usr/lib/mview6");
-
-    let app = application::MviewApplication::new();
-
-    app.run();
+pub struct Content {
+    pub reference: Reference,
+    pub data: ContentData,
 }

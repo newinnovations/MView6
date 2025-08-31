@@ -20,6 +20,7 @@
 use super::{Image, ImageParams};
 use crate::{
     category::Category,
+    content::{Content, ContentData, MAX_CONTENT_SIZE},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -31,8 +32,8 @@ use crate::{
 use image::DynamicImage;
 use regex::Regex;
 use std::{
-    fs::{metadata, read_dir, rename},
-    io,
+    fs::{metadata, read_dir, rename, File},
+    io::{self, Read},
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
@@ -161,6 +162,21 @@ impl Backend for FileSystem {
         ImageLoader::image_from_file(&filename)
     }
 
+    fn content(&self, item: &ItemRef) -> Content {
+        // let trait_obj: &dyn Backend = self;
+        let filename = self.directory.join(item.str());
+        Content {
+            reference: Reference {
+                backend: self.backend_ref(),
+                item: item.clone(),
+            },
+            data: match read_bytes(&filename) {
+                Ok(bytes) => ContentData::Raw(bytes),
+                Err(error) => ContentData::Error(error),
+            },
+        }
+    }
+
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
         let cat = cursor.category();
         if cat != Category::Image && cat != Category::Favorite && cat != Category::Trash {
@@ -218,4 +234,11 @@ impl Backend for FileSystem {
             store: Self::read_directory(directory).unwrap_or_default(),
         }))
     }
+}
+
+fn read_bytes(path: &Path) -> MviewResult<Vec<u8>> {
+    let file = File::open(path)?;
+    let mut buffer = Vec::new();
+    file.take(MAX_CONTENT_SIZE).read_to_end(&mut buffer)?;
+    Ok(buffer)
 }

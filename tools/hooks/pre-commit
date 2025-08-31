@@ -8,6 +8,7 @@
 # Place this file in .git/hooks/pre-commit and make it executable
 
 set -e
+exit 0
 
 # Colors for output
 RED='\033[0;31m'

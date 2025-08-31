@@ -36,6 +36,7 @@ use crate::{
         document::{mupdf::DocMuPdf, pdf_engine, pdfium::DocPdfium, PageMode, PdfEngine},
         thumbnail::model::TParent,
     },
+    content::{Content, ContentData},
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
         Column, Cursor, Direction, Target,
@@ -89,6 +90,16 @@ pub trait Backend {
     fn image(&self, item: &ItemRef, params: &ImageParams) -> Image;
     fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         None
+    }
+
+    fn content(&self, item: &ItemRef) -> Content {
+        Content {
+            reference: Reference {
+                backend: self.backend_ref(),
+                item: item.clone(),
+            },
+            data: ContentData::Reference,
+        }
     }
 
     // fn image_zoom(

@@ -27,6 +27,7 @@ use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
     category::Category,
+    content::{Content, ContentData},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -99,6 +100,19 @@ impl Backend for RarArchive {
         match extract_rar(&self.path, item.str()) {
             Ok(bytes) => ImageLoader::image_from_memory(bytes),
             Err(error) => draw_error(error.into()),
+        }
+    }
+
+    fn content(&self, item: &ItemRef) -> Content {
+        Content {
+            reference: Reference {
+                backend: self.backend_ref(),
+                item: item.clone(),
+            },
+            data: match extract_rar(&self.path, item.str()) {
+                Ok(bytes) => ContentData::Raw(bytes),
+                Err(error) => ContentData::Error(error.into()),
+            },
         }
     }
 
