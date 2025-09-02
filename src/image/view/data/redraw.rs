@@ -25,7 +25,6 @@ use glib::{clone, ControlFlow};
 use gtk4::prelude::WidgetExt;
 
 use crate::{
-    content::ContentData,
     image::{
         provider::surface::SurfaceData,
         view::{
@@ -34,7 +33,6 @@ use crate::{
         },
     },
     rect::RectD,
-    render_thread::model::RenderCommand,
     util::remove_source_id,
 };
 
@@ -103,17 +101,14 @@ impl ImageViewData {
         println!("-- redraw  reason={reason:?}");
         self.quality = quality;
         if let Some(view) = &self.view {
-            if quality == QUALITY_HIGH && reason != RedrawReason::RenderingUpdated {
-                if let ContentData::Doc(pm, _s) = &self.content.image_data {
-                    let a = view.allocation();
-                    let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
-                    self.rb_send(RenderCommand::RenderDoc(
-                        self.content.reference.clone(),
-                        self.content.id(),
-                        *pm,
-                        self.zoom.clone(),
-                        viewport,
-                    ));
+            if quality == QUALITY_HIGH
+                && reason != RedrawReason::RenderingUpdated
+                && self.content.needs_render()
+            {
+                let a = view.allocation();
+                let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
+                if let Some(command) = self.content.render(self.zoom.clone(), viewport) {
+                    self.rb_send(command);
                     if reason == RedrawReason::ContentPost
                         || reason == RedrawReason::RotationChanged
                     {
@@ -123,20 +118,6 @@ impl ImageViewData {
                                 // we should postpone all redraws until we get an OverlayUpdated
                                 // (which we may not get because, the images might already
                                 //  have been updated for something else)
-                    }
-                } else if let ContentData::Svg(tree) = &self.content.image_data {
-                    let a = view.allocation();
-                    let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
-                    self.rb_send(RenderCommand::RenderSvg(
-                        self.content.id(),
-                        self.zoom.clone(),
-                        viewport,
-                        tree.clone(),
-                    ));
-                    if reason == RedrawReason::ContentPost
-                        || reason == RedrawReason::RotationChanged
-                    {
-                        return;
                     }
                 }
             }

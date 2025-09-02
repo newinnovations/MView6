@@ -38,8 +38,7 @@ impl RenderThreadSender {
     }
 
     pub fn send_blocking(&self, command: RenderCommand) {
-        let id = 1 + self.counter.load(Ordering::SeqCst);
-        self.counter.store(id, Ordering::SeqCst);
+        let id = self.counter.fetch_add(1, Ordering::SeqCst);
         let msg = RenderCommandMessage { id, cmd: command };
         let _ = self.sender.send_blocking(msg);
     }

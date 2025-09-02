@@ -157,9 +157,10 @@ impl ImageViewData {
         if let Some(rendered) = &self.zoom_overlay {
             Image::Rendered(rendered)
         } else {
-            match &self.content.image_data {
+            match &self.content.data {
                 ContentData::Single(single) => Image::Single(single),
                 ContentData::Dual(dual) => Image::Dual(dual),
+                ContentData::Animation(animation) => Image::Animation(animation),
                 _ => Image::None,
             }
         }

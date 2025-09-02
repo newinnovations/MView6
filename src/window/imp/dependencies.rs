@@ -130,7 +130,7 @@ fn show_missing_files_dialog(
             <span color='lightgreen'><u>https://github.com/bblanchon/pdfium-binaries/releases</u></span>\n   \
             <i>(Download the Windows version: <tt>pdfium.dll</tt>)</i>\n\n\
             <b>3.</b> Copy all files to the same directory as the MView6 executable:\n   \
-            <tt><span bgcolor='lightgray'>{}</span></tt>\n\n\
+            <tt><span color='green'>{}</span></tt>\n\n\
             <b>Important:</b> The missing files should be placed directly in this folder.",
             missing_files.join("</tt>,\n - <tt>"),
             install_path.display()

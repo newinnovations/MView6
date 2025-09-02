@@ -17,11 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use resvg::usvg::Tree;
-
 use crate::{
-    backends::document::PageMode,
-    file_view::model::Reference,
+    content::{DocContent, SvgContent},
     image::{provider::surface::SurfaceData, view::Zoom},
     rect::RectD,
 };
@@ -29,8 +26,10 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum RenderCommand {
     // Image((Reference, PageMode, i32)),
-    RenderDoc(Reference, u32, PageMode, Zoom, RectD),
-    RenderSvg(u32, Zoom, RectD, Box<Tree>),
+    // RenderDoc(Reference, u32, PageMode, Zoom, RectD),
+    // RenderSvg(u32, Zoom, RectD, Box<Tree>),
+    RenderDoc(u32, Zoom, RectD, DocContent),
+    RenderSvg(u32, Zoom, RectD, SvgContent),
 }
 
 #[derive(Debug, Clone)]

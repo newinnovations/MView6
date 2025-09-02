@@ -39,7 +39,7 @@ use crate::{
 pub struct RenderWorker {
     to_rt_receiver: Receiver<RenderCommandMessage>,
     from_rt_sender: Sender<RenderReplyMessage>,
-    counter: Arc<AtomicU32>,
+    command_id: Arc<AtomicU32>, // actually contains the id will be given out next
 }
 
 impl RenderWorker {
@@ -51,7 +51,7 @@ impl RenderWorker {
         RenderWorker {
             to_rt_receiver,
             from_rt_sender,
-            counter,
+            command_id: counter,
         }
     }
 
@@ -60,7 +60,7 @@ impl RenderWorker {
         let mut backend_ref = BackendRef::None;
         loop {
             if let Ok(command) = self.to_rt_receiver.recv_blocking() {
-                if self.get_counter() != command.id {
+                if self.get_current_command_id() != command.id {
                     println!(
                         "There are newer commands in the queue, skipping id {}",
                         command.id
@@ -69,15 +69,16 @@ impl RenderWorker {
                 }
 
                 match command.cmd {
-                    RenderCommand::RenderDoc(r, image_id, page_mode, zoom, viewport) => {
-                        if r.backend != backend_ref {
-                            println!("Changing backend to {:?}", r.backend);
-                            backend = <dyn Backend>::new_reference(&r.backend);
-                            backend_ref = r.backend;
+                    RenderCommand::RenderDoc(image_id, zoom, viewport, doc) => {
+                        if doc.reference.backend != backend_ref {
+                            println!("Changing backend to {:?}", doc.reference.backend);
+                            backend = <dyn Backend>::new_reference(&doc.reference.backend);
+                            backend_ref = doc.reference.backend;
                         }
-                        let result = backend.render(&r.item, &page_mode, &zoom, &viewport);
+                        let result =
+                            backend.render(&doc.reference.item, &doc.page_mode, &zoom, &viewport);
                         if let Some(surface) = result {
-                            if command.id != self.get_counter() {
+                            if command.id != self.get_current_command_id() {
                                 println!(
                                     "Result from hq render not needed anymore. Discarding id {}",
                                     command.id
@@ -95,10 +96,10 @@ impl RenderWorker {
                             println!("HqRender: none");
                         }
                     }
-                    RenderCommand::RenderSvg(image_id, zoom, viewport, tree) => {
-                        let result = render_svg(&zoom, &viewport, &tree);
+                    RenderCommand::RenderSvg(image_id, zoom, viewport, svg) => {
+                        let result = render_svg(&zoom, &viewport, &svg.tree);
                         if let Some(surface) = result {
-                            if command.id != self.get_counter() {
+                            if command.id != self.get_current_command_id() {
                                 println!(
                                     "Result from svg render not needed anymore. Discarding id {}",
                                     command.id
@@ -122,7 +123,7 @@ impl RenderWorker {
         }
     }
 
-    fn get_counter(&self) -> u32 {
-        self.counter.load(Ordering::SeqCst)
+    fn get_current_command_id(&self) -> u32 {
+        self.command_id.load(Ordering::SeqCst) - 1
     }
 }

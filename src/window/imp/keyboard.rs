@@ -216,7 +216,7 @@ impl MViewWindowImp {
                     if current.next() {
                         let image2 = b.image(&b.reference(&current).item, &params);
                         if let (ContentData::Single(single1), ContentData::Single(single2)) =
-                            (image1.image_data, image2.image_data)
+                            (image1.data, image2.data)
                         {
                             let i2 = Content::new_dual_surface(
                                 Some(single1.surface()),

@@ -70,9 +70,9 @@ impl ImageViewImp {
         }
     }
 
-    pub fn schedule_animation(&self, image: &Content, ts_previous_cb: SystemTime) {
-        if image.is_animation() {
-            if let Some(interval) = image.animation_delay_time(ts_previous_cb) {
+    pub fn schedule_animation(&self, content: &Content, ts_previous_cb: SystemTime) {
+        if let Some(animation) = content.animation() {
+            if let Some(interval) = animation.delay_time(ts_previous_cb) {
                 // dbg!(interval);
                 let current = self
                     .animation_timeout_id
@@ -98,9 +98,11 @@ impl ImageViewImp {
         let start = SystemTime::now();
         self.animation_timeout_id.replace(None);
         let mut p = self.data.borrow_mut();
-        if p.content.animation_advance(SystemTime::now()) {
-            self.schedule_animation(&p.content, start);
-            p.redraw(RedrawReason::AnimationCallback);
+        if let Some(animation) = p.content.animation_mut() {
+            if animation.advance(SystemTime::now()) {
+                self.schedule_animation(&p.content, start);
+                p.redraw(RedrawReason::AnimationCallback);
+            }
         }
     }
 
@@ -175,7 +177,7 @@ impl ImageViewImp {
         // Viewport offset is handled in the transformation matrix so drawing here happens
         // at the virtual origin (0.0, 0.0)
         context.transform(image.transform_matrix(&p.zoom));
-        image.render(context, p.quality);
+        image.draw(context, p.quality);
         self.draw_annotations(context);
     }
 

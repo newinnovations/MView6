@@ -31,12 +31,13 @@ use crate::{
     backends::document::PageMode,
     file_view::model::Reference,
     image::{
-        animation::Animation,
+        animation::{Animation, AnimationImage},
         provider::gdk::GdkImageLoader,
-        view::{data::TransparencyMode, ZoomMode},
+        view::{data::TransparencyMode, Zoom, ZoomMode},
         DualImage, SingleImage,
     },
-    rect::SizeD,
+    rect::{RectD, SizeD},
+    render_thread::model::RenderCommand,
 };
 
 static CONTENT_ID: AtomicU32 = AtomicU32::new(1);
@@ -45,14 +46,48 @@ fn get_content_id() -> u32 {
     CONTENT_ID.fetch_add(1, Ordering::SeqCst)
 }
 
+#[derive(Debug, Clone)]
+pub struct DocContent {
+    pub page_mode: PageMode,
+    pub size: SizeD,
+    pub reference: Reference,
+}
+
+impl DocContent {
+    pub fn size(&self) -> SizeD {
+        self.size
+    }
+
+    pub fn has_alpha(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SvgContent {
+    pub tree: Box<Tree>,
+}
+
+impl SvgContent {
+    pub fn size(&self) -> SizeD {
+        let size = self.tree.size();
+        SizeD::new(size.width().into(), size.height().into())
+    }
+
+    pub fn has_alpha(&self) -> bool {
+        true
+    }
+}
+
 #[derive(Default)]
 pub enum ContentData {
     #[default]
     None,
     Single(SingleImage),
     Dual(DualImage),
-    Svg(Box<Tree>),
-    Doc(PageMode, SizeD),
+    Animation(AnimationImage),
+    Svg(SvgContent),
+    Doc(DocContent),
 }
 
 impl From<Option<Pixbuf>> for ContentData {
@@ -95,9 +130,7 @@ impl From<(Option<ImageSurface>, Option<ImageSurface>)> for ContentData {
 #[derive(Default)]
 pub struct Content {
     id: u32,
-    pub reference: Reference,
-    pub image_data: ContentData,
-    pub animation: Animation,
+    pub data: ContentData,
     pub exif: Option<Exif>,
     pub zoom_mode: ZoomMode,
     pub transparency_mode: TransparencyMode,
@@ -108,9 +141,7 @@ impl Content {
     pub fn new_surface(surface: ImageSurface, exif: Option<Exif>) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: ContentData::Single(SingleImage::new(surface)),
-            animation: Animation::None,
+            data: ContentData::Single(SingleImage::new(surface)),
             exif,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -121,9 +152,7 @@ impl Content {
     pub fn new_surface_nozoom(surface: ImageSurface) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: ContentData::Single(SingleImage::new(surface)),
-            animation: Animation::None,
+            data: ContentData::Single(SingleImage::new(surface)),
             exif: None,
             zoom_mode: ZoomMode::NoZoom,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -134,9 +163,7 @@ impl Content {
     pub fn new_pixbuf(pixbuf: Option<Pixbuf>, exif: Option<Exif>) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: pixbuf.into(),
-            animation: Animation::None,
+            data: pixbuf.into(),
             exif,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -151,9 +178,7 @@ impl Content {
     ) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: (pixbuf_left, pixbuf_right).into(),
-            animation: Animation::None,
+            data: (pixbuf_left, pixbuf_right).into(),
             exif,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -168,9 +193,7 @@ impl Content {
     ) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: (surface_left, surface_right).into(),
-            animation: Animation::None,
+            data: (surface_left, surface_right).into(),
             exif,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -179,17 +202,9 @@ impl Content {
     }
 
     pub fn new_animation(animation: Animation) -> Self {
-        let surface = match &animation {
-            Animation::None => None,
-            Animation::Gdk(a) => GdkImageLoader::surface_from_pixbuf(&a.pixbuf()).ok(),
-            Animation::WebPFile(a) => a.surface_get(0),
-            Animation::WebPMemory(a) => a.surface_get(0),
-        };
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: surface.into(),
-            animation,
+            data: ContentData::Animation(AnimationImage::new(animation)),
             exif: None,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
@@ -198,16 +213,16 @@ impl Content {
     }
 
     pub fn new_svg(
-        svg: Tree,
+        tree: Tree,
         tag: Option<String>,
         zoom_mode: ZoomMode,
         transparency_mode: TransparencyMode,
     ) -> Self {
         Content {
             id: get_content_id(),
-            reference: Default::default(),
-            image_data: ContentData::Svg(Box::new(svg)),
-            animation: Animation::None,
+            data: ContentData::Svg(SvgContent {
+                tree: Box::new(tree),
+            }),
             exif: None,
             zoom_mode,
             transparency_mode,
@@ -218,9 +233,11 @@ impl Content {
     pub fn new_doc(reference: Reference, page_mode: PageMode, size: SizeD) -> Self {
         Content {
             id: get_content_id(),
-            reference,
-            image_data: ContentData::Doc(page_mode, size),
-            animation: Animation::None,
+            data: ContentData::Doc(DocContent {
+                page_mode,
+                size,
+                reference,
+            }),
             exif: None,
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::White,
@@ -233,29 +250,46 @@ impl Content {
     }
 
     pub fn size(&self) -> SizeD {
-        match &self.image_data {
+        match &self.data {
             ContentData::None => Default::default(),
-            ContentData::Svg(tree) => {
-                let size = tree.size();
-                SizeD::new(size.width().into(), size.height().into())
-            }
-            ContentData::Doc(_, size) => *size,
+            ContentData::Svg(svg) => svg.size(),
+            ContentData::Doc(doc) => doc.size(),
             ContentData::Single(image) => image.size(),
             ContentData::Dual(image) => image.size(),
+            ContentData::Animation(image) => image.size(),
         }
     }
 
-    pub fn reference(&self) -> &Reference {
-        &self.reference
-    }
-
     pub fn has_alpha(&self) -> bool {
-        match &self.image_data {
+        match &self.data {
             ContentData::None => false,
             ContentData::Single(single) => single.has_alpha(),
             ContentData::Dual(dual) => dual.has_alpha(),
-            ContentData::Svg(_tree) => true,
-            ContentData::Doc(_, _size) => true,
+            ContentData::Animation(animation) => animation.has_alpha(),
+            ContentData::Svg(svg) => svg.has_alpha(),
+            ContentData::Doc(doc) => doc.has_alpha(),
+        }
+    }
+
+    pub fn needs_render(&self) -> bool {
+        matches!(&self.data, ContentData::Svg(_) | ContentData::Doc(_))
+    }
+
+    pub fn render(&self, zoom: Zoom, viewport: RectD) -> Option<RenderCommand> {
+        match &self.data {
+            ContentData::Svg(svg) => Some(RenderCommand::RenderSvg(
+                self.id(),
+                zoom,
+                viewport,
+                svg.clone(),
+            )),
+            ContentData::Doc(doc) => Some(RenderCommand::RenderDoc(
+                self.id(),
+                zoom,
+                viewport,
+                doc.clone(),
+            )),
+            _ => None,
         }
     }
 
@@ -283,8 +317,22 @@ impl Content {
     }
 
     pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
-        if let ContentData::Single(single) = &self.image_data {
+        if let ContentData::Single(single) = &self.data {
             single.draw_pixbuf(pixbuf, dest_x, dest_y);
+        }
+    }
+
+    pub fn animation(&self) -> Option<&AnimationImage> {
+        match &self.data {
+            ContentData::Animation(animation_image) => Some(animation_image),
+            _ => None,
+        }
+    }
+
+    pub fn animation_mut(&mut self) -> Option<&mut AnimationImage> {
+        match &mut self.data {
+            ContentData::Animation(animation_image) => Some(animation_image),
+            _ => None,
         }
     }
 }

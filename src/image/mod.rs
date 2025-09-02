@@ -30,7 +30,7 @@ use gtk4::gdk::prelude::GdkCairoContextExt;
 use std::cmp::max;
 
 use crate::{
-    image::view::Zoom,
+    image::{animation::AnimationImage, view::Zoom},
     rect::{SizeD, VectorD},
 };
 
@@ -50,7 +50,7 @@ impl RenderedImage {
         }
     }
 
-    pub fn render(&self, context: &Context) {
+    pub fn draw(&self, context: &Context) {
         let size = self.size();
         context.rectangle(0.0, 0.0, size.width(), size.height());
         let _ = context.set_source_surface(&self.surface, 0.0, 0.0);
@@ -95,7 +95,7 @@ impl SingleImage {
         self.surface
     }
 
-    pub fn render(&self, context: &Context, quality: Filter) {
+    pub fn draw(&self, context: &Context, quality: Filter) {
         let size = self.size();
         context.rectangle(0.0, 0.0, size.width(), size.height());
         let _ = context.set_source_surface(&self.surface, 0.0, 0.0);
@@ -151,7 +151,7 @@ impl DualImage {
         }
     }
 
-    pub fn render(&self, context: &Context, quality: Filter) {
+    pub fn draw(&self, context: &Context, quality: Filter) {
         let size = self.size();
 
         context.rectangle(0.0, 0.0, size.width(), size.height());
@@ -190,33 +190,27 @@ pub enum Image<'a> {
     Single(&'a SingleImage),
     Dual(&'a DualImage),
     Rendered(&'a RenderedImage),
+    Animation(&'a AnimationImage),
     None,
 }
 
 impl<'a> Image<'a> {
-    pub fn render(&self, context: &Context, quality: Filter) {
+    pub fn draw(&self, context: &Context, quality: Filter) {
         match self {
-            Image::Single(image) => image.render(context, quality),
-            Image::Dual(image) => image.render(context, quality),
-            Image::Rendered(image) => image.render(context),
+            Image::Single(image) => image.draw(context, quality),
+            Image::Dual(image) => image.draw(context, quality),
+            Image::Rendered(image) => image.draw(context),
+            Image::Animation(image) => image.draw(context),
             Image::None => (),
         }
     }
-
-    // pub fn size(&self) -> SizeD {
-    //     match self {
-    //         Image::Single(image) => image.size(),
-    //         Image::Dual(image) => image.size(),
-    //         Image::Zoomed(image) => image.size(),
-    //         Image::None => SizeD::default(),
-    //     }
-    // }
 
     pub fn has_alpha(&self) -> bool {
         match self {
             Image::Single(image) => image.has_alpha(),
             Image::Dual(image) => image.has_alpha(),
             Image::Rendered(image) => image.has_alpha(),
+            Image::Animation(image) => image.has_alpha(),
             Image::None => false,
         }
     }
@@ -226,6 +220,7 @@ impl<'a> Image<'a> {
             Image::Single(image) => image.transform_matrix(current_image_zoom),
             Image::Dual(image) => image.transform_matrix(current_image_zoom),
             Image::Rendered(image) => image.transform_matrix(current_image_zoom),
+            Image::Animation(image) => image.transform_matrix(current_image_zoom),
             Image::None => Matrix::identity(),
         }
     }

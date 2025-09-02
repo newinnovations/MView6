@@ -23,18 +23,19 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use cairo::ImageSurface;
+use cairo::{Context, ImageSurface, Matrix};
 use gdk_pixbuf::PixbufAnimationIter;
 use image_webp::WebPDecoder;
 
-use crate::{content::Content, error::MviewResult};
+use crate::{
+    error::MviewResult,
+    image::{provider::gdk::GdkImageLoader, view::Zoom},
+    rect::SizeD,
+};
 
 use super::provider::webp::WebP;
 
-#[derive(Default)]
 pub enum Animation {
-    #[default]
-    None,
     Gdk(PixbufAnimationIter),
     WebPFile(Box<WebPAnimation<BufReader<File>>>),
     WebPMemory(Box<WebPAnimation<Cursor<Vec<u8>>>>),
@@ -52,45 +53,81 @@ pub struct WebPAnimation<T> {
     pub(super) frames: Vec<AnimationFrame>,
 }
 
-impl Content {
-    pub fn is_animation(&self) -> bool {
-        !matches!(self.animation, Animation::None)
+pub struct AnimationImage {
+    animation: Animation,
+    surface: Option<ImageSurface>,
+}
+
+impl AnimationImage {
+    pub fn new(animation: Animation) -> Self {
+        let surface = match &animation {
+            Animation::Gdk(a) => GdkImageLoader::surface_from_pixbuf(&a.pixbuf()).ok(),
+            Animation::WebPFile(a) => a.surface_get(0),
+            Animation::WebPMemory(a) => a.surface_get(0),
+        };
+        Self { animation, surface }
     }
 
-    pub fn animation_delay_time(&self, ts_previous_cb: SystemTime) -> Option<std::time::Duration> {
+    pub fn draw(&self, context: &Context) {
+        if let Some(surface) = &self.surface {
+            context.rectangle(0.0, 0.0, surface.width() as f64, surface.height() as f64);
+            let _ = context.set_source_surface(surface, 0.0, 0.0);
+            let _ = context.fill();
+        }
+    }
+
+    pub fn size(&self) -> SizeD {
+        if let Some(surface) = &self.surface {
+            SizeD::new(surface.width() as f64, surface.height() as f64)
+        } else {
+            SizeD::default()
+        }
+    }
+
+    pub fn has_alpha(&self) -> bool {
+        true
+    }
+
+    pub fn transform_matrix(&self, current_image_zoom: &Zoom) -> Matrix {
+        current_image_zoom.transform_matrix()
+    }
+
+    pub fn delay_time(&self, ts_previous_cb: SystemTime) -> Option<std::time::Duration> {
         match &self.animation {
-            Animation::None => None,
             Animation::Gdk(animation) => animation.delay_time(),
             Animation::WebPFile(animation) => animation.delay_time(ts_previous_cb),
             Animation::WebPMemory(animation) => animation.delay_time(ts_previous_cb),
         }
     }
 
-    pub fn animation_advance(&mut self, current_time: SystemTime) -> bool {
+    pub fn advance(&mut self, current_time: SystemTime) -> bool {
         match &mut self.animation {
-            Animation::None => false,
-            Animation::Gdk(animation) => {
-                if animation.advance(current_time) {
-                    self.image_data = Some(animation.pixbuf()).into();
+            Animation::Gdk(a) => {
+                if a.advance(current_time) {
+                    self.surface = GdkImageLoader::surface_from_pixbuf(&a.pixbuf()).ok();
                     true
                 } else {
                     false
                 }
             }
-            Animation::WebPFile(animation) => match animation.advance(current_time) {
-                Some(pixbuf) => {
-                    self.image_data = Some(pixbuf).into();
+            Animation::WebPFile(a) => {
+                let next = a.advance(current_time);
+                if next.is_some() {
+                    self.surface = next;
                     true
+                } else {
+                    false
                 }
-                None => false,
-            },
-            Animation::WebPMemory(animation) => match animation.advance(current_time) {
-                Some(pixbuf) => {
-                    self.image_data = Some(pixbuf).into();
+            }
+            Animation::WebPMemory(a) => {
+                let next = a.advance(current_time);
+                if next.is_some() {
+                    self.surface = next;
                     true
+                } else {
+                    false
                 }
-                None => false,
-            },
+            }
         }
     }
 }
