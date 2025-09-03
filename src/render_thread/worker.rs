@@ -96,8 +96,8 @@ impl RenderWorker {
                             println!("HqRender: none");
                         }
                     }
-                    RenderCommand::RenderSvg(image_id, zoom, viewport, svg) => {
-                        let result = render_svg(&zoom, &viewport, &svg.tree);
+                    RenderCommand::RenderSvg(image_id, zoom, viewport, tree) => {
+                        let result = render_svg(&zoom, &viewport, &tree);
                         if let Some(surface) = result {
                             if command.id != self.get_current_command_id() {
                                 println!(

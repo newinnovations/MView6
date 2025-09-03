@@ -17,10 +17,18 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#[cfg(not(windows))]
+use std::path::Path;
+
+use resvg::usvg::{fontdb, Options, Tree};
+
 use crate::{
+    content::Content,
+    error::MviewResult,
     image::{
         colors::{Color, MViewColor},
         svg::creator::{SvgCanvas, TextAnchor, TextStyle},
+        view::{data::TransparencyMode, ZoomMode},
     },
     rect::PointD,
 };
@@ -86,4 +94,53 @@ impl TextSheet {
         ));
         self.canvas
     }
+}
+
+pub fn svg_options<'a>() -> Options<'a> {
+    let mut fontdb = fontdb::Database::new();
+    load_font_file(&mut fontdb, "LiberationSans-Regular.ttf");
+    load_font_file(&mut fontdb, "LiberationSans-Bold.ttf");
+    load_font_file(&mut fontdb, "CascadiaMono-Regular.ttf");
+    Options::<'_> {
+        fontdb: fontdb.into(),
+        ..Default::default()
+    }
+}
+
+fn load_font_file(fontdb: &mut fontdb::Database, name: &str) {
+    let path = {
+        #[cfg(windows)]
+        {
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.to_path_buf()));
+            match exe_dir {
+                Some(exe_dir) => exe_dir.join(name),
+                None => {
+                    eprintln!("Failed to obtain directory of executable");
+                    return;
+                }
+            }
+        }
+        #[cfg(not(windows))]
+        Path::new("/usr/lib/mview6").join(name)
+    };
+    if fontdb.load_font_file(&path).is_err() {
+        eprintln!("Failed to load font {path:?}");
+    }
+}
+
+pub fn svg_text_sheet(
+    title: &str,
+    msg: &str,
+    colors: (Color, Color, Color),
+) -> MviewResult<Content> {
+    let svg_content = SvgCanvas::create_text_sheet(title, msg, colors);
+    let tree = Tree::from_str(&svg_content, &svg_options())?;
+    Ok(Content::new_svg(
+        tree,
+        None,
+        ZoomMode::NotSpecified,
+        TransparencyMode::Black,
+    ))
 }

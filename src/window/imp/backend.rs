@@ -72,7 +72,7 @@ impl MViewWindowImp {
         ));
 
         // TODO: think about title management
-        let filename = path_to_filename(&new_backend.path());
+        let filename = path_to_filename(new_backend.path());
         if new_backend.is_doc() {
             self.obj().set_title(Some(&format!(
                 "{filename} ({}) - MView6",

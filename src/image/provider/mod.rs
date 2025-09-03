@@ -27,12 +27,9 @@ use crate::{
     backends::Backend,
     category::Category,
     config::config,
-    content::Content,
+    content::{paginated::PaginatedContent, Content},
     error::MviewResult,
-    image::{
-        svg::draw::{svg_directory_list, svg_hexdump, svg_highlight},
-        view::data::TransparencyMode,
-    },
+    image::view::data::TransparencyMode,
     profile::performance::Performance,
     util::{path_to_extension, path_to_filename},
 };
@@ -72,11 +69,11 @@ impl ImageLoader {
                 let syntax = config()
                     .ps
                     .find_syntax_by_extension(&path_to_extension(path));
-                if let Ok(image) = match syntax {
-                    Some(syntax) => svg_highlight(path, syntax),
-                    None => svg_hexdump(path),
+                if let Ok(content) = match syntax {
+                    Some(_syntax) => PaginatedContent::new_text(path),
+                    None => PaginatedContent::new_raw(path),
                 } {
-                    return image;
+                    return Content::new_paginated(content);
                 } else {
                     return draw_text(&cat.name(), &name, cat.colors());
                 }
@@ -84,11 +81,7 @@ impl ImageLoader {
             Category::Folder | Category::Archive => {
                 let backend = <dyn Backend>::new(path);
                 let store = backend.store();
-                if let Ok(image) = svg_directory_list(path, store) {
-                    return image;
-                } else {
-                    return draw_text(&cat.name(), &name, cat.colors());
-                }
+                return Content::new_paginated(PaginatedContent::new_list(path, store.to_vec()));
             }
             Category::Document => {
                 return draw_text(&cat.name(), &name, cat.colors());

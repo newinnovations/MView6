@@ -25,7 +25,7 @@ use crate::{
     backends::thumbnail::TMessage,
     content::Content,
     error::{MviewError, MviewResult},
-    image::svg::draw::svg_text_sheet,
+    image::svg::text_sheet::svg_text_sheet,
 };
 
 use super::colors::{CairoColorExt, Color};

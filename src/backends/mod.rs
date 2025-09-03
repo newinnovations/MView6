@@ -73,7 +73,7 @@ pub trait Backend {
         if let Some(parent) = self.path().parent() {
             Some((
                 Box::new(FileSystem::new(parent)),
-                Target::Name(path_to_filename(&self.path())),
+                Target::Name(path_to_filename(self.path())),
             ))
         } else {
             None
@@ -91,28 +91,6 @@ pub trait Backend {
     fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
-
-    // fn content(&self, item: &ItemRef, params: &ImageParams) -> Content2 {
-    //     let image = self.image(item, params);
-    //     Content2::new(
-    //         Reference {
-    //             backend: self.backend_ref(),
-    //             item: item.clone(),
-    //         },
-    //         ContentData::Image(image),
-    //     )
-    // }
-
-    // fn image_zoom(
-    //     &self,
-    //     item: &ItemRef,
-    //     page_mode: PageMode,
-    //     current_height: f32,
-    //     clip: RectD,
-    //     zoom: &Zoom,
-    // ) -> Option<SurfaceData> {
-    //     None
-    // }
 
     fn render(
         &self,

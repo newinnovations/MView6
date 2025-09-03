@@ -32,22 +32,24 @@ pub fn remove_source_id(id: &SourceId) -> Result<(), BoolError> {
     unsafe { result_from_gboolean!(g_source_remove(id.as_raw()), "Failed to remove source") }
 }
 
-pub fn path_to_filename(path: &Path) -> String {
-    path.file_name()
+pub fn path_to_filename<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref()
+        .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string()
 }
 
-pub fn path_to_directory(path: &Path) -> String {
-    match path.parent() {
+pub fn path_to_directory<P: AsRef<Path>>(path: P) -> String {
+    match path.as_ref().parent() {
         Some(path) => path.to_string_lossy().to_string(),
         None => Default::default(),
     }
 }
 
-pub fn path_to_extension(path: &Path) -> String {
-    path.extension()
+pub fn path_to_extension<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref()
+        .extension()
         .unwrap_or_default()
         .to_string_lossy()
         .to_lowercase()

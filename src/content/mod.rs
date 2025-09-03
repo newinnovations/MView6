@@ -19,16 +19,20 @@
 
 pub mod analyze;
 pub mod analyze2;
-pub mod content2;
+pub mod paginated;
 
 use cairo::ImageSurface;
 use exif::Exif;
 use gdk_pixbuf::Pixbuf;
 use resvg::usvg::Tree;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 
 use crate::{
     backends::document::PageMode,
+    content::paginated::PaginatedContent,
     file_view::model::Reference,
     image::{
         animation::{Animation, AnimationImage},
@@ -44,6 +48,26 @@ static CONTENT_ID: AtomicU32 = AtomicU32::new(1);
 
 fn get_content_id() -> u32 {
     CONTENT_ID.fetch_add(1, Ordering::SeqCst)
+}
+
+// Generic macro for any ContentData variant
+//
+// content_getter!(animation, animation_mut, Animation, AnimationImage);
+macro_rules! content_getter {
+    ($method_name:ident, $method_name_mut:ident, $variant:ident, $return_type:ty) => {
+        pub fn $method_name(&self) -> Option<&$return_type> {
+            match &self.data {
+                ContentData::$variant(var) => Some(var),
+                _ => None,
+            }
+        }
+        pub fn $method_name_mut(&mut self) -> Option<&mut $return_type> {
+            match &mut self.data {
+                ContentData::$variant(var) => Some(var),
+                _ => None,
+            }
+        }
+    };
 }
 
 #[derive(Debug, Clone)]
@@ -65,7 +89,7 @@ impl DocContent {
 
 #[derive(Debug, Clone)]
 pub struct SvgContent {
-    pub tree: Box<Tree>,
+    pub tree: Arc<Tree>,
 }
 
 impl SvgContent {
@@ -88,6 +112,7 @@ pub enum ContentData {
     Animation(AnimationImage),
     Svg(SvgContent),
     Doc(DocContent),
+    Paginated(PaginatedContent),
 }
 
 impl From<Option<Pixbuf>> for ContentData {
@@ -221,7 +246,7 @@ impl Content {
         Content {
             id: get_content_id(),
             data: ContentData::Svg(SvgContent {
-                tree: Box::new(tree),
+                tree: Arc::new(tree),
             }),
             exif: None,
             zoom_mode,
@@ -245,6 +270,18 @@ impl Content {
         }
     }
 
+    pub fn new_paginated(mut content: PaginatedContent) -> Self {
+        content.prepare();
+        Content {
+            id: get_content_id(),
+            data: ContentData::Paginated(content),
+            exif: None,
+            zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::Black,
+            tag: None,
+        }
+    }
+
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -257,6 +294,7 @@ impl Content {
             ContentData::Single(image) => image.size(),
             ContentData::Dual(image) => image.size(),
             ContentData::Animation(image) => image.size(),
+            ContentData::Paginated(image) => image.size(),
         }
     }
 
@@ -268,11 +306,15 @@ impl Content {
             ContentData::Animation(animation) => animation.has_alpha(),
             ContentData::Svg(svg) => svg.has_alpha(),
             ContentData::Doc(doc) => doc.has_alpha(),
+            ContentData::Paginated(paginated) => paginated.has_alpha(),
         }
     }
 
     pub fn needs_render(&self) -> bool {
-        matches!(&self.data, ContentData::Svg(_) | ContentData::Doc(_))
+        matches!(
+            &self.data,
+            ContentData::Svg(_) | ContentData::Doc(_) | ContentData::Paginated(_)
+        )
     }
 
     pub fn render(&self, zoom: Zoom, viewport: RectD) -> Option<RenderCommand> {
@@ -281,8 +323,12 @@ impl Content {
                 self.id(),
                 zoom,
                 viewport,
-                svg.clone(),
+                svg.tree.clone(),
             )),
+            ContentData::Paginated(paginated) => paginated
+                .rendered
+                .as_ref()
+                .map(|tree| RenderCommand::RenderSvg(self.id(), zoom, viewport, tree.clone())),
             ContentData::Doc(doc) => Some(RenderCommand::RenderDoc(
                 self.id(),
                 zoom,
@@ -322,17 +368,5 @@ impl Content {
         }
     }
 
-    pub fn animation(&self) -> Option<&AnimationImage> {
-        match &self.data {
-            ContentData::Animation(animation_image) => Some(animation_image),
-            _ => None,
-        }
-    }
-
-    pub fn animation_mut(&mut self) -> Option<&mut AnimationImage> {
-        match &mut self.data {
-            ContentData::Animation(animation_image) => Some(animation_image),
-            _ => None,
-        }
-    }
+    content_getter!(animation, animation_mut, Animation, AnimationImage);
 }
