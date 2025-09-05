@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use super::cursor::TreeModelMviewExt;
 use crate::category::Category;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(i32)]
 pub enum Direction {
     Up = 0,

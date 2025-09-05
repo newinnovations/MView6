@@ -31,7 +31,7 @@ use crate::{
         thumbnail::{model::TParent, Thumbnail},
         Backend,
     },
-    file_view::Target,
+    file_view::{Direction, Filter, Target},
     image::provider::ImageLoader,
 };
 
@@ -251,5 +251,12 @@ impl MViewWindowImp {
             .set_action_string("thumb.size", &new_size.to_string());
         self.thumbnail_size.set(new_size);
         self.update_thumbnail_backend()
+    }
+
+    pub fn navigate_page(&self, direction: Direction, count: u32) {
+        let w = self.widgets();
+        if !w.image_view.navigate_page(direction, count) {
+            w.file_view.navigate_item(direction, Filter::None, count);
+        }
     }
 }

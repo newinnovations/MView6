@@ -87,6 +87,19 @@ impl TextSheet {
         self.pos = pos;
     }
 
+    pub fn show_page_no(&mut self, page: usize, total: usize) {
+        if total > 1 {
+            let style = self.base_style().font_family("Liberation Sans");
+            let font_size = style.font_size * 10 / 14;
+            let style = style.font_size(font_size);
+            self.canvas.add_text(
+                PointD::new(30.0, self.canvas.height() as f64 - 20.0),
+                &format!("Page {} of {total}", page + 1),
+                style,
+            );
+        }
+    }
+
     pub fn finish(mut self) -> SvgCanvas {
         self.canvas.add_watermark(PointD::new(
             self.canvas.width() as f64 - 20.0,

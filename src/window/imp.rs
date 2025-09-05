@@ -36,7 +36,7 @@ use crate::{
         },
         Backend,
     },
-    file_view::{FileView, Filter, Sort, Target},
+    file_view::{FileView, Sort, Target},
     image::view::{ImageView, SIGNAL_CANVAS_RESIZED},
     info_view::InfoView,
     render_thread::{
@@ -495,12 +495,12 @@ impl WidgetImpl for MViewWindowImp {}
 impl WindowImpl for MViewWindowImp {}
 impl ApplicationWindowImpl for MViewWindowImp {}
 
-impl MViewWidgets {
-    pub fn filter(&self) -> Filter {
-        if self.file_widget.is_visible() {
-            Filter::None
-        } else {
-            Filter::Image
-        }
-    }
-}
+// impl MViewWidgets {
+//     pub fn filter(&self) -> Filter {
+//         if self.file_widget.is_visible() {
+//             Filter::None
+//         } else {
+//             Filter::Image
+//         }
+//     }
+// }

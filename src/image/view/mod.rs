@@ -37,7 +37,8 @@ use gtk4::{
 
 use crate::{
     backends::thumbnail::model::Annotations,
-    content::Content,
+    content::{Content, ContentData},
+    file_view::Direction,
     image::{provider::surface::SurfaceData, view::data::TransparencyMode},
     rect::{RectD, SizeD},
     window::imp::MViewWidgets,
@@ -177,6 +178,19 @@ impl ImageView {
 
     pub fn has_tag(&self, tag: &str) -> bool {
         self.imp().data.borrow().content.has_tag(tag)
+    }
+
+    pub fn navigate_page(&self, direction: Direction, count: u32) -> bool {
+        let mut p = self.imp().data.borrow_mut();
+        if let ContentData::Paginated(paginated) = &mut p.content.data {
+            let page_changed = paginated.navigate_page(direction, count as usize);
+            if page_changed {
+                p.redraw(RedrawReason::PageChanged);
+            }
+            page_changed
+        } else {
+            false
+        }
     }
 
     pub fn add_context_menu(&self, menu: Menu) {

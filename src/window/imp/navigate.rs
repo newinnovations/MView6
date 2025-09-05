@@ -124,7 +124,7 @@ impl MViewWindowImp {
         // goto and navigate in parent
         self.skip_loading.set(true);
         self.dir_leave();
-        w.file_view.navigate(direction, Filter::Container, 1);
+        w.file_view.navigate_item(direction, Filter::Container, 1);
 
         // enter dir
         self.skip_loading.set(false);

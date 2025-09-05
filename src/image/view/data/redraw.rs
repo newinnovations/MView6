@@ -51,10 +51,11 @@ pub enum RedrawReason {
     ContentPost = 4,
     InteractiveDrag = 5,
     InteractiveZoom = 6,
-    RenderingUpdated = 7,
-    RotationChanged = 8,
-    TransparencyBackgroundChanged = 9,
-    ZoomSettingChanged = 10,
+    PageChanged = 7,
+    RenderingUpdated = 8,
+    RotationChanged = 9,
+    TransparencyBackgroundChanged = 10,
+    ZoomSettingChanged = 11,
 }
 
 impl RedrawReason {
@@ -87,10 +88,11 @@ impl From<i32> for RedrawReason {
             4 => RedrawReason::ContentPost,
             5 => RedrawReason::InteractiveDrag,
             6 => RedrawReason::InteractiveZoom,
-            7 => RedrawReason::RenderingUpdated,
-            8 => RedrawReason::RotationChanged,
-            9 => RedrawReason::TransparencyBackgroundChanged,
-            10 => RedrawReason::ZoomSettingChanged,
+            7 => RedrawReason::PageChanged,
+            8 => RedrawReason::RenderingUpdated,
+            9 => RedrawReason::RotationChanged,
+            10 => RedrawReason::TransparencyBackgroundChanged,
+            11 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
         }
     }
@@ -110,6 +112,7 @@ impl ImageViewData {
                 if let Some(command) = self.content.render(self.zoom.clone(), viewport) {
                     self.rb_send(command);
                     if reason == RedrawReason::ContentPost
+                        || reason == RedrawReason::PageChanged
                         || reason == RedrawReason::RotationChanged
                     {
                         return; // postpone actual redraw, because nothing to show

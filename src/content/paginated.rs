@@ -35,7 +35,7 @@ use crate::{
     category::Category,
     config::config,
     error::MviewResult,
-    file_view::model::Row,
+    file_view::{model::Row, Direction},
     image::{
         colors::{Color, MViewColor},
         svg::{
@@ -48,8 +48,10 @@ use crate::{
 };
 
 pub const _MAX_CONTENT_SIZE: u64 = 50 * 1024 * 1024;
+
 const FONT_SIZE_TITLE: u32 = 24;
 const FONT_SIZE: u32 = 14;
+const LINES_PER_PAGE: usize = 32;
 
 const BYTES_PER_LINE: usize = 16;
 const WIDTH_ADDRESS: f64 = 6.5;
@@ -68,7 +70,11 @@ impl RawContent {
         SizeD::new(800.0, 800.0)
     }
 
-    pub fn prepare(&self) -> MviewResult<Tree> {
+    pub fn num_pages(&self) -> usize {
+        1 + (self.data.len().saturating_sub(1) / (LINES_PER_PAGE * BYTES_PER_LINE))
+    }
+
+    pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
         sheet.add_line(
             &path_to_directory(&self.path),
@@ -88,13 +94,13 @@ impl RawContent {
         );
         sheet.delta_y(0.8);
 
-        let lines_visible = 32;
+        let start_line = page * LINES_PER_PAGE;
         let total_lines = self.data.len().div_ceil(BYTES_PER_LINE);
-        for line in 0..total_lines.min(lines_visible) {
-            let offset = line * BYTES_PER_LINE;
-            self.draw_line(&mut sheet, offset);
+        for line in start_line..total_lines.min(start_line + LINES_PER_PAGE) {
+            self.draw_line(&mut sheet, line * BYTES_PER_LINE);
         }
 
+        sheet.show_page_no(page, self.num_pages());
         let svg_content = sheet.finish().render();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
@@ -172,7 +178,11 @@ impl TextContent {
         SizeD::new(1200.0, 800.0)
     }
 
-    pub fn prepare(&self) -> MviewResult<Tree> {
+    pub fn num_pages(&self) -> usize {
+        1 + (self.text.len().saturating_sub(1) / LINES_PER_PAGE)
+    }
+
+    pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let syntax = config()
             .ps
             .find_syntax_by_extension(&self.extension)
@@ -198,33 +208,25 @@ impl TextContent {
         );
         sheet.delta_y(0.8);
 
-        let lines_visible = 32;
-        let mut line_no: i32 = 0;
         let ps = &config().ps;
-        for line in self.text.as_ref() {
+        for line in self
+            .text
+            .as_ref()
+            .iter()
+            .skip(page * LINES_PER_PAGE)
+            .take(LINES_PER_PAGE)
+        {
             let line = limit_string(line);
             let ranges: Vec<(Style, &str)> = h.highlight_line(&line, ps).unwrap();
-            // Print the highlighted line to the terminal
-            // syntect::util::as_24_bit_terminal_escaped(&mut handle, &ranges[..], true);
-            // print!("{line}");
-            // dbg!(ranges);
-
-            // self.draw_line(ranges);
             sheet.delta_y(1.5);
             let spans = ranges
                 .iter()
                 .map(|(style, text)| (*text, style.foreground.into()))
                 .collect();
             sheet.add_mulit_color_fragment(spans, sheet.base_style());
-
-            line_no += 1;
-            if line_no >= lines_visible {
-                break;
-            }
-            // let escaped = as_24_bit_terminal_escaped(&ranges[..], true);
-            // print!("{}", escaped);
         }
 
+        sheet.show_page_no(page, self.num_pages());
         let svg_content = sheet.finish().render();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
@@ -254,7 +256,11 @@ impl ListContent {
         SizeD::new(800.0, 800.0)
     }
 
-    pub fn prepare(&self) -> MviewResult<Tree> {
+    pub fn num_pages(&self) -> usize {
+        1 + (self.list.len().saturating_sub(1) / LINES_PER_PAGE)
+    }
+
+    pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
         sheet.add_line(
             &path_to_directory(&self.path),
@@ -273,7 +279,12 @@ impl ListContent {
                 .font_weight(FontWeight::Bold),
         );
         sheet.delta_y(0.8);
-        for row in self.list.iter().take(32) {
+        for row in self
+            .list
+            .iter()
+            .skip(page * LINES_PER_PAGE)
+            .take(LINES_PER_PAGE)
+        {
             let modified_text = if row.modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(row.modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()
@@ -297,6 +308,7 @@ impl ListContent {
             );
             sheet.add_line(&line, sheet.base_style().color(colors.1));
         }
+        sheet.show_page_no(page, self.num_pages());
         let svg_content = sheet.finish().render();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
@@ -310,7 +322,7 @@ pub enum PaginatedContentData {
 
 pub struct PaginatedContent {
     pub data: PaginatedContentData,
-    pub page: u32,
+    pub page: usize,
     pub rendered: Option<Arc<Tree>>,
 }
 
@@ -354,21 +366,57 @@ impl PaginatedContent {
     }
 
     pub fn size(&self) -> SizeD {
-        match &self.data {
-            PaginatedContentData::Raw(content) => content.size(),
-            PaginatedContentData::Text(content) => content.size(),
-            PaginatedContentData::List(content) => content.size(),
+        match &self.rendered {
+            Some(tree) => {
+                let size = tree.size();
+                SizeD::new(size.width().into(), size.height().into())
+            }
+            None => SizeD::default(),
         }
     }
 
     pub fn prepare(&mut self) {
         self.rendered = match &self.data {
-            PaginatedContentData::Raw(content) => content.prepare(),
-            PaginatedContentData::Text(content) => content.prepare(),
-            PaginatedContentData::List(content) => content.prepare(),
+            PaginatedContentData::Raw(content) => content.prepare(self.page),
+            PaginatedContentData::Text(content) => content.prepare(self.page),
+            PaginatedContentData::List(content) => content.prepare(self.page),
         }
         .ok()
         .map(Arc::new);
+    }
+
+    pub fn num_pages(&self) -> usize {
+        match &self.data {
+            PaginatedContentData::Raw(content) => content.num_pages(),
+            PaginatedContentData::Text(content) => content.num_pages(),
+            PaginatedContentData::List(content) => content.num_pages(),
+        }
+    }
+
+    /// Here we handle the actual page navigation, returns `true` if we navigated to a new
+    /// page, `false` if we exhausted the number of pages.
+    pub fn navigate_page(&mut self, direction: Direction, count: usize) -> bool {
+        match direction {
+            Direction::Up => {
+                if self.page >= count {
+                    self.page -= count;
+                    self.prepare();
+                    true
+                } else {
+                    false
+                }
+            }
+            Direction::Down => {
+                let num_pages = self.num_pages();
+                if self.page + count < num_pages {
+                    self.page += count;
+                    self.prepare();
+                    true
+                } else {
+                    false
+                }
+            }
+        }
     }
 
     pub fn has_alpha(&self) -> bool {
