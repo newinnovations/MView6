@@ -43,6 +43,7 @@ use crate::{
             text_sheet::{svg_options, TextSheet},
         },
     },
+    profile::performance::Performance,
     rect::SizeD,
     util::{path_to_directory, path_to_extension, path_to_filename, read_lines_with_limits},
 };
@@ -376,6 +377,7 @@ impl PaginatedContent {
     }
 
     pub fn prepare(&mut self) {
+        let duration = Performance::start();
         self.rendered = match &self.data {
             PaginatedContentData::Raw(content) => content.prepare(self.page),
             PaginatedContentData::Text(content) => content.prepare(self.page),
@@ -383,6 +385,7 @@ impl PaginatedContent {
         }
         .ok()
         .map(Arc::new);
+        duration.elapsed("svg parse");
     }
 
     pub fn num_pages(&self) -> usize {

@@ -30,7 +30,9 @@ mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib
 pdfium = "0.9"
 # rsvg = { package = "librsvg-rebind", version = "0.1.0" }
 regex = "1.10.4"
-resvg = "0.45.1"
+# resvg = "0.45.1"
+# resvg = { path = "../resvg/crates/resvg" }
+resvg = { git = "https://github.com/newinnovations/resvg", branch = "flatten-cached" }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
 sha2 = "0.10.8"
