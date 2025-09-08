@@ -218,15 +218,20 @@ impl ImageViewImp {
         }
     }
 
-    fn button_press_event(&self, position: (f64, f64)) {
+    fn button_press_event(&self, position: (f64, f64), n_press: i32) {
         let mut p = self.data.borrow_mut();
-        if p.drag.is_none() && p.content.is_movable() {
-            let (position_x, position_y) = position;
-            p.drag = Some((
-                position_x - p.zoom.offset_x(),
-                position_y - p.zoom.offset_y(),
-            ));
-            self.obj().set_view_cursor(ViewCursor::Drag);
+        if n_press == 1 {
+            if p.drag.is_none() && p.content.is_movable() {
+                let (position_x, position_y) = position;
+                p.drag = Some((
+                    position_x - p.zoom.offset_x(),
+                    position_y - p.zoom.offset_y(),
+                ));
+                self.obj().set_view_cursor(ViewCursor::Drag);
+            }
+        } else if n_press == 2 {
+            println!("double click at {position:?}");
+            // p.zoom.screen_to_image(screen);
         }
     }
 
@@ -330,7 +335,7 @@ impl ObjectImpl for ImageViewImp {
         gesture_click.connect_pressed(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, _n_press, x, y| this.button_press_event((x, y))
+            move |_, n_press, x, y| this.button_press_event((x, y), n_press)
         ));
         gesture_click.connect_released(clone!(
             #[weak(rename_to = this)]

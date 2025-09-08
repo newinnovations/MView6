@@ -17,23 +17,27 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-pub mod analyze;
-pub mod analyze2;
+pub mod analyze_text;
+pub mod content_type;
+pub mod loader;
 pub mod paginated;
 
 use cairo::ImageSurface;
 use exif::Exif;
 use gdk_pixbuf::Pixbuf;
 use resvg::usvg::Tree;
-use std::sync::{
-    atomic::{AtomicU32, Ordering},
-    Arc,
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 use crate::{
     backends::document::PageMode,
     content::paginated::PaginatedContent,
-    file_view::model::Reference,
+    file_view::model::{Reference, Row},
     image::{
         animation::{Animation, AnimationImage},
         provider::gdk::GdkImageLoader,
@@ -280,6 +284,11 @@ impl Content {
             transparency_mode: TransparencyMode::Black,
             tag: None,
         }
+    }
+
+    pub fn new_list(path: &Path, list: Vec<Row>) -> Self {
+        let paginated = PaginatedContent::new_list(path, list);
+        Self::new_paginated(paginated)
     }
 
     pub fn id(&self) -> u32 {

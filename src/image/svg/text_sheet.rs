@@ -27,10 +27,10 @@ use crate::{
     error::MviewResult,
     image::{
         colors::{Color, MViewColor},
-        svg::creator::{SvgCanvas, TextAnchor, TextStyle},
+        svg::creator::{LineStyle, SvgCanvas, TextAnchor, TextStyle},
         view::{data::TransparencyMode, ZoomMode},
     },
-    rect::PointD,
+    rect::{PointD, RectD, VectorD},
 };
 
 const FONT_FAMILY: &str = "Cascadia Mono";
@@ -106,6 +106,11 @@ impl TextSheet {
             self.canvas.height() as f64 - 20.0,
         ));
         self.canvas
+    }
+
+    /// Add a grid to the canvas
+    pub fn add_grid(&mut self, grid: RectD, grid_size: VectorD, style: LineStyle) {
+        self.canvas.add_grid(grid, grid_size, style);
     }
 }
 

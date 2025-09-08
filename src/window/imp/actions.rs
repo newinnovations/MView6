@@ -31,8 +31,8 @@ use crate::{
         thumbnail::{model::TParent, Thumbnail},
         Backend,
     },
+    content::loader::ContentLoader,
     file_view::{Direction, Filter, Target},
-    image::provider::ImageLoader,
 };
 
 use super::MViewWindowImp;
@@ -128,12 +128,12 @@ impl MViewWindowImp {
     pub fn show_help(&self) {
         let w = self.widgets();
         let image = if w.image_view.has_tag("help1") {
-            ImageLoader::image_from_svg_data(
+            ContentLoader::content_from_svg_data(
                 include_bytes!("../../../resources/mv6-help-2.svgz"),
                 Some("help2".to_string()),
             )
         } else {
-            ImageLoader::image_from_svg_data(
+            ContentLoader::content_from_svg_data(
                 include_bytes!("../../../resources/mv6-help-1.svgz"),
                 Some("help1".to_string()),
             )

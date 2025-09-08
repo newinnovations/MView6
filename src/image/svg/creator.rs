@@ -21,7 +21,7 @@
 
 use crate::{
     image::colors::{Color, MViewColor},
-    rect::{PointD, VectorD},
+    rect::{PointD, RectD, VectorD},
 };
 
 /// Text alignment options
@@ -267,6 +267,29 @@ impl SvgCanvas {
     /// Add a line to the canvas
     pub fn add_line(&mut self, start: PointD, end: PointD, style: LineStyle) -> &mut Self {
         self.elements.push(SvgElement::Line { start, end, style });
+        self
+    }
+
+    /// Add a grid to the canvas
+    pub fn add_grid(&mut self, grid: RectD, grid_size: VectorD, style: LineStyle) -> &mut Self {
+        // Draw vertical lines
+        let mut pos = grid.point0();
+        let step = VectorD::new(grid_size.x(), 0.0);
+        let height = VectorD::new(0.0, grid.height());
+        while grid.contains(pos) {
+            self.add_line(pos, pos.translate(height), style.clone());
+            pos += step;
+        }
+
+        // Draw horizontal lines
+        pos = grid.point0();
+        let step = VectorD::new(0.0, grid_size.y());
+        let width = VectorD::new(grid.width(), 0.0);
+        while grid.contains(pos) {
+            self.add_line(pos, pos.translate(width), style.clone());
+            pos += step;
+        }
+
         self
     }
 

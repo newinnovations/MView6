@@ -93,7 +93,7 @@ impl Thumbnail {
         };
 
         let capacity = dim.capacity() as u32;
-        let num_items = parent.backend.store().len() as u32;
+        let num_items = parent.backend.list().len() as u32;
 
         Thumbnail {
             dim,
@@ -192,7 +192,7 @@ impl Backend for Thumbnail {
         Path::new("thumbnail").into()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 

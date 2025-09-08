@@ -30,6 +30,7 @@ use zip::result::ZipResult;
 
 use crate::{
     category::Category,
+    content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -37,7 +38,7 @@ use crate::{
     },
     image::{
         draw::draw_error,
-        provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
+        provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
     },
     profile::performance::Performance,
     util::path_to_filename,
@@ -98,13 +99,13 @@ impl Backend for ZipArchive {
         self.path.clone()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 
     fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_zip(&self.path, item.idx() as usize) {
-            Ok(bytes) => ImageLoader::image_from_memory(bytes),
+            Ok(bytes) => ContentLoader::content_from_memory(bytes),
             Err(error) => draw_error(error.into()),
         }
     }

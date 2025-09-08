@@ -22,14 +22,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use archive_mar::MarArchive;
-use archive_rar::RarArchive;
-use archive_zip::ZipArchive;
-use async_channel::Sender;
-use bookmarks::Bookmarks;
-use filesystem::FileSystem;
-use none::NoneBackend;
-use thumbnail::{Message, Thumbnail};
+pub use archive_mar::MarArchive;
+pub use archive_rar::RarArchive;
+pub use archive_zip::ZipArchive;
+pub use async_channel::Sender;
+pub use bookmarks::Bookmarks;
+pub use filesystem::FileSystem;
+pub use none::NoneBackend;
+pub use thumbnail::{Message, Thumbnail};
 
 use crate::{
     backends::{
@@ -65,7 +65,7 @@ pub struct ImageParams<'a> {
 pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
-    fn store(&self) -> &Vec<Row>;
+    fn list(&self) -> &Vec<Row>;
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
     }

@@ -21,11 +21,11 @@ use super::{Content, ImageParams};
 use crate::{
     category::Category,
     config::config,
+    content::loader::ContentLoader,
     file_view::{
         model::{BackendRef, ItemRef, Row},
         Cursor,
     },
-    image::provider::ImageLoader,
 };
 use std::{
     cell::RefCell,
@@ -95,7 +95,7 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 
@@ -112,7 +112,7 @@ impl Backend for Bookmarks {
 
     fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let path = Path::new(item.str());
-        ImageLoader::image_from_file(path)
+        ContentLoader::content_from_file(path)
         // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
         //     Category::Archive
         // } else {

@@ -55,7 +55,7 @@ impl MViewWindowImp {
         };
 
         // let new_store = new_backend.store();
-        let new_store = Column::store(new_backend.store());
+        let new_store = Column::store(new_backend.list());
         match new_sort {
             Sort::Sorted((column, order)) => new_store.set_sort_column_id(*column, *order),
             Sort::Unsorted => (),

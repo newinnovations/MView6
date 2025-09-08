@@ -20,12 +20,13 @@
 use super::{Content, ImageParams};
 use crate::{
     category::Category,
+    content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
         Cursor, Direction,
     },
-    image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader, ImageLoader},
+    image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
     util::path_to_filename,
 };
 use image::DynamicImage;
@@ -129,7 +130,7 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 
@@ -158,7 +159,7 @@ impl Backend for FileSystem {
 
     fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let filename = self.directory.join(item.str());
-        ImageLoader::image_from_file(&filename)
+        ContentLoader::content_from_file(&filename)
     }
 
     // fn content(&self, item: &ItemRef) -> Content {

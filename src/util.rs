@@ -17,15 +17,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
-};
+use std::path::Path;
 
 use glib::{ffi::g_source_remove, result_from_gboolean, BoolError, SourceId};
-
-use crate::error::MviewResult;
 
 /// Safer alternative to SourceId::remove()
 pub fn remove_source_id(id: &SourceId) -> Result<(), BoolError> {
@@ -55,75 +49,42 @@ pub fn path_to_extension<P: AsRef<Path>>(path: P) -> String {
         .to_lowercase()
 }
 
-pub fn read_lines_with_limits<P: AsRef<Path>>(
-    path: P,
-    max_lines: Option<usize>,
-    max_bytes: Option<usize>,
-) -> MviewResult<Vec<String>> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let mut lines = Vec::new();
-    let mut total_bytes = 0;
-
-    for line in reader.lines() {
-        let line = line?;
-        let line_bytes = line.len() + 1; // +1 for newline character
-
-        // Check byte limit
-        if let Some(max_bytes) = max_bytes {
-            if total_bytes + line_bytes > max_bytes {
-                break;
-            }
-        }
-
-        // Check line limit
-        if let Some(max_lines) = max_lines {
-            if lines.len() >= max_lines {
-                break;
-            }
-        }
-
-        total_bytes += line_bytes;
-        lines.push(line);
+pub fn ellipsis_middle(s: &str, max_len: usize) -> String {
+    if s.len() <= max_len {
+        return s.to_string();
     }
 
-    Ok(lines)
+    if max_len < 4 {
+        // If max_len is too small for ellipses, just truncate
+        return s.chars().take(max_len).collect();
+    }
+
+    let available_len = max_len - 3;
+    let start_len = available_len.div_ceil(2); // Round up for start
+    let end_len = available_len / 2; // Round down for end
+
+    let start: String = s.chars().take(start_len).collect();
+    let end: String = s.chars().skip(s.chars().count() - end_len).collect();
+
+    format!("{}...{}", start, end)
 }
 
-// pub fn has_changed_by_percentage(original: f64, new: f64, threshold_percent: f64) -> bool {
-//     if original == 0.0 {
-//         return new != 0.0;
-//     }
-//     let percent_change = ((new - original) / original).abs();
-//     percent_change >= (threshold_percent / 100.0)
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn test_has_changed_by_percentage() {
-//         // 5% increase: 100 -> 105
-//         assert!(has_changed_by_percentage(100.0, 105.0, 5.0));
-
-//         // 5% decrease: 100 -> 95
-//         assert!(has_changed_by_percentage(100.0, 95.0, 5.0));
-
-//         // 10% increase: 100 -> 110 (checking for 5% threshold)
-//         assert!(has_changed_by_percentage(100.0, 110.0, 5.0));
-
-//         // 3% increase: 100 -> 103 (checking for 5% threshold - should be false)
-//         assert!(!has_changed_by_percentage(100.0, 103.0, 5.0));
-
-//         // 15% increase: 100 -> 115 (checking for 10% threshold)
-//         assert!(has_changed_by_percentage(100.0, 115.0, 10.0));
-
-//         // 8% increase: 100 -> 108 (checking for 10% threshold - should be false)
-//         assert!(!has_changed_by_percentage(100.0, 108.0, 10.0));
-
-//         // Edge case: zero original value
-//         assert!(has_changed_by_percentage(0.0, 1.0, 5.0));
-//         assert!(!has_changed_by_percentage(0.0, 0.0, 5.0));
-//     }
-// }
+    #[test]
+    fn test_clip_string_middle() {
+        assert_eq!(ellipsis_middle("Hello", 0), "");
+        assert_eq!(ellipsis_middle("Hello", 1), "H");
+        assert_eq!(ellipsis_middle("Hello", 2), "He");
+        assert_eq!(ellipsis_middle("Hello", 3), "Hel");
+        assert_eq!(ellipsis_middle("Hello", 4), "H...");
+        assert_eq!(ellipsis_middle("Hello", 5), "Hello");
+        assert_eq!(ellipsis_middle("Hello", 6), "Hello");
+        assert_eq!(ellipsis_middle("Hello, World!", 9), "Hel...ld!");
+        assert_eq!(ellipsis_middle("Hello, World!", 10), "Hell...ld!");
+        assert_eq!(ellipsis_middle("Hello, World!", 11), "Hell...rld!");
+        assert_eq!(ellipsis_middle("", 5), "");
+    }
+}

@@ -86,7 +86,7 @@ impl Backend for DocMuPdf {
         self.path.clone()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 

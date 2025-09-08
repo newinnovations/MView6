@@ -56,7 +56,7 @@ impl Backend for NoneBackend {
         "invalid".into()
     }
 
-    fn store(&self) -> &Vec<Row> {
+    fn list(&self) -> &Vec<Row> {
         &self.store
     }
 

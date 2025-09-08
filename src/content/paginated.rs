@@ -20,8 +20,6 @@
 #![allow(dead_code)]
 
 use std::{
-    fs::File,
-    io::Read,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -39,16 +37,14 @@ use crate::{
     image::{
         colors::{Color, MViewColor},
         svg::{
-            creator::FontWeight,
+            creator::{FontWeight, LineStyle},
             text_sheet::{svg_options, TextSheet},
         },
     },
     profile::performance::Performance,
-    rect::SizeD,
-    util::{path_to_directory, path_to_extension, path_to_filename, read_lines_with_limits},
+    rect::{RectD, SizeD, VectorD},
+    util::{ellipsis_middle, path_to_directory, path_to_extension, path_to_filename},
 };
-
-pub const _MAX_CONTENT_SIZE: u64 = 50 * 1024 * 1024;
 
 const FONT_SIZE_TITLE: u32 = 24;
 const FONT_SIZE: u32 = 14;
@@ -170,11 +166,24 @@ impl RawContent {
 
 pub struct TextContent {
     pub path: PathBuf,
-    pub extension: String,
+    pub syntax_ext: String,
     pub text: Arc<Vec<String>>,
 }
 
 impl TextContent {
+    pub fn new<P: AsRef<Path>>(path: P, text: Vec<String>) -> Self {
+        let extension = path_to_extension(&path);
+        let syntax_ext = match config().ps.find_syntax_by_extension(&extension) {
+            Some(_) => extension,
+            None => "txt".to_string(),
+        };
+        Self {
+            path: path.as_ref().into(),
+            text: text.into(),
+            syntax_ext,
+        }
+    }
+
     pub fn size(&self) -> SizeD {
         SizeD::new(1200.0, 800.0)
     }
@@ -186,7 +195,7 @@ impl TextContent {
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let syntax = config()
             .ps
-            .find_syntax_by_extension(&self.extension)
+            .find_syntax_by_extension(&self.syntax_ext)
             .unwrap();
         let theme = config().ts.themes.get("base16-mocha.dark").unwrap();
         let mut h = HighlightLines::new(syntax, theme);
@@ -253,6 +262,13 @@ pub struct ListContent {
 }
 
 impl ListContent {
+    pub fn new(path: PathBuf, list: Vec<Row>) -> Self {
+        Self {
+            path,
+            list: list.into(),
+        }
+    }
+
     pub fn size(&self) -> SizeD {
         SizeD::new(800.0, 800.0)
     }
@@ -286,6 +302,7 @@ impl ListContent {
             .skip(page * LINES_PER_PAGE)
             .take(LINES_PER_PAGE)
         {
+            dbg!(sheet.pos());
             let modified_text = if row.modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(row.modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()
@@ -303,13 +320,19 @@ impl ListContent {
             let cat = Category::from(row.category);
             let cat_text = cat.short();
             let colors = cat.colors();
-            let line = format!(
-                "{cat_text} {modified_text:<19} {size_text:>10} {}",
-                row.name
-            );
+            let name = ellipsis_middle(&row.name, 59);
+            let line = format!("{cat_text} {modified_text:<19} {size_text:>10} {}", name);
+            // 3+1+19+1+10+1+59=94
             sheet.add_line(&line, sheet.base_style().color(colors.1));
         }
         sheet.show_page_no(page, self.num_pages());
+
+        sheet.add_grid(
+            RectD::new(30.0, 70.2, 800.0, 750.0),
+            VectorD::new(8.2, 10.5), // 21.0),
+            LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
+        );
+
         let svg_content = sheet.finish().render();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
@@ -328,38 +351,30 @@ pub struct PaginatedContent {
 }
 
 impl PaginatedContent {
-    pub fn new_text<P: AsRef<Path>>(path: P) -> MviewResult<Self> {
-        let s = read_lines_with_limits(&path, Some(1000), Some(16384))?;
-        Ok(Self {
-            data: PaginatedContentData::Text(TextContent {
-                path: path.as_ref().into(),
-                extension: path_to_extension(path),
-                text: s.into(),
-            }),
+    pub fn new_text<P: AsRef<Path>>(path: P, lines: Vec<String>) -> Self {
+        Self {
+            data: PaginatedContentData::Text(TextContent::new(path, lines)),
             page: 0,
             rendered: None,
-        })
+        }
     }
 
-    pub fn new_raw<P: AsRef<Path>>(path: P) -> MviewResult<Self> {
-        let file = File::open(&path)?;
-        let mut buffer = Vec::new();
-        file.take(16384).read_to_end(&mut buffer)?;
-        Ok(Self {
+    pub fn new_raw<P: AsRef<Path>>(path: P, buffer: Vec<u8>) -> Self {
+        Self {
             data: PaginatedContentData::Raw(RawContent {
                 path: path.as_ref().into(),
                 data: buffer.into(),
             }),
             page: 0,
             rendered: None,
-        })
+        }
     }
 
-    pub fn new_list<P: AsRef<Path>>(path: P, store: Vec<Row>) -> Self {
+    pub fn new_list<P: AsRef<Path>>(path: P, list: Vec<Row>) -> Self {
         Self {
             data: PaginatedContentData::List(ListContent {
                 path: path.as_ref().into(),
-                list: store.into(),
+                list: list.into(),
             }),
             page: 0,
             rendered: None,

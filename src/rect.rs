@@ -188,11 +188,11 @@ where
     /// Returns true if the point (x, y) is contained within the rectangle.
     /// Uses half-open intervals: [x0, x1) and [y0, y1).
     /// Returns false for empty rectangles.
-    pub fn contains(&self, x: T, y: T) -> bool {
+    pub fn contains(&self, p: VectorPoint<T>) -> bool {
         if self.is_empty() {
             false
         } else {
-            x >= self.x0 && x < self.x1 && y >= self.y0 && y < self.y1
+            p.x >= self.x0 && p.x < self.x1 && p.y >= self.y0 && p.y < self.y1
         }
     }
 
@@ -331,6 +331,20 @@ where
             )
         } else {
             Self::default()
+        }
+    }
+
+    pub fn point0(&self) -> VectorPoint<T> {
+        VectorPoint {
+            x: self.x0,
+            y: self.y0,
+        }
+    }
+
+    pub fn point1(&self) -> VectorPoint<T> {
+        VectorPoint {
+            x: self.x1,
+            y: self.y1,
         }
     }
 }
@@ -473,8 +487,8 @@ mod tests {
 
         assert!(!rect.is_empty());
         assert!(rect.is_valid());
-        assert!(rect.contains(5, 5));
-        assert!(!rect.contains(10, 5)); // Exclusive upper bound
+        assert!(rect.contains(PointI::new(5, 5)));
+        assert!(!rect.contains(PointI::new(10, 5))); // Exclusive upper bound
         assert_eq!(rect.width(), 10);
         assert_eq!(rect.height(), 20);
         assert_eq!(rect.size(), SizeI::new(10, 20));
@@ -492,8 +506,8 @@ mod tests {
 
         assert!(!rect.is_empty());
         assert!(rect.is_valid());
-        assert!(rect.contains(5.25, 5.25));
-        assert!(!rect.contains(10.5, 5.0)); // Exclusive upper bound
+        assert!(rect.contains(PointF::new(5.25, 5.25)));
+        assert!(!rect.contains(PointF::new(10.5, 5.0))); // Exclusive upper bound
         assert_eq!(rect.width(), 10.5);
         assert_eq!(rect.height(), 11.0);
         assert_eq!(rect.size(), SizeF::new(10.5, 11.0));
@@ -508,7 +522,7 @@ mod tests {
 
         assert!(!rect.is_empty());
         assert!(rect.is_valid());
-        assert!(rect.contains(5.35, 5.15));
+        assert!(rect.contains(PointD::new(5.35, 5.15)));
         assert_eq!(rect.width(), 10.7);
         assert_eq!(rect.height(), 10.3);
         assert_eq!(rect.size(), SizeD::new(10.7, 10.3));
@@ -556,8 +570,8 @@ mod tests {
         assert!(empty_f32.is_empty());
         assert_eq!(empty_i32.width(), 0);
         assert_eq!(empty_f32.width(), 0.0);
-        assert!(!empty_i32.contains(5, 5));
-        assert!(!empty_f32.contains(5.0, 5.0));
+        assert!(!empty_i32.contains(PointI::new(5, 5)));
+        assert!(!empty_f32.contains(PointF::new(5.0, 5.0)));
     }
 
     #[test]
@@ -608,7 +622,7 @@ mod tests {
         assert!(!negative.is_empty());
         assert_eq!(negative.width(), 5);
         assert_eq!(negative.height(), 5);
-        assert!(negative.contains(-7, -7));
+        assert!(negative.contains(PointI::new(-7, -7)));
     }
 
     #[test]
