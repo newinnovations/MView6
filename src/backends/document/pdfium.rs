@@ -90,7 +90,7 @@ impl Backend for DocPdfium {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
         (|| {
             let document = self.document.as_ref().map_err(|e| e.to_string())?;
             page_size(

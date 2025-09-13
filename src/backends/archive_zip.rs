@@ -103,7 +103,7 @@ impl Backend for ZipArchive {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_zip(&self.path, item.idx() as usize) {
             Ok(bytes) => ContentLoader::content_from_memory(bytes),
             Err(error) => draw_error(error.into()),

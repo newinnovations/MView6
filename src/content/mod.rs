@@ -21,6 +21,7 @@ pub mod analyze_text;
 pub mod content_type;
 pub mod loader;
 pub mod paginated;
+pub mod preview;
 
 use cairo::ImageSurface;
 use exif::Exif;
@@ -36,15 +37,18 @@ use std::{
 
 use crate::{
     backends::document::PageMode,
-    content::paginated::PaginatedContent,
-    file_view::model::{Reference, Row},
+    content::{
+        paginated::{PaginatedContent, PaginatedContentData},
+        preview::PreviewContent,
+    },
+    file_view::model::{BackendRef, Reference, Row},
     image::{
         animation::{Animation, AnimationImage},
         provider::gdk::GdkImageLoader,
         view::{data::TransparencyMode, Zoom, ZoomMode},
         DualImage, SingleImage,
     },
-    rect::{RectD, SizeD},
+    rect::{PointD, RectD, SizeD},
     render_thread::model::RenderCommand,
 };
 
@@ -117,6 +121,7 @@ pub enum ContentData {
     Svg(SvgContent),
     Doc(DocContent),
     Paginated(PaginatedContent),
+    Preview(PreviewContent),
 }
 
 impl From<Option<Pixbuf>> for ContentData {
@@ -275,7 +280,9 @@ impl Content {
     }
 
     pub fn new_paginated(mut content: PaginatedContent) -> Self {
-        content.prepare();
+        if !content.is_list() {
+            content.prepare(); // list prepare after sort
+        }
         Content {
             id: get_content_id(),
             data: ContentData::Paginated(content),
@@ -286,9 +293,21 @@ impl Content {
         }
     }
 
-    pub fn new_list(path: &Path, list: Vec<Row>) -> Self {
-        let paginated = PaginatedContent::new_list(path, list);
+    pub fn new_list(path: &Path, reference: BackendRef, list: Vec<Row>) -> Self {
+        let paginated = PaginatedContent::new_list(path, reference, list);
         Self::new_paginated(paginated)
+    }
+
+    pub fn new_preview(path: &Path, reference: BackendRef) -> Self {
+        let preview = PreviewContent::new(path, reference);
+        Content {
+            id: get_content_id(),
+            data: ContentData::Preview(preview),
+            exif: None,
+            zoom_mode: ZoomMode::NotSpecified,
+            transparency_mode: TransparencyMode::Black,
+            tag: None,
+        }
     }
 
     pub fn id(&self) -> u32 {
@@ -304,6 +323,7 @@ impl Content {
             ContentData::Dual(image) => image.size(),
             ContentData::Animation(image) => image.size(),
             ContentData::Paginated(image) => image.size(),
+            ContentData::Preview(image) => image.size(),
         }
     }
 
@@ -316,13 +336,17 @@ impl Content {
             ContentData::Svg(svg) => svg.has_alpha(),
             ContentData::Doc(doc) => doc.has_alpha(),
             ContentData::Paginated(paginated) => paginated.has_alpha(),
+            ContentData::Preview(preview) => preview.has_alpha(),
         }
     }
 
     pub fn needs_render(&self) -> bool {
         matches!(
             &self.data,
-            ContentData::Svg(_) | ContentData::Doc(_) | ContentData::Paginated(_)
+            ContentData::Svg(_)
+                | ContentData::Doc(_)
+                | ContentData::Paginated(_)
+                | ContentData::Preview(_)
         )
     }
 
@@ -336,6 +360,10 @@ impl Content {
             )),
             ContentData::Paginated(paginated) => paginated
                 .rendered
+                .as_ref()
+                .map(|tree| RenderCommand::RenderSvg(self.id(), zoom, viewport, tree.clone())),
+            ContentData::Preview(preview) => preview
+                .tree
                 .as_ref()
                 .map(|tree| RenderCommand::RenderSvg(self.id(), zoom, viewport, tree.clone())),
             ContentData::Doc(doc) => Some(RenderCommand::RenderDoc(
@@ -375,6 +403,55 @@ impl Content {
         if let ContentData::Single(single) = &self.data {
             single.draw_pixbuf(pixbuf, dest_x, dest_y);
         }
+    }
+
+    /// Double click handling depends on content
+    ///
+    /// List
+    ///   Go to directory/zip/rar/mar that corresponds to the content
+    ///   Select item that was double clicked or first
+    ///
+    /// Image for doc preview:
+    ///   Go to document first page (or memory)
+    ///
+    /// Text and Raw: do nothing
+    ///
+    /// None: do nothing
+    ///
+    /// Image (Single, Dual, Animation, Svg): do nothing
+    ///
+    /// Doc: do nothing,
+    pub fn double_click(&self, position: PointD) -> Reference {
+        if let ContentData::Paginated(paginated) = &self.data {
+            paginated.double_click(position)
+        } else if let ContentData::Preview(preview) = &self.data {
+            preview.double_click(position)
+        } else {
+            Reference::default()
+        }
+    }
+
+    pub fn sort(&mut self, sort: &str) -> bool {
+        if let ContentData::Paginated(paginated) = &mut self.data {
+            if let PaginatedContentData::List(list) = &mut paginated.data {
+                list.sort(sort);
+                paginated.prepare();
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn can_enter(&self) -> bool {
+        if matches!(self.data, ContentData::Preview(_)) {
+            return true;
+        }
+        if let ContentData::Paginated(paginated) = &self.data {
+            if paginated.is_list() {
+                return true;
+            }
+        }
+        false
     }
 
     content_getter!(animation, animation_mut, Animation, AnimationImage);

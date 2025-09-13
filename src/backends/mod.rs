@@ -42,7 +42,7 @@ use crate::{
         Column, Cursor, Direction, Target,
     },
     image::{provider::surface::SurfaceData, view::Zoom},
-    rect::RectD,
+    rect::{PointD, RectD},
     util::path_to_filename,
 };
 
@@ -87,8 +87,8 @@ pub trait Backend {
         None
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content;
-    fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
+    fn content(&self, item: &ItemRef, params: &ImageParams) -> Content;
+    fn click(&self, item: &ItemRef, mouse_pos: PointD) -> Option<(Box<dyn Backend>, Target)> {
         None
     }
 
@@ -149,7 +149,7 @@ impl Default for Box<dyn Backend> {
 }
 
 impl dyn Backend {
-    pub fn new(filename: &Path) -> Box<dyn Backend> {
+    pub fn new_from_path(filename: &Path) -> Box<dyn Backend> {
         let ext = filename
             .extension()
             .map(|ext| ext.to_str().unwrap_or_default());
@@ -164,6 +164,21 @@ impl dyn Backend {
             },
             Some("epub") => Box::new(DocMuPdf::new(filename)),
             Some(_) | None => Box::new(FileSystem::new(filename)),
+        }
+    }
+
+    pub fn new_from_ref(reference: &BackendRef) -> Box<dyn Backend> {
+        match reference {
+            BackendRef::FileSystem(path_buf) => Box::new(FileSystem::new(path_buf)),
+            BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
+            BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
+            BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
+            BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
+            BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
+            // BackendRef::Thumbnail => Box::new(todo!()),
+            // BackendRef::Bookmarks => Box::new(todo!()),
+            // BackendRef::None => Box::new(todo!()),
+            _ => Box::new(NoneBackend::new()),
         }
     }
 
@@ -206,13 +221,6 @@ impl dyn Backend {
             backend: self.backend_ref(),
             item: self.item_ref(cursor),
         }
-    }
-
-    pub fn has_enter(&self) -> bool {
-        matches!(
-            self.backend_ref(),
-            BackendRef::Bookmarks | BackendRef::FileSystem(_)
-        )
     }
 
     pub fn can_show_thumbnails(&self) -> bool {

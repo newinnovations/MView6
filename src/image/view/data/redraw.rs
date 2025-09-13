@@ -54,8 +54,9 @@ pub enum RedrawReason {
     PageChanged = 7,
     RenderingUpdated = 8,
     RotationChanged = 9,
-    TransparencyBackgroundChanged = 10,
-    ZoomSettingChanged = 11,
+    SortChanged = 10,
+    TransparencyBackgroundChanged = 11,
+    ZoomSettingChanged = 12,
 }
 
 impl RedrawReason {
@@ -91,8 +92,9 @@ impl From<i32> for RedrawReason {
             7 => RedrawReason::PageChanged,
             8 => RedrawReason::RenderingUpdated,
             9 => RedrawReason::RotationChanged,
-            10 => RedrawReason::TransparencyBackgroundChanged,
-            11 => RedrawReason::ZoomSettingChanged,
+            10 => RedrawReason::SortChanged,
+            11 => RedrawReason::TransparencyBackgroundChanged,
+            12 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
         }
     }
@@ -194,6 +196,37 @@ impl ImageViewData {
             let rect = zoom.intersection_screen_coord(&viewport);
             self.zoom_overlay = Some(RenderedImage::new(surface, zoom.top_left(&rect), zoom));
             self.redraw(RedrawReason::RenderingUpdated);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_round_trip_conversion() {
+        let reasons = [
+            RedrawReason::AnimationCallback,
+            RedrawReason::AnnotationChanged,
+            RedrawReason::CanvasResized,
+            RedrawReason::ContentChanged,
+            RedrawReason::ContentPost,
+            RedrawReason::InteractiveDrag,
+            RedrawReason::InteractiveZoom,
+            RedrawReason::PageChanged,
+            RedrawReason::RenderingUpdated,
+            RedrawReason::RotationChanged,
+            RedrawReason::SortChanged,
+            RedrawReason::TransparencyBackgroundChanged,
+            RedrawReason::ZoomSettingChanged,
+            RedrawReason::Unknown,
+        ];
+
+        for reason in reasons.iter() {
+            let i32_value = i32::from(*reason);
+            let converted_back = RedrawReason::from(i32_value);
+            assert_eq!(*reason, converted_back);
         }
     }
 }

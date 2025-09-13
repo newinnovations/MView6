@@ -212,9 +212,9 @@ impl MViewWindowImp {
                 };
                 if let Some(current) = w.file_view.current() {
                     let b = self.backend.borrow();
-                    let image1 = b.image(&b.reference(&current).item, &params);
+                    let image1 = b.content(&b.reference(&current).item, &params);
                     if current.next() {
-                        let image2 = b.image(&b.reference(&current).item, &params);
+                        let image2 = b.content(&b.reference(&current).item, &params);
                         if let (ContentData::Single(single1), ContentData::Single(single2)) =
                             (image1.data, image2.data)
                         {

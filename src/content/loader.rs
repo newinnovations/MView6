@@ -22,6 +22,7 @@ use crate::{
     category::Category,
     content::{content_type::ContentType, paginated::PaginatedContent, Content},
     error::MviewResult,
+    file_view::model::BackendRef,
     image::{
         draw::{draw_error, draw_text},
         provider::{gdk::GdkImageLoader, image_rs::RsImageLoader, internal::InternalImageLoader},
@@ -57,12 +58,12 @@ impl ContentLoader {
     pub fn content_from_file(path: &Path) -> Content {
         if path.is_dir() {
             let list = FileSystem::new(path).list().clone();
-            return Content::new_list(path, list);
+            return Content::new_list(path, BackendRef::FileSystem(path.into()), list);
         }
 
         let ext = path_to_extension(path);
         let content_type = ContentType::from_extension(&ext);
-        dbg!(content_type);
+        // dbg!(content_type);
         if content_type != ContentType::Unknown {
             return Self::load_file(content_type, path);
         }
@@ -91,19 +92,20 @@ impl ContentLoader {
     fn load_file(content_type: ContentType, path: &Path) -> Content {
         match content_type {
             ContentType::Epub | ContentType::Pdf => {
-                draw_text("Document", "PDF/EPUB", Category::Document.colors())
+                // draw_text("Document", "PDF/EPUB", Category::Document.colors())
+                Content::new_preview(path, BackendRef::Pdfium(path.into()))
             }
             ContentType::Mar => {
                 let list = MarArchive::new(path).list().clone();
-                Content::new_list(path, list)
+                Content::new_list(path, BackendRef::MarArchive(path.into()), list)
             }
             ContentType::Rar => {
                 let list = RarArchive::new(path).list().clone();
-                Content::new_list(path, list)
+                Content::new_list(path, BackendRef::RarArchive(path.into()), list)
             }
             ContentType::Zip => {
                 let list = ZipArchive::new(path).list().clone();
-                Content::new_list(path, list)
+                Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
             }
             ContentType::Svg => match Self::read_svg(path) {
                 Ok(tree) => Content::new_svg(

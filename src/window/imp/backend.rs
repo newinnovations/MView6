@@ -22,7 +22,7 @@ use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeVi
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{Column, Sort, Target},
+    file_view::{model::Reference, Column, Sort, Target},
     util::path_to_filename,
 };
 
@@ -36,8 +36,6 @@ impl MViewWindowImp {
         let w = self.widgets();
         self.backend.replace(new_backend);
         let new_backend = self.backend.borrow();
-
-        w.forward_button.set_visible(new_backend.has_enter());
 
         let mut sorting_store = self.sorting_store.borrow_mut();
         let can_be_sorted = new_backend.can_be_sorted();
@@ -115,5 +113,22 @@ impl MViewWindowImp {
         } else {
             false
         }
+    }
+
+    pub fn event_navigate(&self, reference: Reference) {
+        // dbg!(&reference);
+        let new_backend = <dyn Backend>::new_from_ref(&reference.backend);
+        let goto: Target = if reference.item.is_none() {
+            self.target_store
+                .borrow()
+                .get(&new_backend.normalized_path())
+                .map(|tt| &tt.target)
+                .unwrap_or(&Target::First)
+                .clone()
+        } else {
+            reference.into()
+        };
+        // dbg!(&new_backend, &goto);
+        self.set_backend(new_backend, &goto);
     }
 }

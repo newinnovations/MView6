@@ -26,6 +26,7 @@ use crate::{
     backends::Backend,
     file_view::{model::Entry, Target},
     image::colors::Color,
+    rect::PointD,
 };
 
 pub struct TParent {
@@ -181,9 +182,10 @@ impl SheetDimensions {
         self.capacity_x * self.capacity_y
     }
 
-    pub fn rel_position(&self, x: f64, y: f64) -> Option<i32> {
-        let x = (x as i32 - self.offset_x) / (self.size + self.separator_x);
-        let y = (y as i32 - self.offset_y) / (self.size + self.separator_y);
+    // TODO: change all to Points
+    pub fn rel_position(&self, pos: PointD) -> Option<i32> {
+        let x = (pos.x() as i32 - self.offset_x) / (self.size + self.separator_x);
+        let y = (pos.y() as i32 - self.offset_y) / (self.size + self.separator_y);
         if x < 0 || y < 0 || x >= self.capacity_x || y >= self.capacity_y {
             None
         } else {
@@ -191,8 +193,8 @@ impl SheetDimensions {
         }
     }
 
-    pub fn abs_position(&self, page: i32, x: f64, y: f64) -> Option<i32> {
-        self.rel_position(x, y)
+    pub fn abs_position(&self, page: i32, pos: PointD) -> Option<i32> {
+        self.rel_position(pos)
             .map(|rel| page * self.capacity() + rel)
     }
 }
@@ -214,10 +216,10 @@ impl Annotations {
     //         .filter(|a| a.position.inside(x, y))
     // }
 
-    pub fn index_at(&self, x: f64, y: f64) -> Option<i32> {
-        let index = self.dim.rel_position(x, y)?;
+    pub fn index_at(&self, pos: PointD) -> Option<i32> {
+        let index = self.dim.rel_position(pos)?;
         let annotation = self.annotations.get(index as usize)?;
-        annotation.position.inside(x, y).then_some(index)
+        annotation.position.inside(pos).then_some(index)
     }
 }
 
@@ -239,8 +241,11 @@ impl TRect {
         }
     }
 
-    pub fn inside(&self, x: f64, y: f64) -> bool {
-        x >= self.x && y >= self.y && x < self.x + self.width && y < self.y + self.height
+    pub fn inside(&self, pos: PointD) -> bool {
+        pos.x() >= self.x
+            && pos.y() >= self.y
+            && pos.x() < self.x + self.width
+            && pos.y() < self.y + self.height
     }
 }
 

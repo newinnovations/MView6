@@ -96,7 +96,7 @@ impl Backend for RarArchive {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_rar(&self.path, item.str()) {
             Ok(bytes) => ContentLoader::content_from_memory(bytes),
             Err(error) => draw_error(error.into()),

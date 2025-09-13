@@ -36,9 +36,13 @@ use crate::{
         },
         Backend,
     },
-    file_view::{FileView, Sort, Target},
-    image::view::{ImageView, SIGNAL_CANVAS_RESIZED},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference},
+        FileView, Sort, Target,
+    },
+    image::view::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE},
     info_view::InfoView,
+    rect::PointD,
     render_thread::{
         model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
         RenderThread, RenderThreadSender,
@@ -323,7 +327,7 @@ impl ObjectImpl for MViewWindowImp {
         gesture_click.connect_pressed(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, _n_press, x, y| this.on_mouse_press((x, y))
+            move |_, _n_press, x, y| this.on_mouse_press(PointD::new(x, y))
         ));
         image_view.add_controller(gesture_click);
 
@@ -335,6 +339,23 @@ impl ObjectImpl for MViewWindowImp {
                 self,
                 move |_view: ImageView, width: i32, height: i32| {
                     this.event_canvas_resized(width, height);
+                }
+            ),
+        );
+
+        image_view.connect_closure(
+            SIGNAL_NAVIGATE,
+            false,
+            closure_local!(
+                #[weak(rename_to = this)]
+                self,
+                move |_view: ImageView, name: &str, path: &str, item_str: &str| {
+                    // dbg!(item_str);
+                    // let _ = dbg!(ItemRef::from_string_repr(item_str));
+                    this.event_navigate(Reference {
+                        backend: BackendRef::new(name, path.into()),
+                        item: ItemRef::from_string_repr(item_str).unwrap_or_default(),
+                    });
                 }
             ),
         );
@@ -444,7 +465,7 @@ impl ObjectImpl for MViewWindowImp {
                     match msg.reply {
                         RenderReply::RenderDone(image_id, surface_data, zoom, viewport) => {
                             image_view.hq_render_reply(image_id, surface_data, zoom, viewport);
-                            println!("Got reply HqRender");
+                            // println!("Got reply HqRender");
                         }
                     }
                 }

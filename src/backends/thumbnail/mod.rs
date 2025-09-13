@@ -34,6 +34,7 @@ use crate::{
         Cursor,
     },
     image::draw::thumbnail_sheet,
+    rect::PointD,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
 use model::{Annotation, SheetDimensions, TRect};
@@ -203,7 +204,7 @@ impl Backend for Thumbnail {
         ))
     }
 
-    fn image(&self, item: &ItemRef, params: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
         let page = item.idx() as i32;
         let capacity = self.capacity();
         if capacity > 0 {
@@ -228,11 +229,11 @@ impl Backend for Thumbnail {
         image
     }
 
-    fn click(&self, item: &ItemRef, x: f64, y: f64) -> Option<(Box<dyn Backend>, Target)> {
-        if let Some(pos) = self.dim.abs_position(item.idx() as i32, x, y) {
+    fn click(&self, item: &ItemRef, mouse_pos: PointD) -> Option<(Box<dyn Backend>, Target)> {
+        if let Some(idx) = self.dim.abs_position(item.idx() as i32, mouse_pos) {
             let backend = self.parent_backend.borrow();
-            if let Some(iter) = self.parent_store.iter_nth_child(None, pos) {
-                let cursor = Cursor::new(self.parent_store.clone(), iter, pos);
+            if let Some(iter) = self.parent_store.iter_nth_child(None, idx) {
+                let cursor = Cursor::new(self.parent_store.clone(), iter, idx);
                 let source = backend.reference(&cursor);
                 drop(backend);
                 Some((

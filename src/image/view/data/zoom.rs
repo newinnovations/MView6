@@ -19,7 +19,7 @@
 
 use cairo::Matrix;
 
-use crate::rect::{RectD, SizeD, VectorD};
+use crate::rect::{PointD, RectD, SizeD, VectorD};
 
 /// Maximum allowed zoom factor
 pub const MAX_ZOOM_FACTOR: f64 = 300.0;
@@ -575,7 +575,7 @@ impl Zoom {
     /// // Zoom in 2x around the center of a 800x600 viewport
     /// image_zoom.update_zoom(2.0, (400.0, 300.0));
     /// ```
-    pub fn update_zoom(&mut self, new_zoom: f64, anchor: (f64, f64)) {
+    pub fn update_zoom(&mut self, new_zoom: f64, anchor: PointD) {
         let new_zoom = new_zoom.clamp(MIN_ZOOM_FACTOR, MAX_ZOOM_FACTOR);
 
         // Early return if zoom hasn't actually changed
@@ -583,14 +583,11 @@ impl Zoom {
             return;
         }
 
-        let (anchor_x, anchor_y) = anchor;
-
         // Calculate the point in image coordinates that corresponds to the anchor
-        let view_cx = (anchor_x - self.offset_x()) / self.scale;
-        let view_cy = (anchor_y - self.offset_y()) / self.scale;
+        let view_c = (anchor - self.origin()).unscale(self.scale);
 
         // Calculate new offsets so the anchor point remains visually stationary
-        self.set_offset(anchor_x - view_cx * new_zoom, anchor_y - view_cy * new_zoom);
+        self.set_origin(anchor - view_c.scale(new_zoom));
 
         // Apply the new zoom factor
         self.scale = new_zoom;
@@ -928,7 +925,7 @@ mod tests {
         zoom.set_offset(100.0, 100.0);
         zoom.scale = 1.0;
 
-        let anchor = (150.0, 150.0); // Point 50 pixels from current offset
+        let anchor = PointD::new(150.0, 150.0); // Point 50 pixels from current offset
 
         // Zoom in 2x around the anchor point
         zoom.update_zoom(2.0, anchor);
@@ -937,8 +934,8 @@ mod tests {
 
         // The anchor point should remain visually stationary
         // Point that was 50 pixels from offset should still be at anchor
-        let expected_off_x = anchor.0 - (50.0 * 2.0); // 150 - 100 = 50
-        let expected_off_y = anchor.1 - (50.0 * 2.0);
+        let expected_off_x = anchor.x() - (50.0 * 2.0); // 150 - 100 = 50
+        let expected_off_y = anchor.y() - (50.0 * 2.0);
 
         assert!(approx_eq(zoom.offset_x(), expected_off_x, 0.001));
         assert!(approx_eq(zoom.offset_y(), expected_off_y, 0.001));
@@ -947,7 +944,7 @@ mod tests {
     #[test]
     fn test_update_zoom_constraints() {
         let mut zoom = Zoom::new();
-        let anchor = (100.0, 100.0);
+        let anchor = PointD::new(100.0, 100.0);
 
         // Test minimum constraint
         zoom.update_zoom(0.0001, anchor);

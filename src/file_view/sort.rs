@@ -32,10 +32,7 @@ pub enum Sort {
 
 impl Display for Sort {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Sort::Sorted((c, t)) => write!(f, "{}", Sort::to_str(c, t)),
-            Sort::Unsorted => write!(f, "Sort(none)"),
-        }
+        write!(f, "{}", self.str_repr())
     }
 }
 
@@ -48,17 +45,21 @@ impl Sort {
         Sort::new(SortColumn::Index(Column::Cat as u32), SortType::Ascending)
     }
 
-    pub fn to_str(col: &SortColumn, order: &SortType) -> String {
-        format!(
-            "Sort({}, {})",
-            match *col {
-                SortColumn::Default => "default".to_string(),
-                SortColumn::Index(i) => format!("{i}"),
-            },
-            match *order {
-                SortType::Ascending => "asc",
-                _ => "des",
-            }
-        )
+    pub fn str_repr(&self) -> String {
+        match self {
+            Sort::Sorted((col, order)) => format!(
+                "{}{}",
+                match col {
+                    SortColumn::Default => "d".to_string(),
+                    SortColumn::Index(i) => format!("{i}"),
+                },
+                match order {
+                    SortType::Ascending => "a",
+                    SortType::Descending => "d",
+                    _ => "u",
+                }
+            ),
+            Sort::Unsorted => "u".to_string(),
+        }
     }
 }

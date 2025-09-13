@@ -100,7 +100,7 @@ impl Backend for Bookmarks {
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        Some(<dyn Backend>::new(Path::new(&cursor.folder())))
+        Some(<dyn Backend>::new_from_path(Path::new(&cursor.folder())))
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -110,7 +110,7 @@ impl Backend for Bookmarks {
         ))
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let path = Path::new(item.str());
         ContentLoader::content_from_file(path)
         // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {

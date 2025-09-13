@@ -33,29 +33,29 @@ use crate::{
     category::Category,
     config::config,
     error::MviewResult,
-    file_view::{model::Row, Direction},
+    file_view::{
+        model::{BackendRef, ItemRef, Reference, Row},
+        Direction,
+    },
     image::{
         colors::{Color, MViewColor},
-        svg::{
-            creator::{FontWeight, LineStyle},
-            text_sheet::{svg_options, TextSheet},
-        },
+        svg::text_sheet::{svg_options, TextSheet},
     },
     profile::performance::Performance,
-    rect::{RectD, SizeD, VectorD},
-    util::{ellipsis_middle, path_to_directory, path_to_extension, path_to_filename},
+    rect::{PointD, SizeD},
+    util::{ellipsis_middle, path_to_extension},
 };
 
-const FONT_SIZE_TITLE: u32 = 24;
-const FONT_SIZE: u32 = 14;
-const LINES_PER_PAGE: usize = 32;
+pub const FONT_SIZE_TITLE: u32 = 24;
+pub const FONT_SIZE: u32 = 14;
+pub const LINES_PER_PAGE: usize = 32;
 
-const BYTES_PER_LINE: usize = 16;
-const WIDTH_ADDRESS: f64 = 6.5;
-const WIDTH_HEX: f64 = 2.0;
-const WIDTH_ASCII: f64 = 5.4;
+pub const BYTES_PER_LINE: usize = 16;
+pub const WIDTH_ADDRESS: f64 = 6.5;
+pub const WIDTH_HEX: f64 = 2.0;
+pub const WIDTH_ASCII: f64 = 5.4;
 
-const MAX_LINE_LENGTH: usize = 142;
+pub const MAX_LINE_LENGTH: usize = 142;
 
 pub struct RawContent {
     pub path: PathBuf,
@@ -73,23 +73,7 @@ impl RawContent {
 
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-        sheet.add_line(
-            &path_to_directory(&self.path),
-            sheet
-                .base_style()
-                .font_family("Liberation Sans")
-                .color(Color::FolderTitle),
-        );
-        sheet.delta_y(0.5);
-        sheet.add_line(
-            &path_to_filename(&self.path),
-            sheet
-                .base_style()
-                .font_size(FONT_SIZE_TITLE)
-                .color(Color::Yellow)
-                .font_weight(FontWeight::Bold),
-        );
-        sheet.delta_y(0.8);
+        sheet.header(&self.path, FONT_SIZE_TITLE, 54);
 
         let start_line = page * LINES_PER_PAGE;
         let total_lines = self.data.len().div_ceil(BYTES_PER_LINE);
@@ -200,23 +184,7 @@ impl TextContent {
         let theme = config().ts.themes.get("base16-mocha.dark").unwrap();
         let mut h = HighlightLines::new(syntax, theme);
         let mut sheet = TextSheet::new(1200, 800, FONT_SIZE);
-        sheet.add_line(
-            &path_to_directory(&self.path),
-            sheet
-                .base_style()
-                .font_family("Liberation Sans")
-                .color(Color::FolderTitle),
-        );
-        sheet.delta_y(0.5);
-        sheet.add_line(
-            &path_to_filename(&self.path),
-            sheet
-                .base_style()
-                .font_size(FONT_SIZE_TITLE)
-                .color(Color::Yellow)
-                .font_weight(FontWeight::Bold),
-        );
-        sheet.delta_y(0.8);
+        sheet.header(&self.path, FONT_SIZE_TITLE, 81);
 
         let ps = &config().ps;
         for line in self
@@ -258,13 +226,15 @@ fn limit_string(s: &str) -> String {
 
 pub struct ListContent {
     pub path: PathBuf,
+    pub reference: BackendRef,
     pub list: Arc<Vec<Row>>,
 }
 
 impl ListContent {
-    pub fn new(path: PathBuf, list: Vec<Row>) -> Self {
+    pub fn new(path: PathBuf, reference: BackendRef, list: Vec<Row>) -> Self {
         Self {
             path,
+            reference,
             list: list.into(),
         }
     }
@@ -279,30 +249,14 @@ impl ListContent {
 
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
         let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-        sheet.add_line(
-            &path_to_directory(&self.path),
-            sheet
-                .base_style()
-                .font_family("Liberation Sans")
-                .color(Color::FolderTitle),
-        );
-        sheet.delta_y(0.5);
-        sheet.add_line(
-            &path_to_filename(&self.path),
-            sheet
-                .base_style()
-                .font_size(FONT_SIZE_TITLE)
-                .color(Color::Yellow)
-                .font_weight(FontWeight::Bold),
-        );
-        sheet.delta_y(0.8);
+        sheet.header(&self.path, FONT_SIZE_TITLE, 54);
         for row in self
             .list
             .iter()
             .skip(page * LINES_PER_PAGE)
             .take(LINES_PER_PAGE)
         {
-            dbg!(sheet.pos());
+            // dbg!(sheet.pos());
             let modified_text = if row.modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(row.modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()
@@ -326,15 +280,57 @@ impl ListContent {
             sheet.add_line(&line, sheet.base_style().color(colors.1));
         }
         sheet.show_page_no(page, self.num_pages());
+        sheet.show_open_text();
 
-        sheet.add_grid(
-            RectD::new(30.0, 70.2, 800.0, 750.0),
-            VectorD::new(8.2, 10.5), // 21.0),
-            LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
-        );
+        // sheet.add_grid(
+        //     RectD::new(30.0, 70.2, 800.0, 750.0),
+        //     VectorD::new(8.2, 10.5), // 21.0),
+        //     LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
+        // );
+
+        // sheet.add_grid(
+        //     RectD::new(30.0, 76.0, 800.0, 750.0),
+        //     VectorD::new(8.2, 21.0), // 21.0),
+        //     LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
+        // );
 
         let svg_content = sheet.finish().render();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
+    }
+
+    pub fn double_click(&self, position: PointD, page: usize) -> Option<&Row> {
+        // let idx = (position.y() - 80.7) / 21.0;
+        let idx = (position.y() - 76.0) / 21.0;
+        if idx < 0.0 {
+            return None;
+        }
+        let n = idx.floor() as i32;
+        if n > 31 {
+            return None;
+        }
+        // let rem = idx - n as f64;
+        // if rem > 0.5 {
+        //     return None;
+        // }
+        self.list.get(page * LINES_PER_PAGE + n as usize)
+    }
+
+    pub fn sort(&mut self, sort: &str) {
+        let mut list = self.list.as_ref().clone();
+        match sort {
+            // "0a" => x.sort_by_key(|r| r.category),          // Ascending
+            // "0d" => x.sort_by_key(|r| Reverse(r.category)), // Descending
+            "0a" => list.sort_by(|a, b| a.category.cmp(&b.category).then(a.name.cmp(&b.name))), // Ascending
+            "0d" => list.sort_by(|a, b| b.category.cmp(&a.category).then(b.name.cmp(&a.name))), // Descending
+            "1a" => list.sort_by(|a, b| a.name.cmp(&b.name)), // Ascending
+            "1d" => list.sort_by(|a, b| b.name.cmp(&a.name)), // Descending
+            "2a" => list.sort_by(|a, b| a.size.cmp(&b.size)), // Ascending
+            "2d" => list.sort_by(|a, b| b.size.cmp(&a.size)), // Descending
+            "3a" => list.sort_by(|a, b| a.modified.cmp(&b.modified)), // Ascending
+            "3d" => list.sort_by(|a, b| b.modified.cmp(&a.modified)), // Descending
+            _ => (),
+        };
+        self.list = list.into();
     }
 }
 
@@ -370,15 +366,20 @@ impl PaginatedContent {
         }
     }
 
-    pub fn new_list<P: AsRef<Path>>(path: P, list: Vec<Row>) -> Self {
+    pub fn new_list<P: AsRef<Path>>(path: P, reference: BackendRef, list: Vec<Row>) -> Self {
         Self {
             data: PaginatedContentData::List(ListContent {
                 path: path.as_ref().into(),
+                reference,
                 list: list.into(),
             }),
             page: 0,
             rendered: None,
         }
+    }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self.data, PaginatedContentData::List(_))
     }
 
     pub fn size(&self) -> SizeD {
@@ -400,7 +401,7 @@ impl PaginatedContent {
         }
         .ok()
         .map(Arc::new);
-        duration.elapsed("svg parse");
+        duration.elapsed("prepare");
     }
 
     pub fn num_pages(&self) -> usize {
@@ -419,25 +420,38 @@ impl PaginatedContent {
                 if self.page >= count {
                     self.page -= count;
                     self.prepare();
-                    true
-                } else {
-                    false
+                    return true;
                 }
             }
             Direction::Down => {
-                let num_pages = self.num_pages();
-                if self.page + count < num_pages {
+                if self.page + count < self.num_pages() {
                     self.page += count;
                     self.prepare();
-                    true
-                } else {
-                    false
+                    return true;
                 }
             }
         }
+        false
     }
 
     pub fn has_alpha(&self) -> bool {
         false
+    }
+
+    pub fn double_click(&self, position: PointD) -> Reference {
+        if let PaginatedContentData::List(list) = &self.data {
+            match list.double_click(position, self.page) {
+                Some(row) => Reference {
+                    backend: list.reference.clone(),
+                    item: ItemRef::new_from_row(&list.reference, row),
+                },
+                None => Reference {
+                    backend: list.reference.clone(),
+                    item: ItemRef::None,
+                },
+            }
+        } else {
+            Reference::default()
+        }
     }
 }

@@ -27,10 +27,11 @@ use crate::{
     error::MviewResult,
     image::{
         colors::{Color, MViewColor},
-        svg::creator::{LineStyle, SvgCanvas, TextAnchor, TextStyle},
+        svg::creator::{FontWeight, LineStyle, SvgCanvas, TextAnchor, TextStyle},
         view::{data::TransparencyMode, ZoomMode},
     },
     rect::{PointD, RectD, VectorD},
+    util::{ellipsis_middle, path_to_directory, path_to_filename},
 };
 
 const FONT_FAMILY: &str = "Cascadia Mono";
@@ -93,11 +94,22 @@ impl TextSheet {
             let font_size = style.font_size * 10 / 14;
             let style = style.font_size(font_size);
             self.canvas.add_text(
-                PointD::new(30.0, self.canvas.height() as f64 - 20.0),
+                PointD::new(30.0, self.canvas.height() as f64 - 35.0),
                 &format!("Page {} of {total}", page + 1),
                 style,
             );
         }
+    }
+
+    pub fn show_open_text(&mut self) {
+        let style = self.base_style().font_family("Liberation Sans");
+        let font_size = style.font_size * 10 / 14;
+        let style = style.font_size(font_size).color(Color::Glaucous);
+        self.canvas.add_text(
+            PointD::new(30.0, self.canvas.height() as f64 - 20.0),
+            "Press ENTER or double click to open",
+            style,
+        );
     }
 
     pub fn finish(mut self) -> SvgCanvas {
@@ -108,7 +120,30 @@ impl TextSheet {
         self.canvas
     }
 
+    pub fn header(&mut self, path: &Path, title_size: u32, max_len: usize) {
+        self.add_line(
+            &path_to_directory(path),
+            self.base_style()
+                .font_family("Liberation Sans")
+                .color(Color::FolderTitle),
+        );
+        self.delta_y(0.5);
+        self.add_line(
+            &ellipsis_middle(&path_to_filename(path), max_len),
+            self.base_style()
+                .font_size(title_size)
+                .color(Color::Yellow)
+                .font_weight(FontWeight::Bold),
+        );
+        self.delta_y(0.8);
+    }
+
+    pub fn canvas(&mut self) -> &mut SvgCanvas {
+        &mut self.canvas
+    }
+
     /// Add a grid to the canvas
+    #[allow(dead_code)]
     pub fn add_grid(&mut self, grid: RectD, grid_size: VectorD, style: LineStyle) {
         self.canvas.add_grid(grid, grid_size, style);
     }

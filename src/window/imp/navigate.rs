@@ -55,7 +55,11 @@ impl MViewWindowImp {
 
                 let reference = backend.reference(&current);
 
-                let image = backend.image(&reference.item, &params);
+                let mut content = backend.content(&reference.item, &params);
+                content.sort(&self.current_sort.get().str_repr());
+
+                w.forward_button.set_visible(content.can_enter());
+
                 // if reference.supports_bot() {
                 //     let command = RenderBotCommand {
                 //         id: 0,
@@ -67,11 +71,11 @@ impl MViewWindowImp {
                 //     };
                 //     w.rb_send(command);
                 // }
-                w.info_view.update(&image);
+                w.info_view.update(&content);
                 if backend.is_thumbnail() {
-                    w.image_view.set_image_pre(image);
+                    w.image_view.set_image_pre(content);
                 } else {
-                    w.image_view.set_image(image);
+                    w.image_view.set_image(content);
                 }
             }
         }
@@ -113,7 +117,7 @@ impl MViewWindowImp {
         let directory = path.parent().unwrap_or_else(|| Path::new(""));
         let category = Category::determine(path, path.is_dir());
         dbg!(&filename, directory, category);
-        let new_backend = <dyn Backend>::new(directory);
+        let new_backend = <dyn Backend>::new_from_path(directory);
         self.open_container.set(category.is_container());
         self.set_backend(new_backend, &Target::Name(filename));
     }

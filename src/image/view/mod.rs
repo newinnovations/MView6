@@ -49,6 +49,7 @@ pub use data::zoom::{Zoom, ZoomMode};
 pub use data::QUALITY_HIGH;
 
 pub const SIGNAL_CANVAS_RESIZED: &str = "event-canvas-resized";
+pub const SIGNAL_NAVIGATE: &str = "event-navigate";
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -193,6 +194,14 @@ impl ImageView {
         }
     }
 
+    pub fn on_sort_changed(&self, new_sort: &str) {
+        dbg!(new_sort);
+        let mut p = self.imp().data.borrow_mut();
+        if p.content.sort(new_sort) {
+            p.redraw(RedrawReason::SortChanged);
+        }
+    }
+
     pub fn add_context_menu(&self, menu: Menu) {
         let gesture = GestureClick::new();
         gesture.set_button(BUTTON_SECONDARY); // Right mouse button
@@ -209,7 +218,7 @@ impl ImageView {
                     .and_then(|child| child.downcast::<PopoverMenu>().ok())
                 {
                     // Position the menu at the right-click location
-                    let (x, y) = window.imp().mouse_position();
+                    let pos = window.imp().mouse_position();
                     // println!("current {} {}", x, y);
                     // match window.get_window_relative_cursor_position() {
                     //     Ok(position) => {
@@ -217,7 +226,7 @@ impl ImageView {
                     //     }
                     //     Err(err) => println!("error {}", err),
                     // }
-                    let rect = Rectangle::new(x as i32, y as i32, 1, 1);
+                    let rect = Rectangle::new(pos.x() as i32, pos.y() as i32, 1, 1);
                     popup.set_pointing_to(Some(&rect));
                     popup.popup();
                 }

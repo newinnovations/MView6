@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf, str::FromStr};
 
 use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
@@ -172,7 +172,7 @@ impl Default for Reference {
     fn default() -> Self {
         Self {
             backend: BackendRef::None,
-            item: ItemRef::Index(0),
+            item: ItemRef::None,
         }
     }
 }
@@ -191,6 +191,49 @@ pub enum BackendRef {
 }
 
 impl BackendRef {
+    pub fn new(name: &str, path: PathBuf) -> Self {
+        match name {
+            "FileSystem" => BackendRef::FileSystem(path),
+            "MarArchive" => BackendRef::MarArchive(path),
+            "RarArchive" => BackendRef::RarArchive(path),
+            "ZipArchive" => BackendRef::ZipArchive(path),
+            "Mupdf" => BackendRef::Mupdf(path),
+            "Pdfium" => BackendRef::Pdfium(path),
+            "Thumbnail" => BackendRef::Thumbnail,
+            "Bookmarks" => BackendRef::Bookmarks,
+            _ => BackendRef::None,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            BackendRef::FileSystem(_) => "FileSystem",
+            BackendRef::MarArchive(_) => "MarArchive",
+            BackendRef::RarArchive(_) => "RarArchive",
+            BackendRef::ZipArchive(_) => "ZipArchive",
+            BackendRef::Mupdf(_) => "Mupdf",
+            BackendRef::Pdfium(_) => "Pdfium",
+            BackendRef::Thumbnail => "Thumbnail",
+            BackendRef::Bookmarks => "Bookmarks",
+            BackendRef::None => "None",
+        }
+    }
+
+    pub fn path(&self) -> &str {
+        let p = match self {
+            BackendRef::FileSystem(path_buf) => path_buf.to_str(),
+            BackendRef::MarArchive(path_buf) => path_buf.to_str(),
+            BackendRef::RarArchive(path_buf) => path_buf.to_str(),
+            BackendRef::ZipArchive(path_buf) => path_buf.to_str(),
+            BackendRef::Mupdf(path_buf) => path_buf.to_str(),
+            BackendRef::Pdfium(path_buf) => path_buf.to_str(),
+            BackendRef::Thumbnail => None,
+            BackendRef::Bookmarks => None,
+            BackendRef::None => None,
+        };
+        p.unwrap_or_default()
+    }
+
     pub fn supports_bot(&self) -> bool {
         matches!(
             self,
@@ -202,20 +245,44 @@ impl BackendRef {
                 | BackendRef::Pdfium(_)
         )
     }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, BackendRef::None)
+    }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ItemRef {
     String(String),
     Index(u64),
+    #[default]
+    None,
 }
 
 impl ItemRef {
+    pub fn new_from_row(backend: &BackendRef, row: &Row) -> Self {
+        match backend {
+            BackendRef::FileSystem(_) => ItemRef::String(row.name.clone()),
+            BackendRef::MarArchive(_) => ItemRef::Index(row.index),
+            BackendRef::RarArchive(_) => ItemRef::String(row.name.clone()),
+            BackendRef::ZipArchive(_) => ItemRef::Index(row.index),
+            BackendRef::Mupdf(_) => ItemRef::Index(row.index),
+            BackendRef::Pdfium(_) => ItemRef::Index(row.index),
+            BackendRef::Thumbnail => ItemRef::Index(row.index),
+            BackendRef::Bookmarks => ItemRef::String(row.folder.clone()),
+            BackendRef::None => ItemRef::None,
+        }
+    }
+
     pub fn str(&self) -> &str {
         match self {
             ItemRef::String(s) => s,
             ItemRef::Index(_) => {
                 eprintln!("should not happen: requested str() from ItemRef::Index");
+                ""
+            }
+            ItemRef::None => {
+                eprintln!("should not happen: requested str() from ItemRef::None");
                 ""
             }
         }
@@ -228,6 +295,51 @@ impl ItemRef {
                 eprintln!("should not happen: requested idx() from ItemRef::String");
                 0
             }
+            ItemRef::None => {
+                eprintln!("should not happen: requested idx() from ItemRef::None");
+                0
+            }
+        }
+    }
+
+    pub fn to_string_repr(&self) -> String {
+        self.to_string()
+    }
+
+    pub fn from_string_repr(s: &str) -> Result<Self, String> {
+        s.parse()
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, ItemRef::None)
+    }
+}
+
+impl fmt::Display for ItemRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ItemRef::String(s) => write!(f, "s:{}", s),
+            ItemRef::Index(i) => write!(f, "i:{}", i),
+            ItemRef::None => write!(f, "n"),
+        }
+    }
+}
+
+impl FromStr for ItemRef {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "n" {
+            Ok(ItemRef::None)
+        } else if let Some(stripped) = s.strip_prefix("s:") {
+            Ok(ItemRef::String(stripped.to_string()))
+        } else if let Some(stripped) = s.strip_prefix("i:") {
+            match stripped.parse::<u64>() {
+                Ok(index) => Ok(ItemRef::Index(index)),
+                Err(_) => Err(format!("Invalid index: {}", stripped)),
+            }
+        } else {
+            Err(format!("Invalid format: {}", s))
         }
     }
 }
@@ -273,5 +385,41 @@ mod tests {
         assert_send_sync::<Reference>();
         assert_send_sync::<BackendRef>();
         assert_send_sync::<ItemRef>();
+    }
+
+    #[test]
+    fn test_string_serialization() {
+        let string_ref = ItemRef::String("hello world".to_string());
+        let serialized = string_ref.to_string();
+        assert_eq!(serialized, "s:hello world");
+
+        let deserialized: ItemRef = serialized.parse().unwrap();
+        assert_eq!(deserialized, string_ref);
+    }
+
+    #[test]
+    fn test_index_serialization() {
+        let index_ref = ItemRef::Index(42);
+        let serialized = index_ref.to_string();
+        assert_eq!(serialized, "i:42");
+
+        let deserialized: ItemRef = serialized.parse().unwrap();
+        assert_eq!(deserialized, index_ref);
+    }
+
+    #[test]
+    fn test_none_serialization() {
+        let index_ref = ItemRef::None;
+        let serialized = index_ref.to_string();
+        assert_eq!(serialized, "n");
+
+        let deserialized: ItemRef = serialized.parse().unwrap();
+        assert_eq!(deserialized, index_ref);
+    }
+
+    #[test]
+    fn test_error_cases() {
+        assert!(ItemRef::from_str("invalid").is_err());
+        assert!(ItemRef::from_str("i:not_a_number").is_err());
     }
 }

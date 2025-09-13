@@ -28,7 +28,7 @@ use crate::{
     backends::thumbnail::model::Annotations,
     content::{Content, ContentData},
     image::{Image, RenderedImage},
-    rect::RectD,
+    rect::{PointD, RectD},
     render_thread::{model::RenderCommand, RenderThreadSender},
 };
 
@@ -76,8 +76,8 @@ pub struct ImageViewData {
     pub checkerboard: Option<ImageSurface>,
     pub transparency_mode: TransparencyMode,
     pub view: Option<ImageView>,
-    pub mouse_position: (f64, f64), // FIXME: change to VectorD
-    pub drag: Option<(f64, f64)>,   // FIXME: change to VectorD
+    pub mouse_position: PointD,
+    pub drag: Option<PointD>,
     pub quality: Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
@@ -95,7 +95,7 @@ impl Default for ImageViewData {
             checkerboard: None,
             transparency_mode: TransparencyMode::Checkerboard,
             view: None,
-            mouse_position: (0.0, 0.0),
+            mouse_position: PointD::default(),
             drag: None,
             quality: QUALITY_HIGH,
             annotations: Default::default(),
@@ -136,14 +136,10 @@ impl ImageViewData {
         }
     }
 
-    pub fn update_zoom(&mut self, new_zoom: f64, anchor: (f64, f64)) {
+    pub fn update_zoom(&mut self, new_zoom: f64, anchor: PointD) {
         self.zoom.update_zoom(new_zoom, anchor);
         if self.drag.is_some() {
-            let (anchor_x, anchor_y) = anchor;
-            self.drag = Some((
-                anchor_x - self.zoom.offset_x(),
-                anchor_y - self.zoom.offset_y(),
-            ))
+            self.drag = Some(anchor - self.zoom.origin());
         }
     }
 

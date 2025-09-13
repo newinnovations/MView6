@@ -17,18 +17,18 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use crate::rect::PointD;
+
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub(super) fn on_mouse_press(&self, position: (f64, f64)) {
+    pub(super) fn on_mouse_press(&self, position: PointD) {
         let w = self.widgets();
         if let Some(current) = w.file_view.current() {
-            let (x, y) = position;
             let zoom = w.image_view.zoom();
-            let (x, y) = (x - zoom.offset_x(), y - zoom.offset_y());
             let backend = self.backend.borrow();
             if let Some((new_backend, goto)) =
-                backend.click(&backend.reference(&current).item, x, y)
+                backend.click(&backend.reference(&current).item, position - zoom.origin())
             {
                 drop(backend);
                 self.set_backend(new_backend, &goto);

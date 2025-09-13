@@ -107,7 +107,7 @@ impl Backend for MarArchive {
         &self.store
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_mar(&self.path, item.idx()) {
             Ok(image) => image,
             Err(error) => draw_error(error),

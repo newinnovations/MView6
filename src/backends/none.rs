@@ -64,7 +64,7 @@ impl Backend for NoneBackend {
         None
     }
 
-    fn image(&self, _: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, _: &ItemRef, _: &ImageParams) -> Content {
         Content::default()
     }
 

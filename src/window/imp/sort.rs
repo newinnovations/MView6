@@ -38,11 +38,8 @@ impl MViewWindowImp {
     pub fn on_sort_column_changed(&self, model: &ListStore) {
         let previous_sort = self.current_sort.get();
         if let Some((new_column, new_order)) = model.sort_column_id() {
-            self.current_sort.set(Sort::new(new_column, new_order));
-            let path = self.backend.borrow().normalized_path();
-            self.sorting_store
-                .borrow_mut()
-                .insert(path, self.current_sort.get());
+            let new_sort = Sort::new(new_column, new_order);
+            self.current_sort.set(new_sort);
             if let Sort::Sorted((previous_column, _)) = previous_sort {
                 if !previous_column.eq(&new_column)
                     && new_column == SortColumn::Index(Column::Modified as u32)
@@ -50,10 +47,19 @@ impl MViewWindowImp {
                     model.set_sort_column_id(
                         SortColumn::Index(Column::Modified as u32),
                         SortType::Descending,
-                    )
+                    );
+                    // We will get back in `on_sort_column_changed` because the
+                    // order change
+                    return;
                 }
             }
+            let path = self.backend.borrow().normalized_path();
+            self.sorting_store
+                .borrow_mut()
+                .insert(path, self.current_sort.get());
             self.bring_entry_into_view();
+            let w = self.widgets();
+            w.image_view.on_sort_changed(&new_sort.str_repr());
         }
     }
 

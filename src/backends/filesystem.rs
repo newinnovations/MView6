@@ -140,7 +140,9 @@ impl Backend for FileSystem {
             || category == Category::Archive
             || category == Category::Document
         {
-            Some(<dyn Backend>::new(&self.directory.join(cursor.name())))
+            Some(<dyn Backend>::new_from_path(
+                &self.directory.join(cursor.name()),
+            ))
         } else {
             None
         }
@@ -157,7 +159,7 @@ impl Backend for FileSystem {
         }
     }
 
-    fn image(&self, item: &ItemRef, _: &ImageParams) -> Content {
+    fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let filename = self.directory.join(item.str());
         ContentLoader::content_from_file(&filename)
     }

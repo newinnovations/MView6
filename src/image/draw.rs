@@ -56,48 +56,6 @@ pub fn draw_error(error: MviewError) -> Content {
     }
 }
 
-fn _draw_impl(title: &str, msg: &str, colors: (Color, Color, Color)) -> MviewResult<Content> {
-    let (_color_back, color_title, color_msg) = colors;
-    let surface = ImageSurface::create(Format::ARgb32, 600, 600)?;
-    let context = Context::new(&surface)?;
-
-    context.color(Color::Black);
-    context.paint()?;
-
-    // context.select_font_face("Arial", FontSlant::Normal, FontWeight::Normal);
-    // context.select_font_face("Ubuntu", FontSlant::Normal, FontWeight::Normal); //Bold);
-    // "Liberation Sans"
-
-    context.select_font_face("Ubuntu", FontSlant::Normal, FontWeight::Bold);
-    context.set_font_size(85.0);
-    let extends = context.text_extents(title)?;
-    // dbg!(extends);
-    context.color(color_title);
-    context.move_to((600.0 - extends.width() - extends.x_bearing()) / 2.0, 100.0);
-    context.show_text(title)?;
-
-    context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
-    let mut font_size = 70.0;
-    let mut width;
-    loop {
-        context.set_font_size(font_size);
-        let extends = context.text_extents(msg)?;
-        width = extends.width() + extends.x_bearing();
-        if width < 600.0 || font_size < 12.0 {
-            break;
-        }
-        font_size *= 0.9;
-    }
-
-    context.color(color_msg);
-    context.move_to((600.0 - width) / 2.0, 320.0);
-    context.show_text(msg)?;
-
-    logo(&context, 595, 598, 25.0, true)?;
-
-    Ok(Content::new_surface_nozoom(surface))
-}
-
 pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Content> {
     let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width, height)?;
     let context = Context::new(&surface)?;

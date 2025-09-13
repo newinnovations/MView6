@@ -32,10 +32,10 @@ use crate::{
         draw::transparency_background,
         view::{
             data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
-            RedrawReason, SIGNAL_CANVAS_RESIZED,
+            RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE,
         },
     },
-    rect::RectD,
+    rect::{PointD, RectD},
     util::remove_source_id,
 };
 use cairo::{Context, Extend, FillRule, SurfacePattern};
@@ -218,20 +218,26 @@ impl ImageViewImp {
         }
     }
 
-    fn button_press_event(&self, position: (f64, f64), n_press: i32) {
+    fn button_press_event(&self, position: PointD, n_press: i32) {
         let mut p = self.data.borrow_mut();
         if n_press == 1 {
             if p.drag.is_none() && p.content.is_movable() {
-                let (position_x, position_y) = position;
-                p.drag = Some((
-                    position_x - p.zoom.offset_x(),
-                    position_y - p.zoom.offset_y(),
-                ));
+                p.drag = Some(position - p.zoom.origin());
                 self.obj().set_view_cursor(ViewCursor::Drag);
             }
         } else if n_press == 2 {
-            println!("double click at {position:?}");
-            // p.zoom.screen_to_image(screen);
+            let image_postion = p.zoom.screen_to_image(&position);
+            let reference = p.content.double_click(image_postion);
+            if !reference.backend.is_none() {
+                self.obj().emit_by_name::<()>(
+                    SIGNAL_NAVIGATE,
+                    &[
+                        &reference.backend.name(),
+                        &reference.backend.path(),
+                        &reference.item.to_string_repr(),
+                    ],
+                );
+            }
         }
     }
 
@@ -243,18 +249,18 @@ impl ImageViewImp {
         }
     }
 
-    fn motion_notify_event(&self, x: f64, y: f64) {
+    fn motion_notify_event(&self, position: PointD) {
         let mut p = self.data.borrow_mut();
-        p.mouse_position = (x, y);
+        p.mouse_position = position;
         if let Some(annotations) = &p.annotations {
-            let index = annotations.index_at(x - p.zoom.offset_x(), y - p.zoom.offset_y());
+            let index = annotations.index_at(position - p.zoom.origin());
             if index != p.hover {
                 p.hover = index;
                 p.redraw(RedrawReason::AnnotationChanged);
             }
         }
-        if let Some((drag_x, drag_y)) = p.drag {
-            p.zoom.set_offset(x - drag_x, y - drag_y);
+        if let Some(drag) = p.drag {
+            p.zoom.set_origin(position - drag);
             p.redraw(RedrawReason::InteractiveDrag);
         }
     }
@@ -284,7 +290,7 @@ impl ImageViewImp {
         Propagation::Stop
     }
 
-    pub fn mouse_position(&self) -> (f64, f64) {
+    pub fn mouse_position(&self) -> PointD {
         self.data.borrow().mouse_position
     }
 }
@@ -293,9 +299,18 @@ impl ObjectImpl for ImageViewImp {
     fn signals() -> &'static [Signal] {
         static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
         SIGNALS.get_or_init(|| {
-            vec![Signal::builder(SIGNAL_CANVAS_RESIZED)
-                .param_types([i32::static_type(), i32::static_type()])
-                .build()]
+            vec![
+                Signal::builder(SIGNAL_CANVAS_RESIZED)
+                    .param_types([i32::static_type(), i32::static_type()])
+                    .build(),
+                Signal::builder(SIGNAL_NAVIGATE)
+                    .param_types([
+                        String::static_type(),
+                        String::static_type(),
+                        String::static_type(),
+                    ])
+                    .build(),
+            ]
         })
     }
 
@@ -312,7 +327,7 @@ impl ObjectImpl for ImageViewImp {
         motion_controller.connect_motion(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, x, y| this.motion_notify_event(x, y)
+            move |_, x, y| this.motion_notify_event(PointD::new(x, y))
         ));
 
         motion_controller.connect_leave(clone!(
@@ -335,7 +350,7 @@ impl ObjectImpl for ImageViewImp {
         gesture_click.connect_pressed(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, n_press, x, y| this.button_press_event((x, y), n_press)
+            move |_, n_press, x, y| this.button_press_event(PointD::new(x, y), n_press)
         ));
         gesture_click.connect_released(clone!(
             #[weak(rename_to = this)]
