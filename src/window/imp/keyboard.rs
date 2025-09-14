@@ -224,7 +224,7 @@ impl MViewWindowImp {
                                 None,
                             );
                             w.info_view.update(&i2);
-                            w.image_view.set_image(i2);
+                            w.image_view.set_content(i2);
                         }
                     }
                 };

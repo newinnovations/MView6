@@ -139,7 +139,7 @@ impl MViewWindowImp {
             )
         };
         if let Some(image) = image {
-            w.image_view.set_image(image);
+            w.image_view.set_content(image);
         }
     }
 

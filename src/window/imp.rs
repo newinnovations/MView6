@@ -437,7 +437,7 @@ impl ObjectImpl for MViewWindowImp {
                                 );
                             } else {
                                 // Nothing to do for the command
-                                image_view.set_image_post(Default::default());
+                                image_view.set_content_post(Default::default());
                             }
                         }
                         Message::Result(res) => {
@@ -464,8 +464,7 @@ impl ObjectImpl for MViewWindowImp {
                 while let Ok(msg) = from_rt_receiver.recv().await {
                     match msg.reply {
                         RenderReply::RenderDone(image_id, surface_data, zoom, viewport) => {
-                            image_view.hq_render_reply(image_id, surface_data, zoom, viewport);
-                            // println!("Got reply HqRender");
+                            image_view.event_render_done(image_id, surface_data, zoom, viewport);
                         }
                     }
                 }

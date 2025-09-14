@@ -73,9 +73,9 @@ impl MViewWindowImp {
                 // }
                 w.info_view.update(&content);
                 if backend.is_thumbnail() {
-                    w.image_view.set_image_pre(content);
+                    w.image_view.set_content_pre(content);
                 } else {
-                    w.image_view.set_image(content);
+                    w.image_view.set_content(content);
                 }
             }
         }

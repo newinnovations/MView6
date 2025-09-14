@@ -173,13 +173,13 @@ pub fn handle_thumbnail_result(
             // if command.last_update == 0.0 {
             if command.todo == 0 {
                 // let annotations = ;
-                image_view.set_image_post(Some(Annotations {
+                image_view.set_content_post(Some(Annotations {
                     dim: command.dim.clone(),
                     annotations: command.tasks.iter().map(|t| t.annotation.clone()).collect(),
                     page: command.page,
                 }));
             }
-            image_view.image_modified();
+            image_view.thumbnail_sheet_updated();
             command.last_update = elapsed;
         }
         return command.todo != 0;

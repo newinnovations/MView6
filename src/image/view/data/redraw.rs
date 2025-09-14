@@ -47,14 +47,14 @@ pub enum RedrawReason {
     AnimationCallback = 0,
     AnnotationChanged = 1,
     CanvasResized = 2,
-    ContentChanged = 3,
-    ContentPost = 4,
-    InteractiveDrag = 5,
-    InteractiveZoom = 6,
-    PageChanged = 7,
-    RenderingUpdated = 8,
-    RotationChanged = 9,
-    SortChanged = 10,
+    ContentPost = 3,
+    InteractiveDrag = 4,
+    InteractiveZoom = 5,
+    PageChanged = 6,
+    RenderDone = 7,
+    RotationChanged = 8,
+    SortChanged = 9,
+    ThumbnailSheetUpdated = 10,
     TransparencyBackgroundChanged = 11,
     ZoomSettingChanged = 12,
 }
@@ -85,14 +85,14 @@ impl From<i32> for RedrawReason {
             0 => RedrawReason::AnimationCallback,
             1 => RedrawReason::AnnotationChanged,
             2 => RedrawReason::CanvasResized,
-            3 => RedrawReason::ContentChanged,
-            4 => RedrawReason::ContentPost,
-            5 => RedrawReason::InteractiveDrag,
-            6 => RedrawReason::InteractiveZoom,
-            7 => RedrawReason::PageChanged,
-            8 => RedrawReason::RenderingUpdated,
-            9 => RedrawReason::RotationChanged,
-            10 => RedrawReason::SortChanged,
+            3 => RedrawReason::ContentPost,
+            4 => RedrawReason::InteractiveDrag,
+            5 => RedrawReason::InteractiveZoom,
+            6 => RedrawReason::PageChanged,
+            7 => RedrawReason::RenderDone,
+            8 => RedrawReason::RotationChanged,
+            9 => RedrawReason::SortChanged,
+            10 => RedrawReason::ThumbnailSheetUpdated,
             11 => RedrawReason::TransparencyBackgroundChanged,
             12 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
@@ -106,7 +106,7 @@ impl ImageViewData {
         self.quality = quality;
         if let Some(view) = &self.view {
             if quality == QUALITY_HIGH
-                && reason != RedrawReason::RenderingUpdated
+                && reason != RedrawReason::RenderDone
                 && self.content.needs_render()
             {
                 let a = view.allocation();
@@ -119,9 +119,9 @@ impl ImageViewData {
                     {
                         return; // postpone actual redraw, because nothing to show
                                 // TO CONSIDER
-                                // actually with new images that are rendered by the bot
-                                // we should postpone all redraws until we get an OverlayUpdated
-                                // (which we may not get because, the images might already
+                                // actually with new images that are rendered by the render thread
+                                // we should postpone all redraws until we get a RenderDone
+                                // (which we may not get because the images might already
                                 //  have been updated for something else)
                     }
                 }
@@ -171,7 +171,7 @@ impl ImageViewData {
         }
     }
 
-    pub fn hq_render_reply(
+    pub fn event_render_done(
         &mut self,
         image_id: u32,
         surface_data: SurfaceData,
@@ -180,14 +180,14 @@ impl ImageViewData {
     ) {
         if self.content.id() != image_id {
             println!(
-                "Got hq render for different image {} != {image_id}",
+                "Got render result for different image {} != {image_id}",
                 self.content.id()
             );
             return;
         }
         if self.zoom != zoom {
             println!(
-                "Got hq render for different zoom {:?} != {zoom:?}",
+                "Got render result for different zoom {:?} != {zoom:?}",
                 self.zoom
             );
             return;
@@ -195,7 +195,7 @@ impl ImageViewData {
         if let Ok(surface) = surface_data.surface() {
             let rect = zoom.intersection_screen_coord(&viewport);
             self.zoom_overlay = Some(RenderedImage::new(surface, zoom.top_left(&rect), zoom));
-            self.redraw(RedrawReason::RenderingUpdated);
+            self.redraw(RedrawReason::RenderDone);
         }
     }
 }
@@ -210,14 +210,14 @@ mod tests {
             RedrawReason::AnimationCallback,
             RedrawReason::AnnotationChanged,
             RedrawReason::CanvasResized,
-            RedrawReason::ContentChanged,
             RedrawReason::ContentPost,
             RedrawReason::InteractiveDrag,
             RedrawReason::InteractiveZoom,
             RedrawReason::PageChanged,
-            RedrawReason::RenderingUpdated,
+            RedrawReason::RenderDone,
             RedrawReason::RotationChanged,
             RedrawReason::SortChanged,
+            RedrawReason::ThumbnailSheetUpdated,
             RedrawReason::TransparencyBackgroundChanged,
             RedrawReason::ZoomSettingChanged,
             RedrawReason::Unknown,

@@ -82,23 +82,23 @@ impl ImageView {
         p.rb_sender = Some(widgets.rt_sender.clone());
     }
 
-    pub fn set_image(&self, image: Content) {
-        self.set_image_pre(image);
-        self.set_image_post(Default::default());
+    pub fn set_content(&self, content: Content) {
+        self.set_content_pre(content);
+        self.set_content_post(None);
     }
 
-    pub fn set_image_pre(&self, image: Content) {
+    // set_content only split for thumbnail sheets
+    pub fn set_content_pre(&self, content: Content) {
         let mut p = self.imp().data.borrow_mut();
         self.imp().cancel_animation();
-        p.content = image;
+        p.content = content;
         p.zoom.set_rotation(0);
         p.zoom_overlay = None;
         p.annotations = None;
         p.hover = None;
     }
 
-    pub fn set_image_post(&self, annotations: Option<Annotations>) {
-        // dbg!(&annotations);
+    pub fn set_content_post(&self, annotations: Option<Annotations>) {
         let mut p = self.imp().data.borrow_mut();
         p.annotations = annotations;
         self.imp().schedule_animation(&p.content, SystemTime::now());
@@ -106,10 +106,10 @@ impl ImageView {
         p.redraw(RedrawReason::ContentPost);
     }
 
-    pub fn image_modified(&self) {
+    pub fn thumbnail_sheet_updated(&self) {
         let mut p = self.imp().data.borrow_mut();
         p.apply_zoom();
-        p.redraw(RedrawReason::ContentChanged);
+        p.redraw(RedrawReason::ThumbnailSheetUpdated);
     }
 
     pub fn zoom_mode(&self) -> ZoomMode {
@@ -135,7 +135,7 @@ impl ImageView {
         p.zoom.clone()
     }
 
-    pub fn hq_render_reply(
+    pub fn event_render_done(
         &self,
         image_id: u32,
         surface_data: SurfaceData,
@@ -143,7 +143,7 @@ impl ImageView {
         viewport: RectD,
     ) {
         let mut p = self.imp().data.borrow_mut();
-        p.hq_render_reply(image_id, surface_data, zoom, viewport);
+        p.event_render_done(image_id, surface_data, zoom, viewport);
     }
 
     pub fn set_view_cursor(&self, view_cursor: ViewCursor) {
