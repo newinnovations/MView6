@@ -17,15 +17,25 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::path::Path;
+
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use gdk_pixbuf::Pixbuf;
 use gtk4::gdk::pixbuf_get_from_surface;
+use resvg::usvg::Tree;
 
 use crate::{
     backends::thumbnail::TMessage,
-    content::Content,
+    content::{
+        paginated::{FONT_SIZE, FONT_SIZE_TITLE},
+        Content,
+    },
     error::{MviewError, MviewResult},
-    image::svg::text_sheet::svg_text_sheet,
+    image::{
+        svg::text_sheet::{svg_options, svg_text_sheet, TextSheet},
+        view::{data::TransparencyMode, ZoomMode},
+    },
+    mview6_error,
 };
 
 use super::colors::{CairoColorExt, Color};
@@ -40,17 +50,44 @@ pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Conte
     }
 }
 
-pub fn draw_error(error: MviewError) -> Content {
-    println!("{error:#?}");
-    let msg = &format!("{error:?}");
-    match svg_text_sheet(
-        "error",
-        msg,
-        (Color::ErrorBack, Color::ErrorTitle, Color::ErrorMsg),
-    ) {
-        Ok(image) => image,
+pub fn draw_error(path: &Path, error: MviewError) -> Content {
+    // println!("{error:#?}");
+    // let msg = &format!("{error:?}");
+    // match svg_text_sheet(
+    //     "error",
+    //     msg,
+    //     (Color::ErrorBack, Color::ErrorTitle, Color::ErrorMsg),
+    // ) {
+    //     Ok(image) => image,
+    //     Err(e) => {
+    //         println!("Failed to draw text: {e:?}");
+    //         Content::default()
+    //     }
+    // }
+    let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
+    sheet.header(path, FONT_SIZE_TITLE, 54);
+
+    sheet.delta_y(2.0);
+
+    sheet.add_line(
+        "ERROR",
+        sheet
+            .base_style()
+            .color(Color::ErrorTitle)
+            .font_size(FONT_SIZE_TITLE * 3 / 2),
+    );
+
+    sheet.delta_y(1.0);
+
+    for line in format!("{error:#?}").lines() {
+        sheet.add_line(line, sheet.base_style().color(Color::ErrorMsg));
+    }
+
+    let svg_content = sheet.finish().render();
+    match Tree::from_str(&svg_content, &svg_options()) {
+        Ok(tree) => Content::new_svg(tree, None, ZoomMode::NotSpecified, TransparencyMode::Black),
         Err(e) => {
-            println!("Failed to draw text: {e:?}");
+            eprintln!("Error creating ErrorContent {e:#?}");
             Content::default()
         }
     }
@@ -183,7 +220,7 @@ pub fn text_thumb(message: TMessage) -> MviewResult<Pixbuf> {
 
     match pixbuf_get_from_surface(&surface, 0, 0, 175, 175) {
         Some(pixbuf) => Ok(pixbuf),
-        None => Err("Failed to get pixbuf from surface".into()),
+        None => mview6_error!("Failed to get pixbuf from surface").into(),
     }
 }
 

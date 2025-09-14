@@ -34,6 +34,9 @@ mod render_thread;
 mod util;
 mod window;
 
+pub use error::AppError;
+pub use error::MviewError;
+
 use gtk4::{
     gdk::Display, prelude::ApplicationExtManual, style_context_add_provider_for_display,
     CssProvider, IconTheme, STYLE_PROVIDER_PRIORITY_APPLICATION,

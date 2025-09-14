@@ -29,7 +29,9 @@ use gdk_pixbuf::Pixbuf;
 use glib::Bytes;
 use image::{DynamicImage, GenericImageView, ImageReader, RgbImage, RgbaImage};
 
-use crate::{content::Content, error::MviewResult, image::provider::surface::SurfaceData};
+use crate::{
+    content::Content, error::MviewResult, image::provider::surface::SurfaceData, mview6_error,
+};
 
 use super::{webp::WebP, ExifReader};
 
@@ -56,7 +58,7 @@ impl RsImageLoader {
                 _ => Self::image(image_reader, exif),
             }
         } else {
-            Err("Unrecognized image format".into())
+            mview6_error!("Unrecognized image format").into()
         }
     }
 
@@ -72,7 +74,7 @@ impl RsImageLoader {
                 _ => Self::image(image_reader, exif),
             }
         } else {
-            Err("Unrecognized image format".into())
+            mview6_error!("Unrecognized image format").into()
         }
     }
 }
@@ -139,7 +141,8 @@ impl RsImageLoader {
                 rowstride = 4 * width;
             }
             _ => {
-                return Err(format!("Unsupported color space {:?}", image.color()).into());
+                return mview6_error!(format!("Unsupported color space {:?}", image.color()))
+                    .into();
             }
         }
         // println!(
@@ -185,7 +188,7 @@ impl RsImageLoader {
             | DynamicImage::ImageRgba16(_)
             | DynamicImage::ImageRgba32F(_) => Self::rgba8_image_to_surface(&image.to_rgba8()),
 
-            _ => Err(format!("Unsupported color space {:?}", image.color()).into()),
+            _ => mview6_error!(format!("Unsupported color space {:?}", image.color())).into(),
         }
     }
 

@@ -19,7 +19,7 @@
 
 use cairo::{Format, ImageSurface};
 
-use crate::error::MviewResult;
+use crate::{error::MviewResult, mview6_error};
 
 #[derive(Debug, Clone)]
 pub struct SurfaceData {
@@ -109,7 +109,7 @@ impl SurfaceData {
     ) -> MviewResult<SurfaceData> {
         // Ensure both images have the same height
         if left_height != right_height {
-            return Err("Left and right images must have the same height".into());
+            return mview6_error!("Left and right images must have the same height").into();
         }
 
         let height = left_height;
@@ -120,21 +120,21 @@ impl SurfaceData {
         let expected_right_size = (right_width * height * 4) as usize;
 
         if left_bgra8.len() != expected_left_size {
-            return Err(format!(
+            return mview6_error!(format!(
                 "Left image data size mismatch: expected {}, got {}",
                 expected_left_size,
                 left_bgra8.len()
-            )
-            .into());
+            ))
+            .into();
         }
 
         if right_bgra8.len() != expected_right_size {
-            return Err(format!(
+            return mview6_error!(format!(
                 "Right image data size mismatch: expected {}, got {}",
                 expected_right_size,
                 right_bgra8.len()
-            )
-            .into());
+            ))
+            .into();
         }
 
         let surface_stride = 4 * total_width as usize;

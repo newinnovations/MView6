@@ -23,34 +23,42 @@ use pdfium::PdfiumError;
 use unrar::error::UnrarError;
 use zip::result::ZipError;
 
+// Define the AppError struct with file and line fields
+#[derive(Clone, Debug)]
 pub struct AppError {
     msg: String,
+    file: &'static str, // Store the file name where the error was created
+    line: u32,          // Store the line number where the error was created
 }
 
-impl fmt::Display for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MView6: {}", self.msg)
+// Constructor for AppError that captures file and line
+impl AppError {
+    pub fn new(msg: impl Into<String>, file: &'static str, line: u32) -> Self {
+        AppError {
+            msg: msg.into(),
+            file,
+            line,
+        }
     }
 }
 
-impl fmt::Debug for AppError {
+// Implement Display to display the stored file and line
+impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
             "{{ file: {}, line: {}, msg: {} }}",
-            file!(),
-            line!(),
-            self.msg
+            self.file, self.line, self.msg
         )
     }
 }
 
-impl AppError {
-    pub fn new(msg: &str) -> Self {
-        AppError {
-            msg: msg.to_string(),
-        }
-    }
+// Macro to simplify error creation with file and line
+#[macro_export]
+macro_rules! mview6_error {
+    ($msg:expr) => {
+        $crate::MviewError::App($crate::AppError::new($msg, file!(), line!()))
+    };
 }
 
 #[derive(Debug)]
@@ -93,17 +101,17 @@ impl MviewError {
     }
 }
 
-impl From<&str> for MviewError {
-    fn from(msg: &str) -> Self {
-        MviewError::App(AppError::new(msg))
-    }
-}
+// impl From<&str> for MviewError {
+//     fn from(msg: &str) -> Self {
+//         MviewError::App(AppError::new(msg))
+//     }
+// }
 
-impl From<String> for MviewError {
-    fn from(msg: String) -> Self {
-        MviewError::App(AppError::new(&msg))
-    }
-}
+// impl From<String> for MviewError {
+//     fn from(msg: String) -> Self {
+//         MviewError::App(AppError::new(&msg))
+//     }
+// }
 
 impl From<std::io::Error> for MviewError {
     fn from(err: std::io::Error) -> MviewError {
@@ -193,3 +201,9 @@ impl fmt::Display for MviewError {
 impl Error for MviewError {}
 
 pub type MviewResult<T> = Result<T, MviewError>;
+
+impl<T> From<MviewError> for MviewResult<T> {
+    fn from(error: MviewError) -> Self {
+        Err(error)
+    }
+}

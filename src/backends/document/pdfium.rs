@@ -34,6 +34,7 @@ use crate::{
         Cursor,
     },
     image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom},
+    mview6_error,
     profile::performance::Performance,
     rect::{RectD, SizeD, VectorD},
 };
@@ -72,7 +73,7 @@ impl DocPdfium {
             let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
             Ok(image)
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }
@@ -105,7 +106,7 @@ impl Backend for DocPdfium {
             )
             .map_err(|e| e.to_string())
         })()
-        .unwrap_or_else(|e| draw_error(e.into()))
+        .unwrap_or_else(|e| draw_error(&self.path, mview6_error!(e)))
     }
 
     fn backend_ref(&self) -> BackendRef {
@@ -227,7 +228,7 @@ fn render_single(
             bitmap.as_raw_bytes(),
         ))
     } else {
-        Err("empty clip".into())
+        mview6_error!("empty clip").into()
     };
     duration.elapsed("pdfium clip:1");
     surface
@@ -257,7 +258,7 @@ fn render_dual(
     let pixmap_right = page_render(&page_right, &zoom_right, viewport)?;
 
     let surface = match (pixmap_left, pixmap_right) {
-        (None, None) => return Err("empty clip".into()),
+        (None, None) => return mview6_error!("empty clip").into(),
         (Some(pixmap_left), None) => SurfaceData::from_bgra8(
             pixmap_left.width() as u32,
             pixmap_left.height() as u32,
@@ -270,7 +271,7 @@ fn render_dual(
         ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
-                return Err("height mismatch".into());
+                return mview6_error!("height mismatch").into();
             }
             SurfaceData::from_dual_bgra8(
                 pixmap_left.width() as u32,
@@ -330,6 +331,6 @@ fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
         duration.elapsed("pdfium list");
         Ok((document, result, page_count - 1))
     } else {
-        Err("No pages in document".into())
+        mview6_error!("No pages in document").into()
     }
 }

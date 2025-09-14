@@ -37,6 +37,7 @@ use crate::{
         draw::draw_error,
         provider::internal::{InternalImageLoader, InternalReader},
     },
+    mview6_error,
     profile::performance::Performance,
 };
 
@@ -89,7 +90,7 @@ impl MarArchive {
             reader.seek(SeekFrom::Start(*index))?;
             InternalImageLoader::thumb_from_reader(&mut reader)
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }
@@ -110,7 +111,7 @@ impl Backend for MarArchive {
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_mar(&self.path, item.idx()) {
             Ok(image) => image,
-            Err(error) => draw_error(error),
+            Err(error) => draw_error(&self.path, error),
         }
     }
 

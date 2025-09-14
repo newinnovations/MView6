@@ -70,7 +70,7 @@ impl ContentLoader {
 
         let data = match Self::read_file(path) {
             Ok(data) => data,
-            Err(e) => return draw_error(e),
+            Err(e) => return draw_error(path, e),
         };
 
         let content_type = ContentType::determine(&data);
@@ -114,7 +114,7 @@ impl ContentLoader {
                     ZoomMode::NotSpecified,
                     TransparencyMode::NotSpecified,
                 ),
-                Err(error) => draw_error(error),
+                Err(error) => draw_error(path, error),
             },
             ContentType::Avif
             | ContentType::Gif
@@ -125,7 +125,7 @@ impl ContentLoader {
             | ContentType::Webp => {
                 let input = match std::fs::File::open(path) {
                     Ok(file) => file,
-                    Err(error) => return draw_error(error.into()),
+                    Err(error) => return draw_error(path, error.into()),
                 };
                 let mut reader = BufReader::new(input);
 
@@ -139,7 +139,7 @@ impl ContentLoader {
                         let _ = reader.rewind();
                         match RsImageLoader::image_from_file(reader) {
                             Ok(im) => im,
-                            Err(e) => draw_error(e),
+                            Err(e) => draw_error(path, e),
                         }
                     }
                 }
@@ -155,7 +155,7 @@ impl ContentLoader {
     /// Load content from file
     ///
     /// Called by the zip and rar backends
-    pub fn content_from_memory(buf: Vec<u8>) -> Content {
+    pub fn content_from_memory(buf: Vec<u8>, path: &Path) -> Content {
         let duration = Performance::start();
 
         if buf.starts_with(&[0x3c, 0x3f]) || buf.starts_with(&[0x1f, 0x8b]) {
@@ -183,7 +183,7 @@ impl ContentLoader {
                 let _ = reader.rewind();
                 match RsImageLoader::image_from_memory(reader) {
                     Ok(im) => im,
-                    Err(e) => draw_error(e),
+                    Err(e) => draw_error(path, e),
                 }
             }
         };

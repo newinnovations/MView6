@@ -28,12 +28,13 @@ use crate::{
     },
     category::Category,
     content::Content,
-    error::{MviewError, MviewResult},
+    error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
         Cursor,
     },
     image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom},
+    mview6_error,
     profile::performance::Performance,
     rect::{RectD, SizeD, VectorD},
 };
@@ -72,7 +73,7 @@ impl DocMuPdf {
             let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
             Ok(image)
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }
@@ -105,7 +106,7 @@ impl Backend for DocMuPdf {
             )
             .map_err(|e| e.to_string())
         })()
-        .unwrap_or_else(|e| draw_error(e.into()))
+        .unwrap_or_else(|e| draw_error(&self.path, mview6_error!(e)))
     }
 
     fn backend_ref(&self) -> BackendRef {
@@ -196,7 +197,7 @@ fn extract_thumb(filename: &Path, index: i32) -> MviewResult<DynamicImage> {
         pixmap.samples().to_vec(),
     ) {
         Some(rgb_image) => Ok(DynamicImage::ImageRgb8(rgb_image)),
-        None => Err("Could not create ImageBuffer from pdf thumb data".into()),
+        None => mview6_error!("Could not create ImageBuffer from pdf thumb data").into(),
     }
 }
 
@@ -234,7 +235,7 @@ fn render_single(
             pixmap.samples(),
         ))
     } else {
-        Err("empty clip".into())
+        mview6_error!("empty clip").into()
     };
     duration.elapsed("mupdf clip:1");
     surface
@@ -264,7 +265,7 @@ fn render_dual(
     let pixmap_right = page_render(&page_right, &zoom_right, viewport)?;
 
     let surface = match (pixmap_left, pixmap_right) {
-        (None, None) => return Err("empty clip".into()),
+        (None, None) => return mview6_error!("empty clip").into(),
         (Some(pixmap_left), None) => SurfaceData::from_rgb(
             pixmap_left.width(),
             pixmap_left.height(),
@@ -277,7 +278,7 @@ fn render_dual(
         ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
-                return Err("height mismatch".into());
+                return mview6_error!("height mismatch").into();
             }
             SurfaceData::from_dual_rgb(
                 pixmap_left.width(),
@@ -297,7 +298,7 @@ fn open_page(doc: &mupdf::Document, page_no: i32) -> MviewResult<(Page, Rect)> {
     let page = doc.load_page(page_no)?;
     let bounds = page.bounds()?;
     if bounds.height() < MIN_DOC_HEIGHT {
-        return Err("page height too small".into());
+        return mview6_error!("page height too small").into();
     }
     Ok((page, bounds))
 }
@@ -357,6 +358,6 @@ fn list_pages(filename: &Path) -> MviewResult<(mupdf::Document, Vec<Row>, i32)> 
         duration.elapsed("mupdf list");
         Ok((doc, result, page_count as i32 - 1))
     } else {
-        Err(MviewError::from("No pages in document"))
+        mview6_error!("No pages in document").into()
     }
 }

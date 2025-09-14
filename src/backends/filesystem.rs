@@ -27,6 +27,7 @@ use crate::{
         Cursor, Direction,
     },
     image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
+    mview6_error,
     util::path_to_filename,
 };
 use image::DynamicImage;
@@ -116,7 +117,7 @@ impl FileSystem {
                 }
             }
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }

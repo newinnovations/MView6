@@ -31,6 +31,7 @@ use crate::{
         animation::Animation,
         provider::{surface::convert_rgba_pixel, ExifReader},
     },
+    mview6_error,
     profile::performance::Performance,
 };
 use cairo::{Format, ImageSurface};
@@ -64,7 +65,7 @@ impl GdkImageLoader {
                 Ok(Content::new_animation(Animation::Gdk(iter)))
             }
         } else {
-            Err("No image data".into())
+            mview6_error!("No image data").into()
         }
     }
 

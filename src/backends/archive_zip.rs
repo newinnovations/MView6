@@ -40,6 +40,7 @@ use crate::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
     },
+    mview6_error,
     profile::performance::Performance,
     util::path_to_filename,
 };
@@ -85,7 +86,7 @@ impl ZipArchive {
                 Ok(image)
             }
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }
@@ -105,8 +106,8 @@ impl Backend for ZipArchive {
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_zip(&self.path, item.idx() as usize) {
-            Ok(bytes) => ContentLoader::content_from_memory(bytes),
-            Err(error) => draw_error(error.into()),
+            Ok(bytes) => ContentLoader::content_from_memory(bytes, &self.path),
+            Err(error) => draw_error(&self.path, error.into()),
         }
     }
 

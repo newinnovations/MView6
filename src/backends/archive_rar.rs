@@ -37,6 +37,7 @@ use crate::{
         draw::draw_error,
         provider::{image_rs::RsImageLoader, ImageSaver},
     },
+    mview6_error,
     profile::performance::Performance,
 };
 
@@ -75,10 +76,10 @@ impl RarArchive {
                     Ok(image)
                 }
             } else {
-                Err("Failed to find directory of rar file".into()) // FIXME
+                mview6_error!("Failed to find directory of rar file").into() // FIXME
             }
         } else {
-            Err("invalid reference".into())
+            mview6_error!("invalid reference").into()
         }
     }
 }
@@ -98,8 +99,8 @@ impl Backend for RarArchive {
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         match extract_rar(&self.path, item.str()) {
-            Ok(bytes) => ContentLoader::content_from_memory(bytes),
-            Err(error) => draw_error(error.into()),
+            Ok(bytes) => ContentLoader::content_from_memory(bytes, &self.path.join(item.str())),
+            Err(error) => draw_error(&self.path, error.into()),
         }
     }
 
