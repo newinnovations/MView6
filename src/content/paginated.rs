@@ -392,13 +392,15 @@ impl PaginatedContent {
 
     pub fn prepare(&mut self) {
         let duration = Performance::start();
-        self.rendered = match &self.data {
+        let rendered = match &self.data {
             PaginatedContentData::Raw(content) => content.prepare(self.page),
             PaginatedContentData::Text(content) => content.prepare(self.page),
             PaginatedContentData::List(content) => content.prepare(self.page),
+        };
+        if let Err(e) = &rendered {
+            eprintln!("Content:prepare failed {e:#?}");
         }
-        .ok()
-        .map(Arc::new);
+        self.rendered = rendered.ok().map(Arc::new);
         duration.elapsed("prepare");
     }
 

@@ -78,14 +78,21 @@ impl ContentLoader {
             return Self::load_file(content_type, path);
         }
 
-        // is it text?
-        // does the highlighter know how to handle the extension?
-        Content::new_paginated(match str::from_utf8(&data) {
-            Ok(text) => {
-                let lines: Vec<String> = text.lines().map(|line| line.to_string()).collect();
-                PaginatedContent::new_text(path, lines)
+        // is it text? FIXME: handle utf16
+        Content::new_paginated(if data.contains(&0) {
+            PaginatedContent::new_raw(path, data)
+        } else {
+            match str::from_utf8(&data) {
+                Ok(text) => {
+                    let lines: Vec<String> = text.lines().map(|line| line.to_string()).collect();
+                    // if lines.iter().any(|line| line.len() > 200) {
+                    //     PaginatedContent::new_raw(path, data)
+                    // } else {
+                    PaginatedContent::new_text(path, lines)
+                    // }
+                }
+                Err(_) => PaginatedContent::new_raw(path, data),
             }
-            Err(_) => PaginatedContent::new_raw(path, data),
         })
     }
 
