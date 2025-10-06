@@ -181,6 +181,7 @@ impl MViewWindowImp {
                 contrast_delta(1);
                 dbg!(contrast());
             }
+            #[cfg(feature = "mupdf")]
             Key::F8 => {
                 self.toggle_pdf_engine();
             }

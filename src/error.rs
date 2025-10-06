@@ -81,6 +81,7 @@ pub enum MviewError {
 
     Glib(glib::Error),
 
+    #[cfg(feature = "mupdf")]
     MuPdf(mupdf::Error),
 
     Pdfium(PdfiumError),
@@ -161,6 +162,7 @@ impl From<glib::Error> for MviewError {
     }
 }
 
+#[cfg(feature = "mupdf")]
 impl From<mupdf::Error> for MviewError {
     fn from(err: mupdf::Error) -> MviewError {
         MviewError::MuPdf(err)
@@ -191,6 +193,7 @@ impl fmt::Display for MviewError {
             MviewError::Exif(err) => err.fmt(fmt),
             MviewError::WebP(err) => err.fmt(fmt),
             MviewError::Glib(err) => err.fmt(fmt),
+            #[cfg(feature = "mupdf")]
             MviewError::MuPdf(err) => err.fmt(fmt),
             MviewError::Pdfium(err) => err.fmt(fmt),
             MviewError::Svg(err) => err.fmt(fmt),

@@ -22,13 +22,13 @@ use std::{panic, thread};
 use async_channel::Sender;
 use image::DynamicImage;
 
+#[cfg(feature = "mupdf")]
+use crate::backends::document::mupdf::DocMuPdf;
+
 use crate::{
     backends::{
-        archive_mar::MarArchive,
-        archive_rar::RarArchive,
-        archive_zip::ZipArchive,
-        document::{mupdf::DocMuPdf, pdfium::DocPdfium},
-        filesystem::FileSystem,
+        archive_mar::MarArchive, archive_rar::RarArchive, archive_zip::ZipArchive,
+        document::pdfium::DocPdfium, filesystem::FileSystem,
     },
     category::Category,
     error::MviewResult,
@@ -102,6 +102,7 @@ pub fn start_thumbnail_task(
                     BackendRef::ZipArchive(_) => {
                         thumb_result(ZipArchive::get_thumbnail(&task.source.reference), &task)
                     }
+                    #[cfg(feature = "mupdf")]
                     BackendRef::Mupdf(_) => {
                         thumb_result(DocMuPdf::get_thumbnail(&task.source.reference), &task)
                     }

@@ -19,10 +19,9 @@
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
+#[cfg(feature = "mupdf")]
 pub mod mupdf;
 pub mod pdfium;
-
-const MIN_DOC_HEIGHT: f32 = 32.0;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum PageMode {
@@ -94,15 +93,15 @@ pub fn pages(index: i32, last_page: i32, mode: &PageMode) -> Pages {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum PdfEngine {
     #[default]
-    MuPdf = 0,
-    Pdfium = 1,
+    Pdfium = 0,
+    MuPdf = 1,
 }
 
 impl From<&str> for PdfEngine {
     fn from(value: &str) -> Self {
         match value {
-            "pdfium" => PdfEngine::Pdfium,
-            _ => PdfEngine::MuPdf,
+            "mupdf" => PdfEngine::MuPdf,
+            _ => PdfEngine::Pdfium,
         }
     }
 }
@@ -119,8 +118,8 @@ impl From<PdfEngine> for &str {
 impl From<u8> for PdfEngine {
     fn from(value: u8) -> Self {
         match value {
-            1 => PdfEngine::Pdfium,
-            _ => PdfEngine::MuPdf,
+            1 => PdfEngine::MuPdf,
+            _ => PdfEngine::Pdfium,
         }
     }
 }
@@ -131,7 +130,7 @@ impl From<PdfEngine> for u8 {
     }
 }
 
-static PDF_ENGINE: AtomicU8 = AtomicU8::new(PdfEngine::MuPdf as u8);
+static PDF_ENGINE: AtomicU8 = AtomicU8::new(PdfEngine::Pdfium as u8);
 
 pub fn set_pdf_engine(pdf_engine: PdfEngine) {
     PDF_ENGINE.store(pdf_engine.into(), Ordering::Relaxed);

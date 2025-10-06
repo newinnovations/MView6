@@ -51,13 +51,17 @@ impl MViewWindowImp {
         page_section.append(Some("Dual (1, 2-3, 4-5, ...)"), Some("win.page::deo"));
         page_section.append(Some("Dual (1-2, 3-4, 5-6, ...)"), Some("win.page::doe"));
 
-        let pdf_provider_section = Menu::new();
-        pdf_provider_section.append(Some("MuPDF"), Some("win.pdf::mupdf"));
-        pdf_provider_section.append(Some("PDFium"), Some("win.pdf::pdfium"));
-
         let pdf_submenu = Menu::new();
         pdf_submenu.append_section(Some("Page mode"), &page_section);
-        pdf_submenu.append_section(Some("PDF backend"), &pdf_provider_section);
+
+        #[cfg(feature = "mupdf")]
+        {
+            let pdf_provider_section = Menu::new();
+            pdf_provider_section.append(Some("MuPDF"), Some("win.pdf::mupdf"));
+            pdf_provider_section.append(Some("PDFium"), Some("win.pdf::pdfium"));
+
+            pdf_submenu.append_section(Some("PDF backend"), &pdf_provider_section);
+        }
 
         let panes_submenu = Menu::new();
         panes_submenu.append(Some("Files"), Some("win.pane.files"));

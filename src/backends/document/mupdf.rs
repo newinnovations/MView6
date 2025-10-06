@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{
     backends::{
-        document::{pages, PageMode, Pages, MIN_DOC_HEIGHT},
+        document::{pages, PageMode, Pages},
         Backend, ImageParams,
     },
     category::Category,
@@ -38,6 +38,8 @@ use crate::{
     profile::performance::Performance,
     rect::{RectD, SizeD, VectorD},
 };
+
+const MIN_DOC_HEIGHT: f32 = 32.0;
 
 pub struct DocMuPdf {
     path: PathBuf,

@@ -31,9 +31,12 @@ pub use filesystem::FileSystem;
 pub use none::NoneBackend;
 pub use thumbnail::{Message, Thumbnail};
 
+#[cfg(feature = "mupdf")]
+use crate::backends::document::{mupdf::DocMuPdf, PdfEngine};
+
 use crate::{
     backends::{
-        document::{mupdf::DocMuPdf, pdf_engine, pdfium::DocPdfium, PageMode, PdfEngine},
+        document::{pdf_engine, pdfium::DocPdfium, PageMode},
         thumbnail::model::TParent,
     },
     content::Content,
@@ -159,9 +162,11 @@ impl dyn Backend {
             Some("rar") => Box::new(RarArchive::new(filename)),
             Some("mar") => Box::new(MarArchive::new(filename)),
             Some("pdf") => match pdf_engine() {
+                #[cfg(feature = "mupdf")]
                 PdfEngine::MuPdf => Box::new(DocMuPdf::new(filename)),
-                PdfEngine::Pdfium => Box::new(DocPdfium::new(filename)),
+                _ => Box::new(DocPdfium::new(filename)),
             },
+            #[cfg(feature = "mupdf")]
             Some("epub") => Box::new(DocMuPdf::new(filename)),
             Some(_) | None => Box::new(FileSystem::new(filename)),
         }
@@ -173,6 +178,7 @@ impl dyn Backend {
             BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
             BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
             BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
+            #[cfg(feature = "mupdf")]
             BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
             BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
             // BackendRef::Thumbnail => Box::new(todo!()),
@@ -188,6 +194,7 @@ impl dyn Backend {
             BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
             BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
             BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
+            #[cfg(feature = "mupdf")]
             BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
             BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
             // BackendRef::Thumbnail => todo!(),
