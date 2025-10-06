@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           # sed -i 's#mupdf = "\([^"]*\)"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v\1" }#' Cargo.toml
-          sed -i 's#mupdf = .*#mupdf = { git = "https://github.com/messense/mupdf-rs.git" }#' Cargo.toml
+          sed -i 's#mupdf = {.*#mupdf = { git = "https://github.com/messense/mupdf-rs.git" }#' Cargo.toml
 
       - name: Build MView6
         run: |
