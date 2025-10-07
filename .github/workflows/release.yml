@@ -93,12 +93,11 @@ jobs:
         with:
           targets: ${{ matrix.sys.target }}
 
-      - name: Fix broken mupdf-rs on crates.io
+      - name: Remove mupdf-rs features for Winodws
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          # sed -i 's#mupdf = "\([^"]*\)"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v\1" }#' Cargo.toml
-          sed -i 's#mupdf = .*#mupdf = { git = "https://github.com/messense/mupdf-rs.git" }#' Cargo.toml
+          sed -i 's#, features = \["sys-lib-libjpeg"\]##' Cargo.toml
 
       - name: Build MView6
         if: matrix.sys.target != 'aarch64-unknown-linux-gnu'
