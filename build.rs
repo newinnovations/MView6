@@ -8,10 +8,6 @@ fn main() {
         "mview6.gresource",
     );
 
-    if std::env::var("TARGET").expect("Unable to get TARGET") != "aarch64" {
-        println!("cargo:rustc-cfg=feature=\"mupdf\"");
-    }
-
     if std::env::var("CARGO_CFG_TARGET_OS").unwrap() == "windows" {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("resources/mview6.ico");

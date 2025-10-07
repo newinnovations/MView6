@@ -9,11 +9,13 @@ error = False
 def get_shared_libraries(executable):
     """Get shared libraries required by the executable."""
     try:
-        output = subprocess.check_output(["ldd", executable], text=True)
+        output = subprocess.check_output(
+            ["ldd", executable], text=True, stderr=subprocess.DEVNULL
+        )
         libs = [line.split()[0] for line in output.split("\n") if line and "=>" in line]
         return libs
     except subprocess.CalledProcessError:
-        print("Error: Could not retrieve shared libraries.")
+        # print("Error: Could not retrieve shared libraries.")
         return []
 
 
@@ -87,8 +89,17 @@ def main():
         all.sort()
         print(", ".join(all))
     else:
-        print("No dependencies found or executable is statically compiled.")
-        sys.exit(3)
+        # Cross compilation (for now)
+        FALLBACK = [
+            "libcairo2 (>= 1.18.0)",
+            "libdav1d7 (>= 1.4.1)",
+            "libgdk-pixbuf-2.0-0 (>= 2.42.10)",
+            "libgtk-4-1 (>= 4.14.5)",
+            "libpango-1.0-0 (>= 1.52.1)",
+        ]
+        print(", ".join(FALLBACK))
+        # print("No dependencies found or executable is statically compiled.")
+        # sys.exit(3)
 
 
 if __name__ == "__main__":
