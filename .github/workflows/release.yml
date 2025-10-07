@@ -8,9 +8,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        sys:
+          [
+            {
+              name: ubuntu-x86_64,
+              os: ubuntu-24.04,
+              arch: amd64,
+              target: x86_64-unknown-linux-gnu,
+            },
+            {
+              name: rpi-os-aarch64,
+              os: ubuntu-24.04,
+              arch: arm64,
+              target: aarch64-unknown-linux-gnu,
+            },
+            {
+              name: windows-x86_64,
+              os: windows-2025,
+              arch: amd64,
+              target: x86_64-pc-windows-msvc,
+            },
+          ]
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.sys.os }}
 
     permissions:
       contents: write
@@ -33,14 +53,25 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           sed -i "s/^version =.*$/version = \"${version}\"/" Cargo.toml
 
-      - name: Install Ubuntu dependencies environment for MView6
-        if: runner.os == 'Linux'
+      - name: Install Ubuntu dependencies for MView6 and download libpdfium.so
+        if: matrix.sys.target == 'x86_64-unknown-linux-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-4-dev librsvg2-dev libdav1d-dev
+          sudo apt-get install -y libgtk-4-dev libdav1d-dev
           wget https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-linux-x64.tgz
           tar xf pdfium-linux-x64.tgz --strip-components=1 lib/libpdfium.so
           rm -f pdfium-linux-x64.tgz
+          mkdir -p tools/linux/debian/usr/lib/mview6
+          mv libpdfium.so tools/linux/debian/usr/lib/mview6/.
+
+      - name: Download libpdfium.so for ARM64
+        if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-4-dev libdav1d-dev
+          wget https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-linux-arm64.tgz
+          tar xf pdfium-linux-arm64.tgz --strip-components=1 lib/libpdfium.so
+          rm -f pdfium-linux-arm64.tgz
           mkdir -p tools/linux/debian/usr/lib/mview6
           mv libpdfium.so tools/linux/debian/usr/lib/mview6/.
 
@@ -57,34 +88,43 @@ jobs:
           "C:\gtk-build\gtk\x64\release\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
 
       - name: Rust
+        if: matrix.sys.target != 'aarch64-unknown-linux-gnu'
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.sys.target }}
 
       - name: Fix broken mupdf-rs on crates.io
         if: runner.os == 'Windows'
         shell: bash
         run: |
           # sed -i 's#mupdf = "\([^"]*\)"#mupdf = { git = "https://github.com/messense/mupdf-rs.git", tag = "v\1" }#' Cargo.toml
-          sed -i 's#mupdf = {.*#mupdf = { git = "https://github.com/messense/mupdf-rs.git" }#' Cargo.toml
+          sed -i 's#mupdf = .*#mupdf = { git = "https://github.com/messense/mupdf-rs.git" }#' Cargo.toml
 
       - name: Build MView6
+        if: matrix.sys.target != 'aarch64-unknown-linux-gnu'
         run: |
-          cargo build --release
+          cargo build --release --target ${{ matrix.sys.target }}
 
-      - name: Package for Ubuntu
+      - name: Cross compile MView6 (rpi)
+        if: matrix.sys.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sed -i -e 's#mupdf = {.*##' -e 's#".*mupdf"##' Cargo.toml
+          ./tools/rpi/docker-rpi.sh
+
+      - name: Package for Debian/Ubuntu
         id: debian
         if: runner.os == 'Linux'
         run: |
-          dpkg -s libgtk-4-1 | grep -oP 'Version:\s*\K[^+-]+'
-          deps=$(./tools/linux/deps.py target/release/MView6)
+          deps=$(./tools/linux/deps.py target/${{ matrix.sys.target }}/release/MView6)
           echo "deps=${deps}"
           echo "deps=${deps}" >> $GITHUB_OUTPUT
           mkdir -p dist .debpkg/usr/bin
-          cp target/release/MView6 .debpkg/usr/bin/mview6
+          cp target/${{ matrix.sys.target }}/release/MView6 .debpkg/usr/bin/mview6
           cp -rv tools/linux/debian/* .debpkg/.
           cp resources/fonts/*.ttf .debpkg/usr/lib/mview6/.
           chmod +x .debpkg/DEBIAN/* .debpkg/usr/bin/*
 
-      - name: Create .deb package
+      - name: Create .deb package (amd64)
         if: runner.os == 'Linux'
         uses: jiro4989/build-deb-action@v4
         with:
@@ -94,7 +134,7 @@ jobs:
           section: graphics
           priority: optional
           version: ${{ steps.date.outputs.version }}
-          arch: amd64
+          arch: ${{ matrix.sys.arch }}
           depends: ${{ steps.debian.outputs.deps }}
           desc: |
             MView6 pdf and photo viewer
@@ -106,15 +146,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          find . -type d
           mkdir -p mview6-windows/bin mview6-windows/lib mview6-windows/share/glib-2.0
-          cp target/release/MView6.exe resources/fonts/*.ttf mview6-windows/bin/.
+          cp target/${{ matrix.sys.target }}/release/MView6.exe resources/fonts/*.ttf mview6-windows/bin/.
           cp /c/pdfium.dll mview6-windows/bin/.
           cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
           cp -r /c/gtk-build/gtk/x64/release/share/glib-2.0/schemas mview6-windows/share/glib-2.0/.
-          find /c/vcpkg/packages/dav1d_x64-windows -name "*.dll" -exec cp {} target/release/deps/. \;
-          find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/release/deps/. \;
+          find /c/vcpkg/packages/dav1d_x64-windows -name "*.dll" -exec cp {} target/${{ matrix.sys.target }}/release/deps/. \;
+          find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/${{ matrix.sys.target }}/release/deps/. \;
           bash tools/windows/getdlls.sh mview6-windows/bin/MView6.exe
-          bash tools/windows/getdlls.sh target/release/deps/pixbufloader_svg.dll
+          bash tools/windows/getdlls.sh target/${{ matrix.sys.target }}/release/deps/pixbufloader_svg.dll
           python3 tools/windows/msi/create_wxs.py mview6-windows/ mview6.wxs ${{ steps.date.outputs.version }}
           candle -out mview6.wixobj mview6.wxs
           light mview6.wixobj -out mview6_${{ steps.date.outputs.version }}.msi
@@ -126,7 +167,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mview6-${{ matrix.os }}
+          name: mview6-${{ matrix.sys.name }}
           path: |
             mview6_*
 

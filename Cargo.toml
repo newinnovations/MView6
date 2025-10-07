@@ -24,12 +24,9 @@ human_bytes = { version = "0.4.3", features = ["fast"], default-features = false
 image = { version = "0.25.6", features = ["avif-native"] }
 image-webp = "0.2.1"
 kamadak-exif = "0.6.1"
-# pdfium = { path = "../pdfium-rs" }
+mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib-libjpeg"], optional = true}
 pdfium = "0.9"
-# rsvg = { package = "librsvg-rebind", version = "0.1.0" }
 regex = "1.10.4"
-# resvg = "0.45.1"
-# resvg = { path = "../resvg/crates/resvg" }
 resvg = { git = "https://github.com/newinnovations/resvg", branch = "flatten-cached" }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.120"
@@ -41,14 +38,10 @@ syntect = "5.2.0"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 sha2 = { version = "0.10.8", features = ["asm"] }
 
-[target.'cfg(not(target_arch = "aarch64"))'.dependencies]
-# mupdf = { path = "../mupdf-rs", features = ["sys-lib-libjpeg"]}
-mupdf = { git = "https://github.com/messense/mupdf-rs.git", features = ["sys-lib-libjpeg"]}
-
 [build-dependencies]
-glib-build-tools = "0.20.0"
+glib-build-tools = "0.21"
 winresource = "0.1"
 
 [features]
-default = []
-mupdf = []
+default = ["mupdf"]
+mupdf = ["dep:mupdf"]
