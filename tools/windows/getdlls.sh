@@ -1,7 +1,7 @@
 #!/bin/bash
 
 executable=$1
-deps_dir="target/release/deps"
+deps_dir="target/x86_64-pc-windows-msvc/release/deps"
 output_dir="mview6-windows/bin"
 
 copy_dependencies() {
