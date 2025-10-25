@@ -58,7 +58,9 @@ impl MViewWindowImp {
                 let mut content = backend.content(&reference.item, &params);
                 content.sort(&self.current_sort.get().str_repr());
 
-                w.forward_button.set_visible(content.can_enter());
+                let can_enter = content.can_enter();
+                w.forward_button_top.set_visible(can_enter);
+                w.forward_button_panel.set_visible(can_enter);
 
                 // if reference.supports_bot() {
                 //     let command = RenderBotCommand {

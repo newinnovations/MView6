@@ -152,6 +152,22 @@ where
     }
 }
 
+impl VectorPoint<f32> {
+    pub fn distance(&self, other: &Self) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        (dx * dx + dy * dy).sqrt()
+    }
+}
+
+impl VectorPoint<f64> {
+    pub fn distance(&self, other: &Self) -> f64 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        (dx * dx + dy * dy).sqrt()
+    }
+}
+
 impl<T> Rect<T>
 where
     T: Copy

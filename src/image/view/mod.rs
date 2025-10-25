@@ -40,7 +40,7 @@ use crate::{
     content::{Content, ContentData},
     file_view::Direction,
     image::{provider::surface::SurfaceData, view::data::TransparencyMode},
-    rect::{RectD, SizeD},
+    rect::{PointD, RectD, SizeD},
     window::imp::MViewWidgets,
 };
 
@@ -152,6 +152,11 @@ impl ImageView {
             ViewCursor::Hidden => self.set_cursor_from_name(Some("none")),
             ViewCursor::Drag => self.set_cursor_from_name(Some("move")),
         };
+    }
+
+    pub fn mouse_position(&self) -> PointD {
+        let p = self.imp().data.borrow();
+        p.mouse_position
     }
 
     // Operations on image

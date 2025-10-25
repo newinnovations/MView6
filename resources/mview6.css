@@ -41,3 +41,19 @@
     border-style: solid;
     border-width: 1px 0px 1px 0px;
 }
+
+.panel {
+    background-color: rgba(187, 192, 186, 0.7);
+    margin-top: 15px;
+    margin-left: 15px;
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    border-radius: 10px;
+}
+
+.panel button {
+    min-width: 40px;
+    min-height: 40px;
+}

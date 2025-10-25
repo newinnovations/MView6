@@ -24,6 +24,7 @@ mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
+mod panel;
 mod resize;
 mod sort;
 
@@ -47,7 +48,7 @@ use crate::{
         model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
         RenderThread, RenderThreadSender,
     },
-    window::imp::dependencies::check_dependencies,
+    window::imp::{dependencies::check_dependencies, panel::create_overlay_button_panel},
 };
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
@@ -77,7 +78,8 @@ pub struct MViewWidgets {
     _render_thread: RenderThread,
     pub rt_sender: RenderThreadSender,
     actions: SimpleActionGroup,
-    forward_button: Button,
+    forward_button_top: Button,
+    forward_button_panel: Button,
 }
 
 impl MViewWidgets {
@@ -296,7 +298,10 @@ impl ObjectImpl for MViewWindowImp {
         file_widget.set_child(Some(&file_view));
 
         let image_view = ImageView::new();
-        hbox.append(&image_view);
+        let (image_view_overlay, forward_button_panel) =
+            create_overlay_button_panel(self, &image_view, &menu);
+
+        hbox.append(&image_view_overlay);
 
         let info_widget = ScrolledWindow::new();
         info_widget.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
@@ -395,7 +400,8 @@ impl ObjectImpl for MViewWindowImp {
                 _render_thread: render_thread,
                 rt_sender,
                 actions,
-                forward_button,
+                forward_button_top: forward_button,
+                forward_button_panel,
             })
             .expect("Failed to initialize MView window");
 
