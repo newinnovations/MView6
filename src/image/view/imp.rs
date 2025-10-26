@@ -35,7 +35,7 @@ use crate::{
             RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE,
         },
     },
-    rect::{PointD, RectD},
+    rect::{PointD, RectD, SizeI},
     util::remove_source_id,
 };
 use cairo::{Context, Extend, FillRule, SurfacePattern};
@@ -51,7 +51,7 @@ use gtk4::{
 pub struct ImageViewImp {
     pub(super) data: RefCell<ImageViewData>,
     animation_timeout_id: RefCell<Option<SourceId>>,
-    window_size: Cell<(i32, i32)>,
+    pub(super) window_size: Cell<SizeI>,
 }
 
 #[glib::object_subclass]
@@ -381,9 +381,10 @@ impl WidgetImpl for ImageViewImp {
 
 impl DrawingAreaImpl for ImageViewImp {
     fn resize(&self, width: i32, height: i32) {
+        let new_size = SizeI::new(width, height);
         let current_size = self.window_size.get();
-        if current_size != (width, height) {
-            self.window_size.set((width, height));
+        if current_size != new_size {
+            self.window_size.set(new_size);
 
             self.obj()
                 .emit_by_name::<()>(SIGNAL_CANVAS_RESIZED, &[&width, &height]);

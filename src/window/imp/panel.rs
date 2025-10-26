@@ -19,10 +19,10 @@
 
 use gio::Menu;
 use glib::clone;
-use gtk4::glib;
-use gtk4::prelude::*;
-use gtk4::MenuButton;
-use gtk4::{Box, Button, Orientation, Overlay, Revealer};
+use gtk4::{
+    glib, prelude::*, Align, Box, Button, Justification, Label, MenuButton, Orientation, Overlay,
+    Revealer,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -30,7 +30,12 @@ use crate::file_view::Direction;
 use crate::file_view::Filter;
 use crate::image::view::ImageView;
 use crate::rect::PointD;
+use crate::util::remove_source_id;
 use crate::window::imp::MViewWindowImp;
+
+static PANEL_TIMEOUT: u32 = 5; // seconds
+static PANEL_TRANSITION: u32 = 200; // milliseconds
+static PANEL_DRAG_THRESHOLD: f64 = 2.0; // pixels
 
 pub fn create_overlay_button_panel(
     mview_window: &MViewWindowImp,
@@ -38,35 +43,49 @@ pub fn create_overlay_button_panel(
     menu: &Menu,
 ) -> (Overlay, Button) {
     // Create button panel
-    let panel_box = Box::new(Orientation::Horizontal, 5);
+    let panel_box = Box::new(Orientation::Vertical, 5);
     panel_box.add_css_class("panel");
+    let row_1 = Box::new(Orientation::Horizontal, 5);
+    let row_2 = Box::new(Orientation::Horizontal, 5);
+    panel_box.append(&row_1);
+    panel_box.append(&row_2);
 
     // Create buttons with icons
-    let fullscreen_button = create_button("view-fullscreen-symbolic", "Toggle fullscreen");
-    let previous_button = create_button("go-up-symbolic", "Previous in list");
-    let next_button = create_button("go-down-symbolic", "Next in list");
-    let back_button = create_button("go-previous-symbolic", "Go to parent");
-    let forward_button = create_button("go-next-symbolic", "Open directory/archive");
-    let filelist_button = create_button("view-dual-symbolic", "Toggle file list");
+    let fullscreen_button = create_icon_button("view-fullscreen-symbolic", "Toggle fullscreen");
+    let previous_button = create_icon_button("go-up-symbolic", "Previous in list");
+    let next_button = create_icon_button("go-down-symbolic", "Next in list");
+    let back_button = create_icon_button("go-previous-symbolic", "Go to parent");
+    let forward_button = create_icon_button("go-next-symbolic", "Open directory/archive");
+    let filelist_button = create_icon_button("view-dual-symbolic", "Toggle file list");
+    // let zoom_mode_button = create_text_button("Zoom\nmode", "Change zoom mode");
+    // let zoom_in_button = create_text_button("Zoom\n<span size=\"large\">+</span>", "Zoom in");
+    // let zoom_out_button = create_text_button("Zoom\n<span size=\"large\">-</span>", "Zoom out");
+    let zoom_mode_button = create_icon_button("zoom-fit-best-symbolic", "Change zoom mode");
+    let zoom_in_button = create_icon_button("zoom-in-symbolic", "Zoom in");
+    let zoom_out_button = create_icon_button("zoom-out-symbolic", "Zoom out");
     let menu_button = MenuButton::builder()
         .icon_name("open-menu-symbolic") // hamburger icon
         .can_focus(false)
+        .css_classes(["panel_button"])
         .build();
     menu_button.set_menu_model(Some(menu));
 
     // Add buttons to panel
-    panel_box.append(&fullscreen_button);
-    panel_box.append(&previous_button);
-    panel_box.append(&next_button);
-    panel_box.append(&filelist_button);
-    panel_box.append(&back_button);
-    panel_box.append(&menu_button);
-    panel_box.append(&forward_button);
+    row_1.append(&fullscreen_button);
+    row_1.append(&menu_button);
+    row_1.append(&filelist_button);
+    row_1.append(&previous_button);
+    row_1.append(&next_button);
+    row_2.append(&zoom_in_button);
+    row_2.append(&zoom_out_button);
+    row_2.append(&zoom_mode_button);
+    row_2.append(&back_button);
+    row_2.append(&forward_button);
 
     // Create revealer to show/hide panel with animation
     let revealer = Revealer::new();
     revealer.set_transition_type(gtk4::RevealerTransitionType::SlideDown);
-    revealer.set_transition_duration(200);
+    revealer.set_transition_duration(PANEL_TRANSITION);
     revealer.set_child(Some(&panel_box));
     revealer.set_reveal_child(false);
     revealer.set_halign(gtk4::Align::Start);
@@ -96,10 +115,14 @@ pub fn create_overlay_button_panel(
             // Switch between horizontal and vertical layout based on aspect ratio
             if aspect_ratio > 1.5 {
                 // Wide screen - horizontal layout
-                panel_box.set_orientation(Orientation::Horizontal);
+                panel_box.set_orientation(Orientation::Vertical);
+                row_1.set_orientation(Orientation::Horizontal);
+                row_2.set_orientation(Orientation::Horizontal);
             } else {
                 // Tall or square screen - vertical layout
-                panel_box.set_orientation(Orientation::Vertical);
+                panel_box.set_orientation(Orientation::Horizontal);
+                row_1.set_orientation(Orientation::Vertical);
+                row_2.set_orientation(Orientation::Vertical);
             }
         }
     ));
@@ -124,7 +147,7 @@ pub fn create_overlay_button_panel(
         panel_visible,
         move |_, _, x, y| {
             let drag = mouse_on_click.borrow().distance(&PointD::new(x, y));
-            if drag < 1.0 {
+            if drag < PANEL_DRAG_THRESHOLD {
                 let mut visible = panel_visible.borrow_mut();
                 *visible = !*visible;
                 revealer.set_reveal_child(*visible);
@@ -137,7 +160,7 @@ pub fn create_overlay_button_panel(
                     let revealer_timer = revealer.clone();
                     let panel_visible_timer = panel_visible.clone();
                     let timer_id = glib::timeout_add_seconds_local(
-                        2,
+                        PANEL_TIMEOUT,
                         clone!(
                             #[strong]
                             hide_timer,
@@ -240,17 +263,69 @@ pub fn create_overlay_button_panel(
         }
     ));
 
+    zoom_mode_button.connect_clicked(clone!(
+        #[weak]
+        mview_window,
+        #[strong]
+        hide_timer,
+        move |_| {
+            reset_timer(&hide_timer);
+            mview_window.toggle_zoom();
+        }
+    ));
+
+    zoom_in_button.connect_clicked(clone!(
+        #[weak]
+        mview_window,
+        #[strong]
+        hide_timer,
+        move |_| {
+            reset_timer(&hide_timer);
+            mview_window.zoom_in();
+        }
+    ));
+
+    zoom_out_button.connect_clicked(clone!(
+        #[weak]
+        mview_window,
+        #[strong]
+        hide_timer,
+        move |_| {
+            reset_timer(&hide_timer);
+            mview_window.zoom_out();
+        }
+    ));
+
     (overlay, forward_button)
 }
 
-fn create_button(icon_name: &str, tooltip: &str) -> Button {
+fn create_icon_button(icon_name: &str, tooltip: &str) -> Button {
     let button = Button::from_icon_name(icon_name);
     button.set_tooltip_text(Some(tooltip));
+    button.add_css_class("panel_button");
+    button
+}
+
+fn _create_text_button(markup: &str, tooltip: &str) -> Button {
+    let button = Button::new();
+    button.set_tooltip_text(Some(tooltip));
+
+    // Create a label with markup
+    let label = Label::new(None);
+    label.set_markup(markup);
+    label.set_justify(Justification::Center);
+    label.set_halign(Align::Center);
+
+    // Set the label as the button's child
+    button.set_child(Some(&label));
+
     button
 }
 
 fn reset_timer(hide_timer: &Rc<RefCell<Option<glib::SourceId>>>) {
     if let Some(timer_id) = hide_timer.borrow_mut().take() {
-        timer_id.remove();
+        if remove_source_id(&timer_id).is_err() {
+            eprintln!("reset_timer failed");
+        }
     }
 }

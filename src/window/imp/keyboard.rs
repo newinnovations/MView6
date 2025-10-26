@@ -98,20 +98,21 @@ impl MViewWindowImp {
                 }
             }
             Key::m | Key::KP_0 | Key::KP_Insert => {
-                if self.backend.borrow().is_thumbnail() {
-                    let new_size = match self.thumbnail_size.get() {
-                        175 => 140,
-                        140 => 100,
-                        100 => 80,
-                        80 => 250,
-                        _ => 175,
-                    };
-                    self.set_thumbnail_size(new_size);
-                } else if w.image_view.zoom_mode() == ZoomMode::Max {
-                    self.change_zoom(ZoomMode::Fill.into());
-                } else {
-                    self.change_zoom(ZoomMode::Max.into());
-                }
+                // if self.backend.borrow().is_thumbnail() {
+                //     let new_size = match self.thumbnail_size.get() {
+                //         175 => 140,
+                //         140 => 100,
+                //         100 => 80,
+                //         80 => 250,
+                //         _ => 175,
+                //     };
+                //     self.set_thumbnail_size(new_size);
+                // } else if w.image_view.zoom_mode() == ZoomMode::Max {
+                //     self.change_zoom(ZoomMode::Fill.into());
+                // } else {
+                //     self.change_zoom(ZoomMode::Max.into());
+                // }
+                self.toggle_zoom();
             }
             Key::minus | Key::KP_Subtract => {
                 w.file_view.set_unsorted();

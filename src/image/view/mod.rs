@@ -39,7 +39,10 @@ use crate::{
     backends::thumbnail::model::Annotations,
     content::{Content, ContentData},
     file_view::Direction,
-    image::{provider::surface::SurfaceData, view::data::TransparencyMode},
+    image::{
+        provider::surface::SurfaceData,
+        view::data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
+    },
     rect::{PointD, RectD, SizeD},
     window::imp::MViewWidgets,
 };
@@ -112,27 +115,10 @@ impl ImageView {
         p.redraw(RedrawReason::ThumbnailSheetUpdated);
     }
 
-    pub fn zoom_mode(&self) -> ZoomMode {
-        let p = self.imp().data.borrow();
-        p.zoom_mode
-    }
-
-    pub fn set_zoom_mode(&self, mode: ZoomMode) {
-        let mut p = self.imp().data.borrow_mut();
-        p.zoom_mode = mode;
-        p.apply_zoom();
-        p.redraw(RedrawReason::ZoomSettingChanged);
-    }
-
     pub fn set_transparency_mode(&self, mode: TransparencyMode) {
         let mut p = self.imp().data.borrow_mut();
         p.transparency_mode = mode;
         p.redraw(RedrawReason::TransparencyBackgroundChanged);
-    }
-
-    pub fn zoom(&self) -> Zoom {
-        let p = self.imp().data.borrow();
-        p.zoom.clone()
     }
 
     pub fn event_render_done(
@@ -157,6 +143,48 @@ impl ImageView {
     pub fn mouse_position(&self) -> PointD {
         let p = self.imp().data.borrow();
         p.mouse_position
+    }
+
+    // Zoom operations
+    pub fn zoom_mode(&self) -> ZoomMode {
+        let p = self.imp().data.borrow();
+        p.zoom_mode
+    }
+
+    pub fn set_zoom_mode(&self, mode: ZoomMode) {
+        let mut p = self.imp().data.borrow_mut();
+        p.zoom_mode = mode;
+        p.apply_zoom();
+        p.redraw(RedrawReason::ZoomSettingChanged);
+    }
+
+    pub fn zoom(&self) -> Zoom {
+        let p = self.imp().data.borrow();
+        p.zoom.clone()
+    }
+
+    fn do_zoom(&self, is_zoom_in: bool) {
+        let imp = self.imp();
+        let size = imp.window_size.get();
+        let anchor = PointD::new(size.width() as f64 / 2.0, size.height() as f64 / 2.0);
+        let mut p = imp.data.borrow_mut();
+        if p.content.is_movable() {
+            let new_zoom = if is_zoom_in {
+                p.zoom.scale() * ZOOM_MULTIPLIER
+            } else {
+                p.zoom.scale() / ZOOM_MULTIPLIER
+            };
+            p.update_zoom(new_zoom, anchor);
+            p.redraw(RedrawReason::InteractiveZoom);
+        }
+    }
+
+    pub fn zoom_in(&self) {
+        self.do_zoom(true);
+    }
+
+    pub fn zoom_out(&self) {
+        self.do_zoom(false);
     }
 
     // Operations on image

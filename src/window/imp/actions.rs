@@ -33,6 +33,7 @@ use crate::{
     },
     content::loader::ContentLoader,
     file_view::{Direction, Filter, Target},
+    image::view::ZoomMode,
 };
 
 use super::MViewWindowImp;
@@ -147,6 +148,34 @@ impl MViewWindowImp {
         let w = self.widgets();
         w.set_action_string("zoom", zoom);
         w.image_view.set_zoom_mode(zoom.into());
+    }
+
+    pub fn toggle_zoom(&self) {
+        let current_zoom = self.widgets().image_view.zoom_mode();
+        if self.backend.borrow().is_thumbnail() {
+            let new_size = match self.thumbnail_size.get() {
+                175 => 140,
+                140 => 100,
+                100 => 80,
+                80 => 250,
+                _ => 175,
+            };
+            self.set_thumbnail_size(new_size);
+        } else if current_zoom == ZoomMode::Max {
+            self.change_zoom(ZoomMode::NoZoom.into());
+        } else if current_zoom == ZoomMode::Fill {
+            self.change_zoom(ZoomMode::Max.into());
+        } else {
+            self.change_zoom(ZoomMode::Fill.into());
+        }
+    }
+
+    pub fn zoom_in(&self) {
+        self.widgets().image_view.zoom_in();
+    }
+
+    pub fn zoom_out(&self) {
+        self.widgets().image_view.zoom_out();
     }
 
     pub fn change_transparency(&self, transparency: &str) {

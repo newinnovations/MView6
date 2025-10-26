@@ -54,6 +54,10 @@
 }
 
 .panel button {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 45px;
+    min-height: 45px;
+}
+
+.panel_button image {
+    -gtk-icon-size: 30px;
 }
