@@ -8,6 +8,16 @@
     <file>mv6-favorite.svg</file>
     <file>mv6-doc.svg</file>
     <file>mview6.svg</file>
+    <file>panel-down.svg</file>
+    <file>panel-dual.svg</file>
+    <file>panel-fullscreen.svg</file>
+    <file>panel-menu.svg</file>
+    <file>panel-next.svg</file>
+    <file>panel-previous.svg</file>
+    <file>panel-up.svg</file>
+    <file>panel-zoom-fit.svg</file>
+    <file>panel-zoom-in.svg</file>
+    <file>panel-zoom-out.svg</file>
   </gresource>
   <gresource prefix="/css">
     <file>mview6.css</file>

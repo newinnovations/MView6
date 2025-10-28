@@ -51,20 +51,20 @@ pub fn create_overlay_button_panel(
     panel_box.append(&row_2);
 
     // Create buttons with icons
-    let fullscreen_button = create_icon_button("view-fullscreen-symbolic", "Toggle fullscreen");
-    let previous_button = create_icon_button("go-up-symbolic", "Previous in list");
-    let next_button = create_icon_button("go-down-symbolic", "Next in list");
-    let back_button = create_icon_button("go-previous-symbolic", "Go to parent");
-    let forward_button = create_icon_button("go-next-symbolic", "Open directory/archive");
-    let filelist_button = create_icon_button("view-dual-symbolic", "Toggle file list");
+    let fullscreen_button = create_icon_button("panel-fullscreen", "Toggle fullscreen");
+    let previous_button = create_icon_button("panel-up", "Previous in list");
+    let next_button = create_icon_button("panel-down", "Next in list");
+    let back_button = create_icon_button("panel-previous", "Go to parent");
+    let forward_button = create_icon_button("panel-next", "Open directory/archive");
+    let filelist_button = create_icon_button("panel-dual", "Toggle file list");
     // let zoom_mode_button = create_text_button("Zoom\nmode", "Change zoom mode");
     // let zoom_in_button = create_text_button("Zoom\n<span size=\"large\">+</span>", "Zoom in");
     // let zoom_out_button = create_text_button("Zoom\n<span size=\"large\">-</span>", "Zoom out");
-    let zoom_mode_button = create_icon_button("zoom-fit-best-symbolic", "Change zoom mode");
-    let zoom_in_button = create_icon_button("zoom-in-symbolic", "Zoom in");
-    let zoom_out_button = create_icon_button("zoom-out-symbolic", "Zoom out");
+    let zoom_mode_button = create_icon_button("panel-zoom-fit", "Change zoom mode");
+    let zoom_in_button = create_icon_button("panel-zoom-in", "Zoom in");
+    let zoom_out_button = create_icon_button("panel-zoom-out", "Zoom out");
     let menu_button = MenuButton::builder()
-        .icon_name("open-menu-symbolic") // hamburger icon
+        .icon_name("panel-menu") // hamburger icon
         .can_focus(false)
         .css_classes(["panel_button"])
         .build();
