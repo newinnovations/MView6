@@ -178,12 +178,14 @@ impl FileView {
         }
     }
 
-    pub fn navigate_item(&self, direction: Direction, filter: Filter, count: u32) {
+    pub fn navigate_item(&self, direction: Direction, filter: Filter, count: u32) -> bool {
         if let Some(current) = self.current() {
             if let Some(tree_path) = current.navigate(direction, filter, count) {
                 self.set_cursor(&tree_path, None::<&TreeViewColumn>, false);
+                return true;
             }
         }
+        false
     }
 
     pub fn set_unsorted(&self) {

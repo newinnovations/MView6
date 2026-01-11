@@ -73,6 +73,9 @@ impl MViewWindowImp {
             Key::f | Key::KP_Multiply => {
                 self.toggle_fullscreen();
             }
+            Key::F => {
+                self.adjust_filter();
+            }
             Key::Escape => {
                 self.obj().unfullscreen();
                 self.fullscreen.set(false);
@@ -98,20 +101,6 @@ impl MViewWindowImp {
                 }
             }
             Key::m | Key::KP_0 | Key::KP_Insert => {
-                // if self.backend.borrow().is_thumbnail() {
-                //     let new_size = match self.thumbnail_size.get() {
-                //         175 => 140,
-                //         140 => 100,
-                //         100 => 80,
-                //         80 => 250,
-                //         _ => 175,
-                //     };
-                //     self.set_thumbnail_size(new_size);
-                // } else if w.image_view.zoom_mode() == ZoomMode::Max {
-                //     self.change_zoom(ZoomMode::Fill.into());
-                // } else {
-                //     self.change_zoom(ZoomMode::Max.into());
-                // }
                 self.toggle_zoom();
             }
             Key::minus | Key::KP_Subtract => {
@@ -173,6 +162,32 @@ impl MViewWindowImp {
                 if !self.reload(&Target::Last) {
                     w.file_view.end();
                 }
+            }
+            Key::F2 => {
+                // set reference
+                let mouse = w.image_view.mouse_position();
+                let img = w.image_view.zoom().screen_to_image(&mouse);
+                w.image_view.measure_anchor(img);
+                // self.measurement_reference.replace(img);
+            }
+            Key::F3 => {
+                // measure
+                let mouse = w.image_view.mouse_position();
+                let img = w.image_view.zoom().screen_to_image(&mouse);
+                if let Some(text) = w.image_view.measure_point(img) {
+                    self.copy_to_clipboard(&text);
+                };
+                // let reference = self.measurement_reference.get();
+                // let delta = img - reference;
+                // let distance = img.distance(&reference);
+                // let factor = 2.54 / 600.0; // 600 dpi
+                // println!(
+                //     "dx {:8.3}   dy {:8.3}   dist {:8.3}",
+                //     delta.x() * factor,
+                //     delta.y() * factor,
+                //     distance * factor
+                // );
+                // dbg!(img, reference, delta);
             }
             Key::F6 => {
                 contrast_delta(-1);

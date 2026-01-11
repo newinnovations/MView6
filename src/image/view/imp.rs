@@ -31,8 +31,12 @@ use crate::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
         view::{
-            data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
-            RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE,
+            data::{
+                zoom::{ZOOM_MULTIPLIER, ZOOM_MULTIPLIER_FAST},
+                TransparencyMode,
+            },
+            measure::MeasureTool,
+            RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN,
         },
     },
     rect::{PointD, RectD, SizeI},
@@ -42,7 +46,8 @@ use cairo::{Context, Extend, FillRule, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
-    prelude::{DrawingAreaExtManual, GestureSingleExt, WidgetExt},
+    gdk::ModifierType,
+    prelude::{DrawingAreaExtManual, EventControllerExt, GestureSingleExt, WidgetExt},
     subclass::prelude::*,
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
 };
@@ -52,6 +57,7 @@ pub struct ImageViewImp {
     pub(super) data: RefCell<ImageViewData>,
     animation_timeout_id: RefCell<Option<SourceId>>,
     pub(super) window_size: Cell<SizeI>,
+    pub(super) measure_tool: MeasureTool,
 }
 
 #[glib::object_subclass]
@@ -111,6 +117,8 @@ impl ImageViewImp {
         let z = &p.zoom;
 
         let image = p.image();
+
+        let _ = context.save();
 
         context.set_fill_rule(FillRule::EvenOdd);
 
@@ -179,6 +187,11 @@ impl ImageViewImp {
         context.transform(image.transform_matrix(&p.zoom));
         image.draw(context, p.quality);
         self.draw_annotations(context);
+
+        if self.measure_tool.is_active() {
+            let _ = context.restore();
+            self.measure_tool.draw(context, &p.zoom);
+        }
     }
 
     fn draw_annotations(&self, context: &Context) {
@@ -273,14 +286,19 @@ impl ImageViewImp {
         }
     }
 
-    fn scroll_event(&self, dy: f64) -> Propagation {
+    fn scroll_event(&self, dy: f64, modifier: ModifierType) -> Propagation {
         let mut p = self.data.borrow_mut();
         let mouse_position = p.mouse_position;
+        let multiplier = if modifier.contains(ModifierType::CONTROL_MASK) {
+            ZOOM_MULTIPLIER_FAST
+        } else {
+            ZOOM_MULTIPLIER
+        };
         if p.content.is_movable() {
             let zoom = if dy < -0.01 {
-                p.zoom.scale() * ZOOM_MULTIPLIER
+                p.zoom.scale() * multiplier
             } else if dy > 0.01 {
-                p.zoom.scale() / ZOOM_MULTIPLIER
+                p.zoom.scale() / multiplier
             } else {
                 p.zoom.scale()
             };
@@ -310,6 +328,7 @@ impl ObjectImpl for ImageViewImp {
                         String::static_type(),
                     ])
                     .build(),
+                Signal::builder(SIGNAL_SHOWN).build(),
             ]
         })
     }
@@ -342,7 +361,10 @@ impl ObjectImpl for ImageViewImp {
             self,
             #[upgrade_or]
             Propagation::Stop,
-            move |_, _dx, dy| this.scroll_event(dy)
+            move |controller, _dx, dy| {
+                let modifiers = controller.current_event_state();
+                this.scroll_event(dy, modifiers)
+            }
         ));
 
         let gesture_click = gtk4::GestureClick::new();

@@ -27,13 +27,11 @@ use gtk4::{
 
 use crate::{
     backends::{
-        document::{pdf_engine, set_pdf_engine, PdfEngine},
-        thumbnail::{model::TParent, Thumbnail},
-        Backend,
+        Backend, document::{PdfEngine, pdf_engine, set_pdf_engine}, thumbnail::{Thumbnail, model::TParent}
     },
     content::loader::ContentLoader,
     file_view::{Direction, Filter, Target},
-    image::view::ZoomMode,
+    image::view::ZoomMode, window::filter::create_filter_dialog,
 };
 
 use super::MViewWindowImp;
@@ -280,6 +278,18 @@ impl MViewWindowImp {
             .set_action_string("thumb.size", &new_size.to_string());
         self.thumbnail_size.set(new_size);
         self.update_thumbnail_backend()
+    }
+
+    pub fn toggle_slideshow(&self) {
+        self.set_slideshow_active(!self.is_slideshow_active());
+    }
+
+    pub fn adjust_filter(&self) {
+        println!("Filter");
+        let dialog = create_filter_dialog(&self.obj());
+        // create_selection_dialog(&window_clone, sender);
+        dialog.present();
+
     }
 
     pub fn navigate_page(&self, direction: Direction, count: u32) {

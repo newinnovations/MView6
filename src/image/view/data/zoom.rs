@@ -27,6 +27,8 @@ pub const MAX_ZOOM_FACTOR: f64 = 300.0;
 pub const MIN_ZOOM_FACTOR: f64 = 0.001;
 /// Standard zoom increment/decrement multiplier for smooth zoom operations
 pub const ZOOM_MULTIPLIER: f64 = 1.05;
+/// Fast zoom increment/decrement multiplier
+pub const ZOOM_MULTIPLIER_FAST: f64 = 1.25;
 
 /// Floating point comparison epsilon for zoom state detection
 /// Used to handle floating-point precision issues when comparing zoom factors

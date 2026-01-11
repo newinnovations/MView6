@@ -37,6 +37,19 @@ static PANEL_TIMEOUT: u32 = 5; // seconds
 static PANEL_TRANSITION: u32 = 200; // milliseconds
 static PANEL_DRAG_THRESHOLD: f64 = 2.0; // pixels
 
+macro_rules! connect_panel_button {
+    ($button:expr, $window:expr, $timer:expr, $window_var:ident => $action:expr) => {{
+        let win_weak = $window.downgrade();
+        let timer_strong = $timer.clone();
+        $button.connect_clicked(move |_| {
+            if let Some($window_var) = win_weak.upgrade() {
+                reset_timer(&timer_strong);
+                $action;
+            }
+        });
+    }};
+}
+
 pub fn create_overlay_button_panel(
     mview_window: &MViewWindowImp,
     image_view: &ImageView,
@@ -57,6 +70,8 @@ pub fn create_overlay_button_panel(
     let back_button = create_icon_button("panel-previous", "Go to parent");
     let forward_button = create_icon_button("panel-next", "Open directory/archive");
     let filelist_button = create_icon_button("panel-dual", "Toggle file list");
+    let start_button = create_icon_button("panel-start", "Start slideslow");
+    let stop_button = create_icon_button("panel-stop", "Stop slideslow");
     // let zoom_mode_button = create_text_button("Zoom\nmode", "Change zoom mode");
     // let zoom_in_button = create_text_button("Zoom\n<span size=\"large\">+</span>", "Zoom in");
     // let zoom_out_button = create_text_button("Zoom\n<span size=\"large\">-</span>", "Zoom out");
@@ -74,11 +89,13 @@ pub fn create_overlay_button_panel(
     row_1.append(&fullscreen_button);
     row_1.append(&menu_button);
     row_1.append(&filelist_button);
+    row_1.append(&start_button);
     row_1.append(&previous_button);
     row_1.append(&next_button);
     row_2.append(&zoom_in_button);
     row_2.append(&zoom_out_button);
     row_2.append(&zoom_mode_button);
+    row_2.append(&stop_button);
     row_2.append(&back_button);
     row_2.append(&forward_button);
 
@@ -181,17 +198,6 @@ pub fn create_overlay_button_panel(
     image_view.add_controller(gesture);
 
     // Button actions
-    fullscreen_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.toggle_fullscreen();
-        }
-    ));
-
     if let Some(popover) = menu_button.popover() {
         popover.connect_show(clone!(
             #[strong]
@@ -202,99 +208,49 @@ pub fn create_overlay_button_panel(
         ));
     }
 
-    back_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.dir_leave();
-        }
-    ));
+    connect_panel_button!(previous_button, mview_window, hide_timer, w => {
+        w.widgets().file_view.navigate_item(Direction::Up, Filter::None, 1);
+    });
 
-    forward_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.dir_enter();
-        }
-    ));
+    connect_panel_button!(next_button, mview_window, hide_timer, w => {
+        w.widgets().file_view.navigate_item(Direction::Down, Filter::None, 1);
+    });
 
-    previous_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window
-                .widgets()
-                .file_view
-                .navigate_item(Direction::Up, Filter::None, 1);
-        }
-    ));
+    connect_panel_button!(fullscreen_button, mview_window, hide_timer, w => {
+        w.toggle_fullscreen();
+    });
 
-    next_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window
-                .widgets()
-                .file_view
-                .navigate_item(Direction::Down, Filter::None, 1);
-        }
-    ));
+    connect_panel_button!(back_button, mview_window, hide_timer, w => {
+        w.dir_leave();
+    });
 
-    filelist_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.toggle_pane_files();
-        }
-    ));
+    connect_panel_button!(forward_button, mview_window, hide_timer, w => {
+        w.dir_enter();
+    });
 
-    zoom_mode_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.toggle_zoom();
-        }
-    ));
+    connect_panel_button!(filelist_button, mview_window, hide_timer, w => {
+        w.toggle_pane_files();
+    });
 
-    zoom_in_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.zoom_in();
-        }
-    ));
+    connect_panel_button!(zoom_mode_button, mview_window, hide_timer, w => {
+        w.toggle_zoom();
+    });
 
-    zoom_out_button.connect_clicked(clone!(
-        #[weak]
-        mview_window,
-        #[strong]
-        hide_timer,
-        move |_| {
-            reset_timer(&hide_timer);
-            mview_window.zoom_out();
-        }
-    ));
+    connect_panel_button!(zoom_in_button, mview_window, hide_timer, w => {
+        w.zoom_in();
+    });
+
+    connect_panel_button!(zoom_out_button, mview_window, hide_timer, w => {
+        w.zoom_out();
+    });
+
+    connect_panel_button!(start_button, mview_window, hide_timer, w => {
+        w.set_slideshow_active(true);
+    });
+
+    connect_panel_button!(stop_button, mview_window, hide_timer, w => {
+        w.set_slideshow_active(false);
+    });
 
     (overlay, forward_button)
 }

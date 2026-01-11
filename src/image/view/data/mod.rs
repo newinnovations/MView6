@@ -81,6 +81,7 @@ pub struct ImageViewData {
     pub quality: Filter,
     pub annotations: Option<Annotations>,
     pub hover: Option<i32>,
+    pub shown: bool,
     pub rb_sender: Option<RenderThreadSender>,
     hq_redraw_timeout_id: Option<SourceId>,
 }
@@ -100,6 +101,7 @@ impl Default for ImageViewData {
             quality: QUALITY_HIGH,
             annotations: Default::default(),
             hover: None,
+            shown: false,
             rb_sender: None,
             hq_redraw_timeout_id: None,
         }

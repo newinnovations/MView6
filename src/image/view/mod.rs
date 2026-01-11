@@ -19,6 +19,7 @@
 
 pub mod data;
 mod imp;
+mod measure;
 
 use std::time::SystemTime;
 
@@ -53,6 +54,7 @@ pub use data::QUALITY_HIGH;
 
 pub const SIGNAL_CANVAS_RESIZED: &str = "event-canvas-resized";
 pub const SIGNAL_NAVIGATE: &str = "event-navigate";
+pub const SIGNAL_SHOWN: &str = "event-shown";
 
 glib::wrapper! {
     pub struct ImageView(ObjectSubclass<imp::ImageViewImp>)
@@ -92,13 +94,16 @@ impl ImageView {
 
     // set_content only split for thumbnail sheets
     pub fn set_content_pre(&self, content: Content) {
-        let mut p = self.imp().data.borrow_mut();
-        self.imp().cancel_animation();
+        let imp = self.imp();
+        let mut p = imp.data.borrow_mut();
+        imp.cancel_animation();
+        imp.measure_tool.reset();
         p.content = content;
         p.zoom.set_rotation(0);
         p.zoom_overlay = None;
         p.annotations = None;
         p.hover = None;
+        p.shown = false;
     }
 
     pub fn set_content_post(&self, annotations: Option<Annotations>) {
@@ -185,6 +190,21 @@ impl ImageView {
 
     pub fn zoom_out(&self) {
         self.do_zoom(false);
+    }
+
+    // Measurements
+
+    pub fn measure_anchor(&self, anchor: PointD) {
+        let imp = self.imp();
+        imp.measure_tool.set_anchor(anchor);
+        imp.data.borrow_mut().redraw(RedrawReason::Measurement);
+    }
+
+    pub fn measure_point(&self, point: PointD) -> Option<String> {
+        let imp = self.imp();
+        imp.measure_tool.set_point(point);
+        imp.data.borrow_mut().redraw(RedrawReason::Measurement);
+        imp.measure_tool.clipboard_text()
     }
 
     // Operations on image
