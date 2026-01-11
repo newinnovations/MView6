@@ -31,7 +31,7 @@ use gtk4::{
     prelude::{TreeModelExt, TreeSortableExtManual, TreeViewExt},
     ListStore, SortColumn, SortType, TreeIter, TreeViewColumn,
 };
-pub use model::{Column, Direction, Filter, Target};
+pub use model::{Column, Direction, Filter, FilterSet, Target};
 pub use sort::Sort;
 
 use crate::window::MViewWindow;
@@ -178,7 +178,7 @@ impl FileView {
         }
     }
 
-    pub fn navigate_item(&self, direction: Direction, filter: Filter, count: u32) -> bool {
+    pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
         if let Some(current) = self.current() {
             if let Some(tree_path) = current.navigate(direction, filter, count) {
                 self.set_cursor(&tree_path, None::<&TreeViewColumn>, false);

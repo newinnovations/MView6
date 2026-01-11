@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{fmt, path::PathBuf, str::FromStr};
+use std::{collections::HashSet, fmt, path::PathBuf, str::FromStr};
 
 use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
@@ -32,13 +32,16 @@ pub enum Direction {
     Down,
 }
 
-#[derive(Debug)]
-#[repr(i32)]
+pub type FilterSet = HashSet<Category>;
+
+#[derive(Debug, Default)]
 pub enum Filter {
-    None = 0,
+    #[default]
+    None,
     Image,
     Favorite,
     Container,
+    Set(FilterSet),
 }
 
 #[derive(Debug)]

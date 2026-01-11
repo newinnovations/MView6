@@ -27,7 +27,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::file_view::Direction;
-use crate::file_view::Filter;
 use crate::image::view::ImageView;
 use crate::rect::PointD;
 use crate::util::remove_source_id;
@@ -209,11 +208,11 @@ pub fn create_overlay_button_panel(
     }
 
     connect_panel_button!(previous_button, mview_window, hide_timer, w => {
-        w.widgets().file_view.navigate_item(Direction::Up, Filter::None, 1);
+        w.navigate_item_filter(Direction::Up, 1);
     });
 
     connect_panel_button!(next_button, mview_window, hide_timer, w => {
-        w.widgets().file_view.navigate_item(Direction::Down, Filter::None, 1);
+        w.navigate_item_filter(Direction::Down, 1);
     });
 
     connect_panel_button!(fullscreen_button, mview_window, hide_timer, w => {

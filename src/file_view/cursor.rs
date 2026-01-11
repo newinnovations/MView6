@@ -87,7 +87,7 @@ impl Cursor {
         );
     }
 
-    pub fn navigate(&self, direction: Direction, filter: Filter, count: u32) -> Option<TreePath> {
+    pub fn navigate(&self, direction: Direction, filter: &Filter, count: u32) -> Option<TreePath> {
         let mut cnt = count;
         loop {
             let last = self.iter;
@@ -111,6 +111,7 @@ impl Cursor {
                 Filter::Container => {
                     cat != Category::Folder && cat != Category::Archive && cat != Category::Document
                 }
+                Filter::Set(ref fset) => !fset.contains(&cat),
             };
 
             if skip {

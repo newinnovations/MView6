@@ -21,10 +21,7 @@ use std::time::Duration;
 
 use glib::{clone, ControlFlow};
 
-use crate::{
-    file_view::{Direction, Filter},
-    util::remove_source_id,
-};
+use crate::{file_view::Direction, util::remove_source_id};
 
 use super::MViewWindowImp;
 
@@ -94,9 +91,11 @@ impl MViewWindowImp {
     pub fn slidshow_go_next(&self) {
         println!("Go next");
         let w = self.widgets();
-        let moved = w
-            .file_view
-            .navigate_item(Direction::Down, Filter::None, self.step_size());
+        let moved = w.file_view.navigate_item(
+            Direction::Down,
+            &self.current_filter.borrow(),
+            self.step_size(),
+        );
         if !moved {
             w.file_view.home();
         }

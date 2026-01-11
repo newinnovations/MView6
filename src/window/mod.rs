@@ -18,7 +18,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod imp;
-mod filter;
 
 use crate::application::MviewApplication;
 use gtk4::glib;

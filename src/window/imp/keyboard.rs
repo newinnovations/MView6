@@ -107,7 +107,8 @@ impl MViewWindowImp {
                 w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
                     if self.backend.borrow().favorite(&current, Direction::Down) {
-                        w.file_view.navigate_item(Direction::Down, Filter::Image, 1);
+                        w.file_view
+                            .navigate_item(Direction::Down, &Filter::Image, 1);
                     }
                 }
             }
@@ -115,25 +116,32 @@ impl MViewWindowImp {
                 w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
                     if self.backend.borrow().favorite(&current, Direction::Up) {
-                        w.file_view.navigate_item(Direction::Down, Filter::Image, 1);
+                        w.file_view
+                            .navigate_item(Direction::Down, &Filter::Image, 1);
                     }
                 }
             }
             Key::a => {
                 w.file_view
-                    .navigate_item(Direction::Up, Filter::Favorite, 1);
+                    .navigate_item(Direction::Up, &Filter::Favorite, 1);
             }
             Key::s => {
                 w.file_view
-                    .navigate_item(Direction::Down, Filter::Favorite, 1);
+                    .navigate_item(Direction::Down, &Filter::Favorite, 1);
             }
             Key::Up | Key::z => {
-                w.file_view
-                    .navigate_item(Direction::Up, Filter::None, self.step_size());
+                w.file_view.navigate_item(
+                    Direction::Up,
+                    &self.current_filter.borrow(),
+                    self.step_size(),
+                );
             }
             Key::Down | Key::x => {
-                w.file_view
-                    .navigate_item(Direction::Down, Filter::None, self.step_size());
+                w.file_view.navigate_item(
+                    Direction::Down,
+                    &self.current_filter.borrow(),
+                    self.step_size(),
+                );
             }
             Key::Z | Key::Left | Key::KP_4 | Key::KP_Left => {
                 self.navigate_page(Direction::Up, self.step_size());
@@ -142,16 +150,20 @@ impl MViewWindowImp {
                 self.navigate_page(Direction::Down, self.step_size());
             }
             Key::KP_8 | Key::KP_Up => {
-                w.file_view.navigate_item(Direction::Up, Filter::None, 5);
+                w.file_view
+                    .navigate_item(Direction::Up, &self.current_filter.borrow(), 5);
             }
             Key::KP_2 | Key::KP_Down => {
-                w.file_view.navigate_item(Direction::Down, Filter::None, 5);
+                w.file_view
+                    .navigate_item(Direction::Down, &self.current_filter.borrow(), 5);
             }
             Key::Page_Up => {
-                w.file_view.navigate_item(Direction::Up, Filter::None, 25);
+                w.file_view
+                    .navigate_item(Direction::Up, &self.current_filter.borrow(), 25);
             }
             Key::Page_Down => {
-                w.file_view.navigate_item(Direction::Down, Filter::None, 25);
+                w.file_view
+                    .navigate_item(Direction::Down, &self.current_filter.borrow(), 25);
             }
             Key::Home => {
                 if !self.reload(&Target::First) {

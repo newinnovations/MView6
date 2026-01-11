@@ -27,11 +27,13 @@ use gtk4::{
 
 use crate::{
     backends::{
-        Backend, document::{PdfEngine, pdf_engine, set_pdf_engine}, thumbnail::{Thumbnail, model::TParent}
+        document::{pdf_engine, set_pdf_engine, PdfEngine},
+        thumbnail::{model::TParent, Thumbnail},
+        Backend,
     },
     content::loader::ContentLoader,
     file_view::{Direction, Filter, Target},
-    image::view::ZoomMode, window::filter::create_filter_dialog,
+    image::view::ZoomMode,
 };
 
 use super::MViewWindowImp;
@@ -285,17 +287,19 @@ impl MViewWindowImp {
     }
 
     pub fn adjust_filter(&self) {
-        println!("Filter");
-        let dialog = create_filter_dialog(&self.obj());
-        // create_selection_dialog(&window_clone, sender);
-        dialog.present();
+        self.filter_dialog();
+    }
 
+    pub fn navigate_item_filter(&self, direction: Direction, count: u32) {
+        let w = self.widgets();
+        w.file_view
+            .navigate_item(direction, &self.current_filter.borrow(), count);
     }
 
     pub fn navigate_page(&self, direction: Direction, count: u32) {
         let w = self.widgets();
         if !w.image_view.navigate_page(direction, count) {
-            w.file_view.navigate_item(direction, Filter::None, count);
+            w.file_view.navigate_item(direction, &Filter::None, count);
         }
     }
 }

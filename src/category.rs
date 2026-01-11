@@ -21,7 +21,7 @@ use std::path::Path;
 
 use crate::image::colors::Color;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum Category {
     Folder = 0,

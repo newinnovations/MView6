@@ -20,6 +20,7 @@
 mod actions;
 mod backend;
 mod dependencies;
+mod filter;
 mod keyboard;
 mod menu;
 mod mouse;
@@ -38,9 +39,10 @@ use crate::{
         },
         Backend,
     },
+    category::Category,
     file_view::{
         model::{BackendRef, ItemRef, Reference},
-        FileView, Sort, Target,
+        FileView, Filter, Sort, Target,
     },
     image::view::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
     info_view::InfoView,
@@ -54,7 +56,7 @@ use crate::{
 use arboard::Clipboard;
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
-use glib::{clone, closure_local, idle_add_local, ControlFlow, SourceId};
+use glib::{clone, closure_local, idle_add_local, property::PropertySet, ControlFlow, SourceId};
 use gtk4::{
     glib::Propagation, prelude::*, subclass::prelude::*, Button, EventControllerKey, HeaderBar,
     MenuButton, ScrolledWindow,
@@ -62,7 +64,7 @@ use gtk4::{
 use serde::{Deserialize, Serialize};
 use std::{
     cell::{Cell, OnceCell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env, fs,
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -160,6 +162,7 @@ pub struct MViewWindowImp {
     canvas_resized_timeout_id: RefCell<Option<SourceId>>,
     next_slide_timeout_id: RefCell<Option<SourceId>>,
     clipboard: RefCell<Option<Clipboard>>,
+    current_filter: RefCell<Filter>,
 }
 
 #[glib::object_subclass]
@@ -244,6 +247,10 @@ impl ObjectImpl for MViewWindowImp {
 
         self.thumbnail_size.set(250);
         self.current_sort.set(Sort::sort_on_category());
+        let mut current_filter = HashSet::new();
+        current_filter.insert(Category::Image);
+        current_filter.insert(Category::Favorite);
+        self.current_filter.set(Filter::Set(current_filter));
 
         let window = self.obj();
 
