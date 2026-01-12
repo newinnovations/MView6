@@ -29,14 +29,14 @@ use crate::{
     window::imp::MViewWindowImp,
 };
 
-const ITEMS: &[(&str, Category)] = &[
-    ("Images", Category::Image),
-    ("Documents", Category::Document),
-    ("Folders", Category::Folder),
-    ("Archives", Category::Archive),
-    ("Unsupported content", Category::Unsupported),
-    ("Favorite items", Category::Favorite),
-    ("Trashed items", Category::Trash),
+const ITEMS: &[(&str, Category, Key)] = &[
+    ("Images", Category::Image, Key::i),
+    ("Documents", Category::Document, Key::d),
+    ("Folders", Category::Folder, Key::f),
+    ("Archives", Category::Archive, Key::a),
+    ("Unsupported content", Category::Unsupported, Key::u),
+    ("Favorite items", Category::Favorite, Key::v),
+    ("Trashed items", Category::Trash, Key::t),
 ];
 
 impl MViewWindowImp {
@@ -59,7 +59,7 @@ impl MViewWindowImp {
 
         let mut checkboxes = Vec::new();
         if let Filter::Set(filter) = &*self.current_filter.borrow() {
-            for (item, category) in ITEMS {
+            for (item, category, _) in ITEMS {
                 if *category == Category::Favorite {
                     vbox.append(&Separator::new(Orientation::Horizontal));
                 }
@@ -90,15 +90,28 @@ impl MViewWindowImp {
             ok_btn_clone.grab_focus();
         });
 
+        let cb_clone = checkboxes.clone();
         let key_controller = EventControllerKey::new();
         {
             let dialog_clone = dialog.clone();
-            key_controller.connect_key_pressed(move |_, keyval, _, _| match keyval {
-                Key::Escape | Key::q | Key::Q => {
-                    dialog_clone.response(ResponseType::Cancel);
-                    Propagation::Stop
+            key_controller.connect_key_pressed(move |_, keyval, _, _| {
+                for (_, category, key) in ITEMS {
+                    if *key == keyval {
+                        for (cb, cb_cat) in &cb_clone {
+                            if *category == *cb_cat {
+                                cb.set_active(!cb.is_active());
+                                return Propagation::Stop;
+                            }
+                        }
+                    }
                 }
-                _ => Propagation::Proceed,
+                match keyval {
+                    Key::Escape | Key::q | Key::Q => {
+                        dialog_clone.response(ResponseType::Cancel);
+                        Propagation::Stop
+                    }
+                    _ => Propagation::Proceed,
+                }
             });
         }
 

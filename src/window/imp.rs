@@ -25,6 +25,7 @@ mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
+mod palette;
 mod panel;
 mod resize;
 mod slideshow;
@@ -350,8 +351,8 @@ impl ObjectImpl for MViewWindowImp {
             self,
             #[upgrade_or]
             Propagation::Stop,
-            move |_ctrl, key, _, _| {
-                this.on_key_press(key);
+            move |_, key, _, modifiers| {
+                this.on_key_press(key, modifiers);
                 Propagation::Stop
             }
         ));

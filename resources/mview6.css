@@ -61,3 +61,35 @@
 .panel_button image {
     -gtk-icon-size: 30px;
 }
+
+.command-search {
+    background-color: #2d2d2d;
+    color: #cccccc;
+    border: 1px solid #454545;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 14px;
+}
+.command-list {
+    background-color: #252526;
+}
+.command-list row {
+    background-color: #252526;
+    color: #cccccc;
+    border: none;
+}
+.command-list row:hover {
+    background-color: #2a2d2e;
+}
+.command-list row:selected {
+    background-color: #094771;
+}
+.shortcut-label {
+    background-color: #3c3c3c;
+    color: #cccccc;
+    border: 1px solid #454545;
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-family: monospace;
+}

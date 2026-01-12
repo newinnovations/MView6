@@ -21,7 +21,7 @@ use super::MViewWindowImp;
 
 use glib::subclass::types::ObjectSubclassExt;
 use gtk4::{
-    gdk::Key,
+    gdk::{Key, ModifierType},
     prelude::{GtkWindowExt, WidgetExt},
 };
 
@@ -31,12 +31,13 @@ use crate::{
     content::{Content, ContentData},
     file_view::{Column, Direction, Filter, Target},
     image::view::ZoomMode,
+    window::imp::palette::CommandPalette,
 };
 
 impl MViewWindowImp {
-    pub(super) fn on_key_press(&self, e: Key) {
+    pub(super) fn on_key_press(&self, key: Key, modifiers: ModifierType) {
         let w = self.widgets();
-        match e {
+        match key {
             Key::q => {
                 self.quit();
             }
@@ -233,30 +234,37 @@ impl MViewWindowImp {
                 };
             }
             Key::P => {
-                let w = self.widgets();
-                let params = ImageParams {
-                    tn_sender: Some(&w.tn_sender),
-                    page_mode: &self.page_mode.get(),
-                    allocation_height: self.obj().height(),
-                };
-                if let Some(current) = w.file_view.current() {
-                    let b = self.backend.borrow();
-                    let image1 = b.content(&b.reference(&current).item, &params);
-                    if current.next() {
-                        let image2 = b.content(&b.reference(&current).item, &params);
-                        if let (ContentData::Single(single1), ContentData::Single(single2)) =
-                            (image1.data, image2.data)
-                        {
-                            let i2 = Content::new_dual_surface(
-                                Some(single1.surface()),
-                                Some(single2.surface()),
-                                None,
-                            );
-                            w.info_view.update(&i2);
-                            w.image_view.set_content(i2);
+                if modifiers.contains(ModifierType::CONTROL_MASK)
+                    && modifiers.contains(ModifierType::SHIFT_MASK)
+                {
+                    let palette = CommandPalette::new(&self.obj().clone());
+                    palette.show();
+                } else {
+                    let w = self.widgets();
+                    let params = ImageParams {
+                        tn_sender: Some(&w.tn_sender),
+                        page_mode: &self.page_mode.get(),
+                        allocation_height: self.obj().height(),
+                    };
+                    if let Some(current) = w.file_view.current() {
+                        let b = self.backend.borrow();
+                        let image1 = b.content(&b.reference(&current).item, &params);
+                        if current.next() {
+                            let image2 = b.content(&b.reference(&current).item, &params);
+                            if let (ContentData::Single(single1), ContentData::Single(single2)) =
+                                (image1.data, image2.data)
+                            {
+                                let i2 = Content::new_dual_surface(
+                                    Some(single1.surface()),
+                                    Some(single2.surface()),
+                                    None,
+                                );
+                                w.info_view.update(&i2);
+                                w.image_view.set_content(i2);
+                            }
                         }
-                    }
-                };
+                    };
+                }
             }
             _ => (),
         }
