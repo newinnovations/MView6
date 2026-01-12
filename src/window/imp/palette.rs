@@ -1,15 +1,23 @@
-use gtk4::prelude::*;
+use glib::subclass::types::ObjectSubclassIsExt;
 use gtk4::{
-    glib, Box, Entry, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow, SelectionMode,
+    gdk::{Key, ModifierType},
+    prelude::*,
+    Box, Entry, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow, SelectionMode,
 };
 
+use crate::window::imp::MViewWindowImp;
 use crate::window::MViewWindow;
 
 const COMMANDS: &[Command] = &[
     Command {
-        name: "Clear buffer",
-        shortcut: Some("Ctrl+Shift+K"),
-        action: |_| println!("Clear buffer"),
+        name: "Edit navigation filter",
+        shortcut: Some("Shift+F"),
+        action: |w| w.adjust_filter(),
+    },
+    Command {
+        name: "Toggle fullscreen",
+        shortcut: Some("F"),
+        action: |w| w.toggle_fullscreen(),
     },
     Command {
         name: "Close all other panes",
@@ -62,7 +70,7 @@ const COMMANDS: &[Command] = &[
 struct Command {
     name: &'static str,
     shortcut: Option<&'static str>,
-    action: fn(&MViewWindow),
+    action: fn(&MViewWindowImp),
 }
 
 pub struct CommandPalette {
@@ -78,6 +86,7 @@ impl CommandPalette {
             .modal(true)
             .default_width(600)
             .default_height(400)
+            .title("MView6 Command Palette")
             .build();
 
         // Main container
@@ -135,9 +144,9 @@ impl CommandPalette {
 
         let filter_lower = filter.to_lowercase();
 
-        for command in COMMANDS {
+        for (idx, command) in COMMANDS.iter().enumerate() {
             if filter.is_empty() || command.name.to_lowercase().contains(&filter_lower) {
-                let row = self.create_command_row(command);
+                let row = self.create_command_row(command, idx);
                 self.list_box.append(&row);
             }
         }
@@ -148,8 +157,12 @@ impl CommandPalette {
         }
     }
 
-    fn create_command_row(&self, command: &Command) -> ListBoxRow {
+    fn create_command_row(&self, command: &Command, command_idx: usize) -> ListBoxRow {
         let row = ListBoxRow::new();
+
+        // Store the command index as a string in the row's name
+        row.set_widget_name(&command_idx.to_string());
+
         let row_box = Box::new(Orientation::Horizontal, 12);
         row_box.set_margin_start(12);
         row_box.set_margin_end(12);
@@ -176,6 +189,7 @@ impl CommandPalette {
     fn setup_signals(&mut self, parent: &MViewWindow) {
         let list_box = self.list_box.clone();
         let window = self.window.clone();
+        let search_entry = self.search_entry.clone();
 
         // Handle search entry changes
         let list_box_clone = list_box.clone();
@@ -184,36 +198,113 @@ impl CommandPalette {
             Self::update_list(&list_box_clone, &text);
         });
 
-        // Handle Enter key
+        // Handle Enter key on search entry
         let list_box_clone = list_box.clone();
         let window_clone = window.clone();
         let parent_clone = parent.clone();
         self.search_entry.connect_activate(move |_| {
             if let Some(row) = list_box_clone.selected_row() {
-                let index = row.index() as usize;
-                if let Some(command) = COMMANDS.get(index) {
-                    (command.action)(&parent_clone);
+                // Get the command index from the row's name
+                if let Ok(command_idx) = row.widget_name().parse::<usize>() {
+                    if let Some(command) = COMMANDS.get(command_idx) {
+                        (command.action)(parent_clone.imp());
+                    }
                 }
                 window_clone.close();
             }
         });
 
+        // Handle Up/Down keys on search entry
+        let search_key_controller = gtk4::EventControllerKey::new();
+        let list_box_clone = list_box.clone();
+        search_key_controller.connect_key_pressed(move |_, key, _, _| {
+            match key {
+                Key::Down => {
+                    // Move focus to the selected row in the list
+                    if let Some(row) = list_box_clone.selected_row() {
+                        row.grab_focus();
+                    }
+                    glib::Propagation::Stop
+                }
+                _ => glib::Propagation::Proceed,
+            }
+        });
+        self.search_entry.add_controller(search_key_controller);
+
         // Handle row activation
         let window_clone = window.clone();
         let parent_clone = parent.clone();
         list_box.connect_row_activated(move |_, row| {
-            let index = row.index() as usize;
-            if let Some(command) = COMMANDS.get(index) {
-                (command.action)(&parent_clone);
+            // Get the command index from the row's name
+            if let Ok(command_idx) = row.widget_name().parse::<usize>() {
+                if let Some(command) = COMMANDS.get(command_idx) {
+                    (command.action)(parent_clone.imp());
+                }
             }
             window_clone.close();
         });
 
-        // Handle Escape key
+        // Handle keys on the list box
+        let list_key_controller = gtk4::EventControllerKey::new();
+        let search_entry_clone = search_entry.clone();
+        let list_box_clone = list_box.clone();
+        list_key_controller.connect_key_pressed(move |_, key, _, modifiers| {
+            match key {
+                Key::Up => {
+                    // If at the top of the list, move focus back to search entry
+                    if let Some(row) = list_box_clone.selected_row() {
+                        if row.index() == 0 {
+                            search_entry_clone.grab_focus();
+                            return glib::Propagation::Stop;
+                        }
+                    }
+                    glib::Propagation::Proceed
+                }
+                Key::Escape => glib::Propagation::Proceed,
+                // For any other printable character, redirect to search entry
+                _ => {
+                    // Check if this is a printable character (not a modifier or special key)
+                    if !modifiers.contains(ModifierType::CONTROL_MASK)
+                        && !modifiers.contains(ModifierType::ALT_MASK)
+                        && key != Key::Shift_L
+                        && key != Key::Shift_R
+                        && key != Key::Control_L
+                        && key != Key::Control_R
+                        && key != Key::Alt_L
+                        && key != Key::Alt_R
+                        && key != Key::Down
+                        && key != Key::Return
+                    {
+                        // Get the character representation of the key
+                        if let Some(ch) = key.to_unicode() {
+                            let current_text = search_entry_clone.text();
+                            let cursor_pos = search_entry_clone.position();
+
+                            // Insert the character at cursor position
+                            let mut new_text = current_text.to_string();
+                            new_text.insert(cursor_pos as usize, ch);
+
+                            // Grab focus first
+                            search_entry_clone.grab_focus();
+
+                            // Then set text and position
+                            search_entry_clone.set_text(&new_text);
+                            search_entry_clone.set_position(cursor_pos + 1);
+                        }
+                        glib::Propagation::Stop
+                    } else {
+                        glib::Propagation::Proceed
+                    }
+                }
+            }
+        });
+        self.list_box.add_controller(list_key_controller);
+
+        // Handle Escape key on window level
         let key_controller = gtk4::EventControllerKey::new();
         let window_clone = window.clone();
         key_controller.connect_key_pressed(move |_, key, _, _| {
-            if key == gtk4::gdk::Key::Escape {
+            if key == Key::Escape {
                 window_clone.close();
                 glib::Propagation::Stop
             } else {
@@ -230,9 +321,9 @@ impl CommandPalette {
 
         let filter_lower = filter.to_lowercase();
 
-        for command in COMMANDS {
+        for (idx, command) in COMMANDS.iter().enumerate() {
             if filter.is_empty() || command.name.to_lowercase().contains(&filter_lower) {
-                let row = Self::create_row_static(command);
+                let row = Self::create_row_static(command, idx);
                 list_box.append(&row);
             }
         }
@@ -242,8 +333,12 @@ impl CommandPalette {
         }
     }
 
-    fn create_row_static(command: &Command) -> ListBoxRow {
+    fn create_row_static(command: &Command, command_idx: usize) -> ListBoxRow {
         let row = ListBoxRow::new();
+
+        // Store the command index as a string in the row's name
+        row.set_widget_name(&command_idx.to_string());
+
         let row_box = Box::new(Orientation::Horizontal, 12);
         row_box.set_margin_start(12);
         row_box.set_margin_end(12);
