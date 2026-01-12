@@ -21,7 +21,7 @@ use std::path::Path;
 
 use crate::image::colors::Color;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum Category {
     Folder = 0,
@@ -30,6 +30,7 @@ pub enum Category {
     Archive = 3,
     Document = 4,
     Trash = 5,
+    #[default]
     Unsupported = 6,
 }
 
@@ -182,11 +183,5 @@ impl From<u32> for Category {
             5 => Self::Trash,
             _ => Self::Unsupported,
         }
-    }
-}
-
-impl Default for Category {
-    fn default() -> Self {
-        Self::Unsupported
     }
 }

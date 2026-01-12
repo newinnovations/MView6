@@ -1,8 +1,9 @@
-use glib::subclass::types::ObjectSubclassIsExt;
+use glib::{subclass::types::ObjectSubclassIsExt, Propagation};
 use gtk4::{
     gdk::{Key, ModifierType},
     prelude::*,
-    Box, Entry, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow, SelectionMode,
+    Align, Box, Entry, EventControllerKey, Label, ListBox, ListBoxRow, Orientation, PolicyType,
+    ScrolledWindow, SelectionMode, Window,
 };
 
 use crate::window::imp::MViewWindowImp;
@@ -74,14 +75,14 @@ struct Command {
 }
 
 pub struct CommandPalette {
-    window: gtk4::Window,
+    window: Window,
     search_entry: Entry,
     list_box: ListBox,
 }
 
 impl CommandPalette {
     pub fn new(parent: &MViewWindow) -> Self {
-        let window = gtk4::Window::builder()
+        let window = Window::builder()
             .transient_for(parent)
             .modal(true)
             .default_width(600)
@@ -113,8 +114,8 @@ impl CommandPalette {
 
         // Scrolled window
         let scrolled = ScrolledWindow::builder()
-            .hscrollbar_policy(gtk4::PolicyType::Never)
-            .vscrollbar_policy(gtk4::PolicyType::Automatic)
+            .hscrollbar_policy(PolicyType::Never)
+            .vscrollbar_policy(PolicyType::Automatic)
             .vexpand(true)
             .build();
 
@@ -170,7 +171,7 @@ impl CommandPalette {
         row_box.set_margin_bottom(8);
 
         let label = Label::new(Some(command.name));
-        label.set_halign(gtk4::Align::Start);
+        label.set_halign(Align::Start);
         label.set_hexpand(true);
 
         row_box.append(&label);
@@ -178,7 +179,7 @@ impl CommandPalette {
         if let Some(shortcut) = &command.shortcut {
             let shortcut_label = Label::new(Some(shortcut));
             shortcut_label.add_css_class("shortcut-label");
-            shortcut_label.set_halign(gtk4::Align::End);
+            shortcut_label.set_halign(Align::End);
             row_box.append(&shortcut_label);
         }
 
@@ -215,7 +216,7 @@ impl CommandPalette {
         });
 
         // Handle Up/Down keys on search entry
-        let search_key_controller = gtk4::EventControllerKey::new();
+        let search_key_controller = EventControllerKey::new();
         let list_box_clone = list_box.clone();
         search_key_controller.connect_key_pressed(move |_, key, _, _| {
             match key {
@@ -224,9 +225,9 @@ impl CommandPalette {
                     if let Some(row) = list_box_clone.selected_row() {
                         row.grab_focus();
                     }
-                    glib::Propagation::Stop
+                    Propagation::Stop
                 }
-                _ => glib::Propagation::Proceed,
+                _ => Propagation::Proceed,
             }
         });
         self.search_entry.add_controller(search_key_controller);
@@ -245,7 +246,7 @@ impl CommandPalette {
         });
 
         // Handle keys on the list box
-        let list_key_controller = gtk4::EventControllerKey::new();
+        let list_key_controller = EventControllerKey::new();
         let search_entry_clone = search_entry.clone();
         let list_box_clone = list_box.clone();
         list_key_controller.connect_key_pressed(move |_, key, _, modifiers| {
@@ -255,12 +256,12 @@ impl CommandPalette {
                     if let Some(row) = list_box_clone.selected_row() {
                         if row.index() == 0 {
                             search_entry_clone.grab_focus();
-                            return glib::Propagation::Stop;
+                            return Propagation::Stop;
                         }
                     }
-                    glib::Propagation::Proceed
+                    Propagation::Proceed
                 }
-                Key::Escape => glib::Propagation::Proceed,
+                Key::Escape => Propagation::Proceed,
                 // For any other printable character, redirect to search entry
                 _ => {
                     // Check if this is a printable character (not a modifier or special key)
@@ -291,9 +292,9 @@ impl CommandPalette {
                             search_entry_clone.set_text(&new_text);
                             search_entry_clone.set_position(cursor_pos + 1);
                         }
-                        glib::Propagation::Stop
+                        Propagation::Stop
                     } else {
-                        glib::Propagation::Proceed
+                        Propagation::Proceed
                     }
                 }
             }
@@ -301,14 +302,14 @@ impl CommandPalette {
         self.list_box.add_controller(list_key_controller);
 
         // Handle Escape key on window level
-        let key_controller = gtk4::EventControllerKey::new();
+        let key_controller = EventControllerKey::new();
         let window_clone = window.clone();
         key_controller.connect_key_pressed(move |_, key, _, _| {
             if key == Key::Escape {
                 window_clone.close();
-                glib::Propagation::Stop
+                Propagation::Stop
             } else {
-                glib::Propagation::Proceed
+                Propagation::Proceed
             }
         });
         self.window.add_controller(key_controller);
@@ -346,7 +347,7 @@ impl CommandPalette {
         row_box.set_margin_bottom(8);
 
         let label = Label::new(Some(command.name));
-        label.set_halign(gtk4::Align::Start);
+        label.set_halign(Align::Start);
         label.set_hexpand(true);
 
         row_box.append(&label);
@@ -354,7 +355,7 @@ impl CommandPalette {
         if let Some(shortcut) = &command.shortcut {
             let shortcut_label = Label::new(Some(shortcut));
             shortcut_label.add_css_class("shortcut-label");
-            shortcut_label.set_halign(gtk4::Align::End);
+            shortcut_label.set_halign(Align::End);
             row_box.append(&shortcut_label);
         }
 
