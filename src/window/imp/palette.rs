@@ -283,31 +283,52 @@ impl CommandPalette {
         let list_box_clone = list_box.clone();
         list_key_controller.connect_key_pressed(move |_, key, _, modifiers| {
             match key {
-                Key::Up => {
-                    // If at the top selectable item, move focus back to search entry
+                Key::Down => {
                     if let Some(row) = list_box_clone.selected_row() {
-                        let current_index = row.index();
-                        // Check if there's a selectable row above
-                        let mut has_selectable_above = false;
-                        for i in (0..current_index).rev() {
-                            if let Some(r) = list_box_clone.row_at_index(i) {
-                                if r.is_selectable() {
-                                    has_selectable_above = true;
-                                    break;
-                                }
+                        let mut i = row.index() + 1;
+                        while let Some(r) = list_box_clone.row_at_index(i) {
+                            if r.is_selectable() {
+                                list_box_clone.select_row(Some(&r));
+                                r.grab_focus();
+                                return Propagation::Stop;
                             }
+                            i += 1;
                         }
-                        if !has_selectable_above {
+                        // Nothing selectable below, swallow to avoid landing on non-selectables
+                        return Propagation::Stop;
+                    }
+                    Propagation::Proceed
+                }
+                Key::Up => {
+                    if let Some(row) = list_box_clone.selected_row() {
+                        // Walk upwards to the previous selectable row
+                        let mut i = row.index();
+                        if i == 0 {
+                            // No rows above — go back to search
                             search_entry_clone.grab_focus();
                             return Propagation::Stop;
                         }
+                        i -= 1;
+                        while let Some(r) = list_box_clone.row_at_index(i) {
+                            if r.is_selectable() {
+                                list_box_clone.select_row(Some(&r));
+                                r.grab_focus();
+                                return Propagation::Stop;
+                            }
+                            if i == 0 {
+                                break;
+                            }
+                            i -= 1;
+                        }
+                        // If we didn’t find a selectable above, return to the search entry
+                        search_entry_clone.grab_focus();
+                        return Propagation::Stop;
                     }
                     Propagation::Proceed
                 }
                 Key::Escape => Propagation::Proceed,
-                // For any other printable character, redirect to search entry
                 _ => {
-                    // Check if this is a printable character (not a modifier or special key)
+                    // existing printable-char-to-search-entry redirection stays as-is
                     if !modifiers.contains(ModifierType::CONTROL_MASK)
                         && !modifiers.contains(ModifierType::ALT_MASK)
                         && key != Key::Shift_L
@@ -319,19 +340,12 @@ impl CommandPalette {
                         && key != Key::Down
                         && key != Key::Return
                     {
-                        // Get the character representation of the key
                         if let Some(ch) = key.to_unicode() {
                             let current_text = search_entry_clone.text();
                             let cursor_pos = search_entry_clone.position();
-
-                            // Insert the character at cursor position
                             let mut new_text = current_text.to_string();
                             new_text.insert(cursor_pos as usize, ch);
-
-                            // Grab focus first
                             search_entry_clone.grab_focus();
-
-                            // Then set text and position
                             search_entry_clone.set_text(&new_text);
                             search_entry_clone.set_position(cursor_pos + 1);
                         }
