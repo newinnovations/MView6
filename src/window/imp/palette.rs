@@ -6,73 +6,8 @@ use gtk4::{
     ScrolledWindow, SelectionMode, Window,
 };
 
-use crate::window::imp::MViewWindowImp;
+use crate::window::imp::commands::{Command, COMMANDS};
 use crate::window::MViewWindow;
-
-const COMMANDS: &[Command] = &[
-    Command {
-        name: "Edit navigation filter",
-        shortcut: Some("Shift+F"),
-        action: |w| w.adjust_filter(),
-    },
-    Command {
-        name: "Toggle fullscreen",
-        shortcut: Some("F"),
-        action: |w| w.toggle_fullscreen(),
-    },
-    Command {
-        name: "Close all other panes",
-        shortcut: None,
-        action: |_| println!("Close all other panes"),
-    },
-    Command {
-        name: "Close all other tabs",
-        shortcut: None,
-        action: |_| println!("Close all other tabs"),
-    },
-    Command {
-        name: "Close all tabs after the current tab",
-        shortcut: None,
-        action: |_| println!("Close all tabs after current"),
-    },
-    Command {
-        name: "Close pane",
-        shortcut: Some("Ctrl+Shift+W"),
-        action: |_| println!("Close pane"),
-    },
-    Command {
-        name: "Close window",
-        shortcut: Some("Alt+F4"),
-        action: |_| println!("Close window"),
-    },
-    Command {
-        name: "Copy text",
-        shortcut: Some("Ctrl+C"),
-        action: |_| println!("Copy text"),
-    },
-    Command {
-        name: "Decrease font size",
-        shortcut: Some("Ctrl+Minus"),
-        action: |_| println!("Decrease font size"),
-    },
-    Command {
-        name: "Disable pane read-only mode",
-        shortcut: None,
-        action: |_| println!("Disable pane read-only mode"),
-    },
-    Command {
-        name: "Duplicate pane",
-        shortcut: Some("Alt+Shift+D"),
-        action: |_| println!("Duplicate pane"),
-    },
-];
-
-#[derive(Clone)]
-struct Command {
-    name: &'static str,
-    shortcut: Option<&'static str>,
-    action: fn(&MViewWindowImp),
-}
 
 pub struct CommandPalette {
     window: Window,

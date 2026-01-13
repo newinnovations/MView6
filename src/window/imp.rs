@@ -19,6 +19,7 @@
 
 mod actions;
 mod backend;
+mod commands;
 mod dependencies;
 mod filter;
 mod keyboard;

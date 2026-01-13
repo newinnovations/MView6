@@ -1,0 +1,78 @@
+"Open file":
+    command: "open()"
+"Zoom: No scaling":
+    command: "zoom(nozoom)"
+"Zoom: Fit window":
+    command: zoom(fit)
+"Zoom: Fill window":
+    command: zoom(fill)
+"Zoom: Maximum zoom":
+    command: zoom(max)
+"Transparency background: Checkerboard":
+    command: transparency(checkerboard)
+"Transparency background: White":
+    command: transparency(white)
+"Transparency background: Black":
+    command: transparency(black)
+"Rotate 90° Clockwise":
+    command: rotate(270)
+"Rotate 90° Counterclockwise":
+    command: rotate(90)
+"Rotate 180°":
+    command: rotate(180)
+"Page mode: Single":
+    command: page_mode(single)
+"Page mode: Dual (1, 2-3, 4-5, ...)":
+    command: page_mode(deo)
+"Page mode: Dual (1-2, 3-4, 5-6, ...)":
+    command: page_mode(doe)
+"PDF backend: MuPDF":
+    command: pdf_backend(mupdf)
+"PDF backend: PDFium":
+    command: pdf_backend(pdfium)
+"Toggle Files pane":
+    command: "files_pane(toggle)"
+"Toggle Information pane":
+    command: "information_pane(toggle)"
+"Thumbnail size: Extra small (80 px)":
+    command: thumb_size(80)
+"Thumbnail size: Small (100 px)":
+    command: thumb_size(100)
+"Thumbnail size: Medium (140 px)":
+    command: thumb_size(140)
+"Thumbnail size: Large (175 px)":
+    command: thumb_size(175)
+"Thumbnail size: Extra large (250 px)":
+    command: thumb_size(250)
+"Show thumbnails":
+    command: thumb(show)
+"Slideshow interval: 1 second":
+    command: slideshow_interval(1)
+"Slideshow interval: 3 seconds":
+    command: slideshow_interval(3)
+"Slideshow interval: 5 seconds":
+    command: slideshow_interval(5)
+"Slideshow interval: 10 seconds":
+    command: slideshow_interval(10)
+"Slideshow interval: 30 seconds":
+    command: slideshow_interval(30)
+"Slideshow interval: 1 minute":
+    command: slideshow_interval(60)
+"Start slideshow":
+    command: slideshow(start)
+"Stop slideshow":
+    command: slideshow(stop)
+"Toggle full screen":
+    key: F
+    command: fullscreen(toggle)
+"About MView6":
+    command: about()
+"Help screen 1":
+    command: help(1)
+"Help screen 2":
+    command: help(2)
+"Quit MView6":
+    command: quit()
+"Edit navigation filter":
+    key: Shift+F
+    command: adjust_filter()
