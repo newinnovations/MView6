@@ -127,8 +127,16 @@ impl MViewWindowImp {
     }
 
     pub fn show_help(&self) {
-        let w = self.widgets();
-        let image = if w.image_view.has_tag("help1") {
+        let page_no = if self.widgets().image_view.has_tag("help1") {
+            2
+        } else {
+            1
+        };
+        self.show_help_page(page_no);
+    }
+
+    pub fn show_help_page(&self, page_no: i32) {
+        let image = if page_no == 2 {
             ContentLoader::content_from_svg_data(
                 include_bytes!("../../../resources/mv6-help-2.svgz"),
                 Some("help2".to_string()),
@@ -140,7 +148,7 @@ impl MViewWindowImp {
             )
         };
         if let Some(image) = image {
-            w.image_view.set_content(image);
+            self.widgets().image_view.set_content(image);
         }
     }
 

@@ -1,78 +1,94 @@
 "Open file":
-    command: "open()"
+    command: open_file()
+
 "Zoom: No scaling":
-    command: "zoom(nozoom)"
+    command: change_zoom("nozoom")
 "Zoom: Fit window":
-    command: zoom(fit)
+    command: change_zoom("fit")
 "Zoom: Fill window":
-    command: zoom(fill)
+    command: change_zoom("fill")
 "Zoom: Maximum zoom":
-    command: zoom(max)
+    command: change_zoom("max")
+
 "Transparency background: Checkerboard":
-    command: transparency(checkerboard)
+    command: change_transparency("checkerboard")
 "Transparency background: White":
-    command: transparency(white)
+    command: change_transparency("white")
 "Transparency background: Black":
-    command: transparency(black)
+    command: change_transparency("black")
+
 "Rotate 90° Clockwise":
-    command: rotate(270)
+    command: rotate_image(270)
 "Rotate 90° Counterclockwise":
-    command: rotate(90)
+    command: rotate_image(90)
 "Rotate 180°":
-    command: rotate(180)
+    command: rotate_image(180)
+
 "Page mode: Single":
-    command: page_mode(single)
+    command: change_page_mode("single")
 "Page mode: Dual (1, 2-3, 4-5, ...)":
-    command: page_mode(deo)
+    command: change_page_mode("deo")
 "Page mode: Dual (1-2, 3-4, 5-6, ...)":
-    command: page_mode(doe)
+    command: change_page_mode("doe")
 "PDF backend: MuPDF":
-    command: pdf_backend(mupdf)
+    command: change_pdf_provider("mupdf")
 "PDF backend: PDFium":
-    command: pdf_backend(pdfium)
+    command: change_pdf_provider("pdfium")
+
 "Toggle Files pane":
-    command: "files_pane(toggle)"
+    key: space
+    command: toggle_pane_files()
 "Toggle Information pane":
-    command: "information_pane(toggle)"
+    key: i
+    command: toggle_pane_info()
+
 "Thumbnail size: Extra small (80 px)":
-    command: thumb_size(80)
+    command: set_thumbnail_size(80)
 "Thumbnail size: Small (100 px)":
-    command: thumb_size(100)
+    command: set_thumbnail_size(100)
 "Thumbnail size: Medium (140 px)":
-    command: thumb_size(140)
+    command: set_thumbnail_size(140)
 "Thumbnail size: Large (175 px)":
-    command: thumb_size(175)
+    command: set_thumbnail_size(175)
 "Thumbnail size: Extra large (250 px)":
-    command: thumb_size(250)
-"Show thumbnails":
-    command: thumb(show)
+    command: set_thumbnail_size(250)
+"Toggle thumbnail view":
+    key: t
+    command: toggle_thumbnail_view()
+
 "Slideshow interval: 1 second":
-    command: slideshow_interval(1)
+    command: set_slideshow_interval(1)
 "Slideshow interval: 3 seconds":
-    command: slideshow_interval(3)
+    command: set_slideshow_interval(3)
 "Slideshow interval: 5 seconds":
-    command: slideshow_interval(5)
+    command: set_slideshow_interval(5)
 "Slideshow interval: 10 seconds":
-    command: slideshow_interval(10)
+    command: set_slideshow_interval(10)
 "Slideshow interval: 30 seconds":
-    command: slideshow_interval(30)
-"Slideshow interval: 1 minute":
-    command: slideshow_interval(60)
+    command: set_slideshow_interval(30)
+"Slideshow interval: 60 seconds":
+    command: set_slideshow_interval(60)
 "Start slideshow":
-    command: slideshow(start)
+    command: set_slideshow_active(true)
 "Stop slideshow":
-    command: slideshow(stop)
+    command: set_slideshow_active(false)
+
 "Toggle full screen":
     key: F
-    command: fullscreen(toggle)
+    command: toggle_fullscreen()
+
 "About MView6":
-    command: about()
+    command: show_about_dialog()
+
 "Help screen 1":
-    command: help(1)
+    command: show_help_page(1)
 "Help screen 2":
-    command: help(2)
+    command: show_help_page(2)
+
 "Quit MView6":
+    key: q
     command: quit()
+
 "Edit navigation filter":
     key: Shift+F
     command: adjust_filter()
