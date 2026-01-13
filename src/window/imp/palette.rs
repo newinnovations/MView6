@@ -21,6 +21,8 @@ pub struct CommandPalette {
     recent_commands: Rc<RefCell<VecDeque<usize>>>,
 }
 
+// Would it be better using ListView or ColumnView instead of ListBox? We are targeting gtk 4.6 at the moment.
+
 impl CommandPalette {
     pub fn new(parent: &MViewWindow, recent_commands: Rc<RefCell<VecDeque<usize>>>) -> Self {
         let window = Window::builder()
@@ -87,12 +89,6 @@ impl CommandPalette {
 
         let filter_lower = filter.to_lowercase();
         let recent = self.recent_commands.borrow();
-
-        println!(
-            "Populating list, filter: '{}', recent count: {}",
-            filter,
-            recent.len()
-        );
 
         // If no filter, show recent items first
         if filter.is_empty() && !recent.is_empty() {
@@ -321,6 +317,13 @@ impl CommandPalette {
                             i -= 1;
                         }
                         // If we didn’t find a selectable above, return to the search entry
+                        if let Some(first_row) = list_box_clone.row_at_index(0) {
+                            // Hack to move the "Recent" header scroll to the first row
+                            // at the top of the viewport to make it visible again
+                            first_row.set_can_focus(true);
+                            first_row.grab_focus();
+                            first_row.set_can_focus(false);
+                        }
                         search_entry_clone.grab_focus();
                         return Propagation::Stop;
                     }
@@ -387,8 +390,6 @@ impl CommandPalette {
         while recent.len() > MAX_RECENT_ITEMS {
             recent.pop_back();
         }
-
-        println!("Recent commands: {:?}", *recent);
     }
 
     fn update_list(
