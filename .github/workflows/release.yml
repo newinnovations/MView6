@@ -145,13 +145,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          find . -type d
           mkdir -p mview6-windows/bin mview6-windows/lib mview6-windows/share/glib-2.0
           cp target/${{ matrix.sys.target }}/release/MView6.exe resources/fonts/*.ttf mview6-windows/bin/.
           cp /c/pdfium.dll mview6-windows/bin/.
           cp -r /c/gtk-build/gtk/x64/release/lib/gdk-pixbuf* mview6-windows/lib/.
           cp -r /c/gtk-build/gtk/x64/release/share/glib-2.0/schemas mview6-windows/share/glib-2.0/.
-          find /c/vcpkg/packages/dav1d_x64-windows -name "*.dll" -exec cp {} target/${{ matrix.sys.target }}/release/deps/. \;
+          find /c/vcpkg/packages/dav1d_x64-windows/bin -name "*.dll" -exec cp {} target/${{ matrix.sys.target }}/release/deps/. \;
           find /c/gtk-build/gtk/x64/release -name "*.dll" -exec cp {} target/${{ matrix.sys.target }}/release/deps/. \;
           bash tools/windows/getdlls.sh mview6-windows/bin/MView6.exe
           bash tools/windows/getdlls.sh target/${{ matrix.sys.target }}/release/deps/pixbufloader_svg.dll
