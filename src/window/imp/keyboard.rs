@@ -237,7 +237,8 @@ impl MViewWindowImp {
                 if modifiers.contains(ModifierType::CONTROL_MASK)
                     && modifiers.contains(ModifierType::SHIFT_MASK)
                 {
-                    let palette = CommandPalette::new(&self.obj().clone());
+                    let palette =
+                        CommandPalette::new(&self.obj().clone(), self.recent_commands.clone());
                     palette.show();
                 } else {
                     let w = self.widgets();

@@ -88,11 +88,7 @@ impl CommandPalette {
         let filter_lower = filter.to_lowercase();
         let recent = self.recent_commands.borrow();
 
-        println!(
-            "Populating list, filter: '{}', recent count: {}",
-            filter,
-            recent.len()
-        );
+        println!("Populating list, filter: '{}', recent count: {}", filter, recent.len());
 
         // If no filter, show recent items first
         if filter.is_empty() && !recent.is_empty() {
@@ -100,7 +96,6 @@ impl CommandPalette {
             let header_row = ListBoxRow::new();
             header_row.set_activatable(false);
             header_row.set_selectable(false);
-            header_row.set_can_focus(false);
 
             let header_label = Label::new(Some("Recent"));
             header_label.set_halign(Align::Start);
@@ -125,7 +120,6 @@ impl CommandPalette {
             let separator_row = ListBoxRow::new();
             separator_row.set_activatable(false);
             separator_row.set_selectable(false);
-            separator_row.set_can_focus(false);
 
             let separator = Separator::new(Orientation::Horizontal);
             separator.set_margin_start(12);
@@ -140,7 +134,6 @@ impl CommandPalette {
             let all_header_row = ListBoxRow::new();
             all_header_row.set_activatable(false);
             all_header_row.set_selectable(false);
-            all_header_row.set_can_focus(false);
 
             let all_header_label = Label::new(Some("All Commands"));
             all_header_label.set_halign(Align::Start);
@@ -293,12 +286,34 @@ impl CommandPalette {
                             if let Some(r) = list_box_clone.row_at_index(i) {
                                 if r.is_selectable() {
                                     has_selectable_above = true;
+                                    // Select that row
+                                    list_box_clone.select_row(Some(&r));
                                     break;
                                 }
                             }
                         }
                         if !has_selectable_above {
                             search_entry_clone.grab_focus();
+                        }
+                        return Propagation::Stop;
+                    }
+                    Propagation::Proceed
+                }
+                Key::Down => {
+                    // Move to next selectable row
+                    if let Some(row) = list_box_clone.selected_row() {
+                        let current_index = row.index();
+                        let mut found_next = false;
+                        let mut i = current_index + 1;
+                        while let Some(r) = list_box_clone.row_at_index(i) {
+                            if r.is_selectable() {
+                                list_box_clone.select_row(Some(&r));
+                                found_next = true;
+                                break;
+                            }
+                            i += 1;
+                        }
+                        if found_next {
                             return Propagation::Stop;
                         }
                     }
@@ -377,11 +392,7 @@ impl CommandPalette {
         println!("Recent commands: {:?}", *recent);
     }
 
-    fn update_list(
-        list_box: &ListBox,
-        filter: &str,
-        recent_commands: &Rc<RefCell<VecDeque<usize>>>,
-    ) {
+    fn update_list(list_box: &ListBox, filter: &str, recent_commands: &Rc<RefCell<VecDeque<usize>>>) {
         while let Some(row) = list_box.first_child() {
             list_box.remove(&row);
         }

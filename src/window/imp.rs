@@ -66,9 +66,10 @@ use gtk4::{
 use serde::{Deserialize, Serialize};
 use std::{
     cell::{Cell, OnceCell, RefCell},
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     env, fs,
     path::PathBuf,
+    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -165,6 +166,7 @@ pub struct MViewWindowImp {
     next_slide_timeout_id: RefCell<Option<SourceId>>,
     clipboard: RefCell<Option<Clipboard>>,
     current_filter: RefCell<Filter>,
+    recent_commands: Rc<RefCell<VecDeque<usize>>>,
 }
 
 #[glib::object_subclass]
