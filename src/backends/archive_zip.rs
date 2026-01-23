@@ -29,7 +29,7 @@ use std::{
 use zip::result::ZipResult;
 
 use crate::{
-    category::Category,
+    category::{Category, ContentType},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -173,7 +173,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             continue;
         }
 
-        if cat.id() == Category::Unsupported.id() {
+        if cat.content == ContentType::Unsupported {
             continue;
         }
 
@@ -193,17 +193,13 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        let row = Row {
-            category: cat.id(),
-            name: path_to_filename(&outpath),
-            size: file_size,
+        result.push(Row::new_index(
+            cat,
+            path_to_filename(&outpath),
+            file_size,
             modified,
             index,
-            icon: cat.icon().to_string(),
-            folder: Default::default(),
-        };
-
-        result.push(row);
+        ));
     }
     Ok(result)
 }

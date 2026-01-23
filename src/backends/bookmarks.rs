@@ -19,7 +19,7 @@
 
 use super::{Content, ImageParams};
 use crate::{
-    category::Category,
+    category::ContentType,
     config::config,
     content::loader::ContentLoader,
     file_view::{
@@ -69,18 +69,15 @@ impl Bookmarks {
                 0
             };
             let file_size = metadata.len();
-            let cat = Category::Folder;
-            let row = Row {
-                category: cat.id(),
-                name: entry.name.clone(),
-                size: file_size,
+            let cat = ContentType::Folder.into();
+            result.push(Row::new_folder_index(
+                cat,
+                entry.name.clone(),
+                file_size,
                 modified,
-                index: Default::default(),
-                icon: cat.icon().to_string(),
-                folder: entry.folder.clone(),
-            };
-
-            result.push(row);
+                0,
+                entry.folder.clone(),
+            ));
         }
         Ok(result)
     }

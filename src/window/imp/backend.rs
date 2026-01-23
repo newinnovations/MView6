@@ -88,7 +88,9 @@ impl MViewWindowImp {
         w.file_view.set_model(Some(&new_store));
         w.file_view.set_sortable(can_be_sorted);
         self.skip_loading.set(skip_loading);
-        w.file_view.goto(goto, &self.obj());
+
+        let filter = self.current_filter.borrow();
+        w.file_view.goto(goto, &filter, &self.obj());
     }
 
     pub fn update_thumbnail_backend(&self) {
@@ -104,14 +106,15 @@ impl MViewWindowImp {
         }
     }
 
-    pub fn reload(&self, goto: &Target) -> bool {
+    pub fn reload(&self, target: &Target) {
         let backend = self.backend.borrow();
         if let Some(new_backend) = backend.reload() {
             drop(backend);
-            self.set_backend(new_backend, goto);
-            true
+            self.set_backend(new_backend, target);
         } else {
-            false
+            // nothing to reload, but go to requested target
+            let filter = self.current_filter.borrow();
+            self.widgets().file_view.goto(target, &filter, &self.obj());
         }
     }
 

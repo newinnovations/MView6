@@ -27,7 +27,7 @@ use std::{
 };
 
 use crate::{
-    category::Category,
+    category::{Category, ContentType},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -160,21 +160,17 @@ fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
         let cat = Category::determine(Path::new(&entry.filename), false);
         let file_size = entry.image_size as u64;
 
-        if cat.id() == Category::Unsupported.id() {
+        if cat.content == ContentType::Unsupported {
             continue;
         }
 
-        let row = Row {
-            category: cat.id(),
-            name: entry.filename.to_string(),
-            size: file_size,
-            modified: entry.date,
-            index: entry.offset,
-            icon: cat.icon().to_string(),
-            folder: Default::default(),
-        };
-
-        result.push(row);
+        result.push(Row::new_index(
+            cat,
+            entry.filename.to_string(),
+            file_size,
+            entry.date,
+            entry.offset,
+        ));
     }
     Ok(result)
 }

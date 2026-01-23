@@ -19,13 +19,17 @@
 
 mod actions;
 mod backend;
+mod commands;
 mod dependencies;
+mod filter;
 mod keyboard;
 mod menu;
 mod mouse;
 mod navigate;
+mod palette;
 mod panel;
 mod resize;
+mod slideshow;
 mod sort;
 
 use crate::{
@@ -39,20 +43,21 @@ use crate::{
     },
     file_view::{
         model::{BackendRef, ItemRef, Reference},
-        FileView, Sort, Target,
+        FileView, Filter, Sort, Target,
     },
-    image::view::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE},
+    image::view::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
     info_view::InfoView,
     rect::PointD,
     render_thread::{
         model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
         RenderThread, RenderThreadSender,
     },
-    window::imp::{dependencies::check_dependencies, panel::create_overlay_button_panel},
+    window::imp::{dependencies::check_dependencies, panel::Panel},
 };
+use arboard::Clipboard;
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
-use glib::{clone, closure_local, idle_add_local, ControlFlow, SourceId};
+use glib::{clone, closure_local, idle_add_local, property::PropertySet, ControlFlow, SourceId};
 use gtk4::{
     glib::Propagation, prelude::*, subclass::prelude::*, Button, EventControllerKey, HeaderBar,
     MenuButton, ScrolledWindow,
@@ -60,9 +65,10 @@ use gtk4::{
 use serde::{Deserialize, Serialize};
 use std::{
     cell::{Cell, OnceCell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     env, fs,
     path::PathBuf,
+    rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -79,7 +85,7 @@ pub struct MViewWidgets {
     pub rt_sender: RenderThreadSender,
     actions: SimpleActionGroup,
     forward_button_top: Button,
-    forward_button_panel: Button,
+    panel: Panel,
 }
 
 impl MViewWidgets {
@@ -97,6 +103,25 @@ impl MViewWidgets {
                 action.set_state(&state.to_variant());
             }
         }
+    }
+
+    pub fn get_action_bool(&self, action_name: &str) -> bool {
+        self.actions
+            .lookup_action(action_name)
+            .and_then(|a| a.downcast::<SimpleAction>().ok())
+            .and_then(|a| a.state())
+            .and_then(|v| v.get::<bool>())
+            .unwrap_or_default()
+    }
+
+    pub fn get_action_i32(&self, action_name: &str) -> i32 {
+        self.actions
+            .lookup_action(action_name)
+            .and_then(|a| a.downcast::<SimpleAction>().ok())
+            .and_then(|a| a.state())
+            .and_then(|v| v.get::<String>())
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or_default()
     }
 
     pub fn rb_send(&self, command: RenderCommand) {
@@ -124,7 +149,7 @@ impl TargetTime {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct MViewWindowImp {
     widget_cell: OnceCell<MViewWidgets>,
     backend: RefCell<Box<dyn Backend>>,
@@ -137,6 +162,10 @@ pub struct MViewWindowImp {
     sorting_store: RefCell<HashMap<PathBuf, Sort>>,
     target_store: RefCell<HashMap<PathBuf, TargetTime>>,
     canvas_resized_timeout_id: RefCell<Option<SourceId>>,
+    next_slide_timeout_id: RefCell<Option<SourceId>>,
+    clipboard: RefCell<Option<Clipboard>>,
+    current_filter: RefCell<Filter>,
+    recent_commands: Rc<RefCell<VecDeque<usize>>>,
 }
 
 #[glib::object_subclass]
@@ -221,6 +250,7 @@ impl ObjectImpl for MViewWindowImp {
 
         self.thumbnail_size.set(250);
         self.current_sort.set(Sort::sort_on_category());
+        self.current_filter.set(Filter::full_set());
 
         let window = self.obj();
 
@@ -298,10 +328,8 @@ impl ObjectImpl for MViewWindowImp {
         file_widget.set_child(Some(&file_view));
 
         let image_view = ImageView::new();
-        let (image_view_overlay, forward_button_panel) =
-            create_overlay_button_panel(self, &image_view, &menu);
-
-        hbox.append(&image_view_overlay);
+        let panel = Panel::create(self, &image_view, &menu);
+        hbox.append(&panel.overlay);
 
         let info_widget = ScrolledWindow::new();
         info_widget.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
@@ -320,8 +348,8 @@ impl ObjectImpl for MViewWindowImp {
             self,
             #[upgrade_or]
             Propagation::Stop,
-            move |_ctrl, key, _, _| {
-                this.on_key_press(key);
+            move |_, key, _, modifiers| {
+                this.on_key_press(key, modifiers);
                 Propagation::Stop
             }
         ));
@@ -365,6 +393,18 @@ impl ObjectImpl for MViewWindowImp {
             ),
         );
 
+        image_view.connect_closure(
+            SIGNAL_SHOWN,
+            false,
+            closure_local!(
+                #[weak(rename_to = this)]
+                self,
+                move |_view: ImageView| {
+                    this.event_shown();
+                }
+            ),
+        );
+
         image_view.add_context_menu(menu);
 
         file_view.connect_cursor_changed(clone!(
@@ -388,6 +428,15 @@ impl ObjectImpl for MViewWindowImp {
         let render_thread = RenderThread::new(from_rt_sender, to_rt_receiver);
         let rt_sender = render_thread.create_sender(to_rt_sender);
 
+        match Clipboard::new() {
+            Ok(clipboard) => {
+                self.clipboard.replace(Some(clipboard));
+            }
+            Err(e) => {
+                eprint!("Failed to open clipboard: {e:?}");
+            }
+        }
+
         self.widget_cell
             .set(MViewWidgets {
                 hbox,
@@ -401,7 +450,7 @@ impl ObjectImpl for MViewWindowImp {
                 rt_sender,
                 actions,
                 forward_button_top: forward_button,
-                forward_button_panel,
+                panel,
             })
             .expect("Failed to initialize MView window");
 
@@ -520,6 +569,16 @@ impl ObjectImpl for MViewWindowImp {
 impl WidgetImpl for MViewWindowImp {}
 impl WindowImpl for MViewWindowImp {}
 impl ApplicationWindowImpl for MViewWindowImp {}
+
+impl MViewWindowImp {
+    pub fn copy_to_clipboard(&self, content: &str) {
+        if let Some(clipboard) = self.clipboard.borrow_mut().as_mut() {
+            if let Err(e) = clipboard.set_text(content) {
+                eprintln!("Failed to copy to clipboard: {e:?}");
+            }
+        }
+    }
+}
 
 // impl MViewWidgets {
 //     pub fn filter(&self) -> Filter {

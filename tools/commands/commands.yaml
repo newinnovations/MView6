@@ -1,0 +1,102 @@
+"Open file":
+    command: open_file()
+
+"Zoom: No scaling":
+    command: change_zoom("nozoom")
+"Zoom: Fit window":
+    command: change_zoom("fit")
+"Zoom: Fill window":
+    command: change_zoom("fill")
+"Zoom: Maximum zoom":
+    command: change_zoom("max")
+
+"Transparency background: Checkerboard":
+    command: change_transparency("checkerboard")
+"Transparency background: White":
+    command: change_transparency("white")
+"Transparency background: Black":
+    command: change_transparency("black")
+
+"Rotate 90° Clockwise":
+    command: rotate_image(270)
+"Rotate 90° Counterclockwise":
+    command: rotate_image(90)
+"Rotate 180°":
+    command: rotate_image(180)
+
+"Page mode: Single":
+    command: change_page_mode("single")
+"Page mode: Dual (1, 2-3, 4-5, ...)":
+    command: change_page_mode("deo")
+"Page mode: Dual (1-2, 3-4, 5-6, ...)":
+    command: change_page_mode("doe")
+"PDF backend: MuPDF":
+    command: change_pdf_provider("mupdf")
+"PDF backend: PDFium":
+    command: change_pdf_provider("pdfium")
+
+"Toggle Files pane":
+    key: space
+    command: toggle_pane_files()
+"Toggle Information pane":
+    key: i
+    command: toggle_pane_info()
+
+"Thumbnail size: Extra small (80 px)":
+    command: set_thumbnail_size(80)
+"Thumbnail size: Small (100 px)":
+    command: set_thumbnail_size(100)
+"Thumbnail size: Medium (140 px)":
+    command: set_thumbnail_size(140)
+"Thumbnail size: Large (175 px)":
+    command: set_thumbnail_size(175)
+"Thumbnail size: Extra large (250 px)":
+    command: set_thumbnail_size(250)
+"Toggle thumbnail view":
+    key: t
+    command: toggle_thumbnail_view()
+
+"Slideshow interval: 1 second":
+    command: set_slideshow_interval(1)
+"Slideshow interval: 3 seconds":
+    command: set_slideshow_interval(3)
+"Slideshow interval: 5 seconds":
+    command: set_slideshow_interval(5)
+"Slideshow interval: 10 seconds":
+    command: set_slideshow_interval(10)
+"Slideshow interval: 30 seconds":
+    command: set_slideshow_interval(30)
+"Slideshow interval: 60 seconds":
+    command: set_slideshow_interval(60)
+"Start slideshow":
+    command: set_slideshow_active(true)
+"Stop slideshow":
+    command: set_slideshow_active(false)
+
+"Toggle full screen":
+    key: F
+    command: toggle_fullscreen()
+
+"About MView6":
+    command: show_about_dialog()
+
+"Help screen 1":
+    command: show_help_page(1)
+"Help screen 2":
+    command: show_help_page(2)
+
+"Quit MView6":
+    key: q
+    command: quit()
+
+"Navigation: edit filter":
+    key: Shift+F
+    command: adjust_filter()
+
+"Measurements: toggle feature":
+    key: f2
+    command: measure_toggle()
+
+"Measurements: move endpoints":
+    key: tab
+    command: measure_move_endpoints()

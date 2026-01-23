@@ -30,7 +30,7 @@ use crate::{
         archive_mar::MarArchive, archive_rar::RarArchive, archive_zip::ZipArchive,
         document::pdfium::DocPdfium, filesystem::FileSystem,
     },
-    category::Category,
+    category::ContentType,
     error::MviewResult,
     file_view::model::BackendRef,
     image::{draw::text_thumb, provider::image_rs::RsImageLoader, view::ImageView},
@@ -47,18 +47,18 @@ fn thumb_result(res: MviewResult<DynamicImage>, task: &TTask) -> TResultOption {
             let image = image.resize(task.size, task.size, image::imageops::FilterType::Lanczos3);
             TResultOption::Image(image)
         }
-        Err(_error) => match task.source.category {
-            Category::Folder => TResultOption::Message(TMessage::new(
+        Err(_error) => match task.source.category.content {
+            ContentType::Folder => TResultOption::Message(TMessage::new(
                 &task.source.category.name(),
                 &task.source.name,
                 task.source.category.colors(),
             )),
-            Category::Archive => TResultOption::Message(TMessage::new(
+            ContentType::Archive => TResultOption::Message(TMessage::new(
                 &task.source.category.name(),
                 &task.source.name,
                 task.source.category.colors(),
             )),
-            Category::Unsupported => TResultOption::Message(TMessage::new(
+            ContentType::Unsupported => TResultOption::Message(TMessage::new(
                 &task.source.category.name(),
                 &task.source.name,
                 task.source.category.colors(),

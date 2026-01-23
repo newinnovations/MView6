@@ -127,8 +127,16 @@ impl MViewWindowImp {
     }
 
     pub fn show_help(&self) {
-        let w = self.widgets();
-        let image = if w.image_view.has_tag("help1") {
+        let page_no = if self.widgets().image_view.has_tag("help1") {
+            2
+        } else {
+            1
+        };
+        self.show_help_page(page_no);
+    }
+
+    pub fn show_help_page(&self, page_no: i32) {
+        let image = if page_no == 2 {
             ContentLoader::content_from_svg_data(
                 include_bytes!("../../../resources/mv6-help-2.svgz"),
                 Some("help2".to_string()),
@@ -140,7 +148,7 @@ impl MViewWindowImp {
             )
         };
         if let Some(image) = image {
-            w.image_view.set_content(image);
+            self.widgets().image_view.set_content(image);
         }
     }
 
@@ -282,10 +290,30 @@ impl MViewWindowImp {
         self.update_thumbnail_backend()
     }
 
+    pub fn toggle_slideshow(&self) {
+        self.set_slideshow_active(!self.is_slideshow_active());
+    }
+
+    pub fn navigate_item_filter(&self, direction: Direction, count: u32) {
+        let w = self.widgets();
+        w.file_view
+            .navigate_item(direction, &self.current_filter.borrow(), count);
+    }
+
     pub fn navigate_page(&self, direction: Direction, count: u32) {
         let w = self.widgets();
         if !w.image_view.navigate_page(direction, count) {
-            w.file_view.navigate_item(direction, Filter::None, count);
+            w.file_view.navigate_item(direction, &Filter::None, count);
         }
+    }
+
+    pub fn measure_toggle(&self) {
+        let w = self.widgets();
+        w.image_view.measure_enable(!w.image_view.measure_active());
+    }
+
+    pub fn measure_move_endpoints(&self) {
+        let w = self.widgets();
+        w.image_view.measure_toggle_tracking();
     }
 }

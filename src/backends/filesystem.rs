@@ -19,7 +19,7 @@
 
 use super::{Content, ImageParams};
 use crate::{
-    category::Category,
+    category::{Category, ContentType, FavType},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -36,6 +36,7 @@ use std::{
     fs::{metadata, read_dir, rename},
     io::{self},
     path::{Path, PathBuf},
+    process::{Command, Stdio},
     time::UNIX_EPOCH,
 };
 
@@ -83,17 +84,7 @@ impl FileSystem {
 
             let cat = Category::determine(&path, metadata.is_dir());
 
-            let row = Row {
-                category: cat.id(),
-                name: filename.to_string(),
-                size,
-                modified,
-                index: Default::default(),
-                icon: cat.icon().to_string(),
-                folder: Default::default(),
-            };
-
-            result.push(row);
+            result.push(Row::new(cat, filename.to_string(), size, modified));
         }
         Ok(result)
     }
@@ -136,10 +127,23 @@ impl Backend for FileSystem {
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        let category = cursor.category();
-        if category == Category::Folder
-            || category == Category::Archive
-            || category == Category::Document
+        let content = cursor.content();
+        if content == ContentType::Video {
+            let full_path = self.directory.join(cursor.name());
+            println!("Launch video external {}", full_path.to_string_lossy());
+            let child = Command::new("mpv")
+                .arg(full_path)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn();
+            if let Err(error) = child {
+                eprintln!("Failed to launch mpv {:?}", error);
+            };
+            None
+        } else if content == ContentType::Folder
+            || content == ContentType::Archive
+            || content == ContentType::Document
         {
             Some(<dyn Backend>::new_from_path(
                 &self.directory.join(cursor.name()),
@@ -180,30 +184,31 @@ impl Backend for FileSystem {
     // }
 
     fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
-        let cat = cursor.category();
-        if cat != Category::Image && cat != Category::Favorite && cat != Category::Trash {
+        let content = cursor.content();
+        if content != ContentType::Image {
+            //TODO: drop this restriction?
             return false;
         }
 
         let filename = cursor.name();
         let re = Regex::new(r"\.([^\.]+)$").unwrap();
-        let (new_filename, new_category) = if matches!(direction, Direction::Up) {
+        let (new_filename, new_favorite) = if matches!(direction, Direction::Up) {
             if filename.contains(".hi.") {
                 return true;
             } else if filename.contains(".lo.") {
-                (filename.replace(".lo", ""), Category::Image)
+                (filename.replace(".lo", ""), FavType::Normal)
             } else {
                 (
                     re.replace(&filename, ".hi.$1").to_string(),
-                    Category::Favorite,
+                    FavType::Favorite,
                 )
             }
         } else if filename.contains(".lo.") {
             return true;
         } else if filename.contains(".hi.") {
-            (filename.replace(".hi", ""), Category::Image)
+            (filename.replace(".hi", ""), FavType::Normal)
         } else {
-            (re.replace(&filename, ".lo.$1").to_string(), Category::Trash)
+            (re.replace(&filename, ".lo.$1").to_string(), FavType::Trash)
         };
         dbg!(&self.directory, &filename, &new_filename);
         match rename(
@@ -211,7 +216,7 @@ impl Backend for FileSystem {
             self.directory.join(&new_filename),
         ) {
             Ok(()) => {
-                cursor.update(new_category, &new_filename);
+                cursor.update(new_favorite, &new_filename);
                 true
             }
             Err(e) => {

@@ -23,7 +23,7 @@ use gtk4::{
     ListStore, TreeIter, TreeModel, TreePath,
 };
 
-use crate::category::Category;
+use crate::category::{Category, ContentType, FavType};
 
 use super::model::{Column, Direction, Filter};
 
@@ -63,60 +63,48 @@ impl Cursor {
     }
 
     /// Value of the category field of the row (as u32)
-    pub fn category_id(&self) -> u32 {
-        self.store.category_id(&self.iter)
+    pub fn content_id(&self) -> u32 {
+        self.store.content_id(&self.iter)
     }
 
-    /// Value of the category field of the row (as Category)
-    pub fn category(&self) -> Category {
-        self.store.category(&self.iter)
+    /// Value of the content field of the row (as ContentType)
+    pub fn content(&self) -> ContentType {
+        self.store.content(&self.iter)
     }
 
-    // pub fn store_size(&self) -> i32 {
-    //     self.store.iter_n_children(None)
-    // }
+    /// Value of the favorite field of the row (as FavType)
+    pub fn favorite(&self) -> FavType {
+        self.store.favorite(&self.iter)
+    }
 
-    pub fn update(&self, new_category: Category, new_filename: &str) {
+    pub fn update(&self, new_favorite: FavType, new_filename: &str) {
         self.store.set(
             &self.iter,
             &[
-                (Column::Cat as u32, &new_category.id()),
-                (Column::Icon as u32, &new_category.icon()),
+                (Column::FavIcon as u32, &new_favorite.icon()),
+                (Column::ShowFavIcon as u32, &new_favorite.show_icon()),
                 (Column::Name as u32, &new_filename),
             ],
         );
     }
 
-    pub fn navigate(&self, direction: Direction, filter: Filter, count: u32) -> Option<TreePath> {
+    pub fn navigate(&self, direction: Direction, filter: &Filter, count: u32) -> Option<TreePath> {
         let mut cnt = count;
         loop {
             let last = self.iter;
-            let result = match direction {
+            let item_available = match direction {
                 Direction::Up => self.store.iter_previous(&self.iter),
                 Direction::Down => self.store.iter_next(&self.iter),
             };
-            if !result {
+            if !item_available {
                 if count != cnt {
                     return Some(self.store.path(&last));
                 }
                 return None;
             }
-
-            let cat = self.store.category(&self.iter);
-
-            let skip = match filter {
-                Filter::None => false,
-                Filter::Image => cat != Category::Image && cat != Category::Favorite,
-                Filter::Favorite => cat != Category::Favorite,
-                Filter::Container => {
-                    cat != Category::Folder && cat != Category::Archive && cat != Category::Document
-                }
-            };
-
-            if skip {
+            if !filter.matches(self.store.category(&self.iter)) {
                 continue;
             }
-
             cnt -= 1;
             if cnt == 0 {
                 break;
@@ -133,8 +121,10 @@ impl Cursor {
 pub trait TreeModelMviewExt: IsA<TreeModel> {
     fn name(&self, iter: &TreeIter) -> String;
     fn folder(&self, iter: &TreeIter) -> String;
-    fn category_id(&self, iter: &TreeIter) -> u32;
+    fn content_id(&self, iter: &TreeIter) -> u32;
     fn category(&self, iter: &TreeIter) -> Category;
+    fn content(&self, iter: &TreeIter) -> ContentType;
+    fn favorite(&self, iter: &TreeIter) -> FavType;
     fn index(&self, iter: &TreeIter) -> u64;
     fn modified(&self, iter: &TreeIter) -> u64;
     fn size(&self, iter: &TreeIter) -> u64;
@@ -151,16 +141,29 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
             .get::<String>()
             .unwrap_or_default()
     }
-    fn category_id(&self, iter: &TreeIter) -> u32 {
-        self.get_value(iter, Column::Cat as i32)
+    fn content_id(&self, iter: &TreeIter) -> u32 {
+        self.get_value(iter, Column::ContentType as i32)
             .get::<u32>()
-            .unwrap_or(Category::Unsupported.id())
+            .unwrap_or(ContentType::Unsupported.id())
     }
     fn category(&self, iter: &TreeIter) -> Category {
-        match self.get_value(iter, Column::Cat as i32).get::<u32>() {
-            Ok(id) => Category::from(id),
-            Err(_) => Default::default(),
+        Category::new(self.content(iter), self.favorite(iter))
+    }
+    fn content(&self, iter: &TreeIter) -> ContentType {
+        match self
+            .get_value(iter, Column::ContentType as i32)
+            .get::<u32>()
+        {
+            Ok(id) => ContentType::from(id),
+            Err(_) => ContentType::Unsupported,
         }
+    }
+    fn favorite(&self, iter: &TreeIter) -> FavType {
+        let fav_icon = self
+            .get_value(iter, Column::FavIcon as i32)
+            .get::<String>()
+            .unwrap_or_default();
+        FavType::from_fav_icon(&fav_icon)
     }
     fn index(&self, iter: &TreeIter) -> u64 {
         self.get_value(iter, Column::Index as i32)

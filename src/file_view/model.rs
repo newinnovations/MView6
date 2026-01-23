@@ -17,13 +17,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{fmt, path::PathBuf, str::FromStr};
+use std::{collections::HashSet, fmt, path::PathBuf, str::FromStr};
 
 use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
 
 use super::cursor::TreeModelMviewExt;
-use crate::category::Category;
+use crate::category::{Category, ContentType, FavType};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(i32)]
@@ -32,50 +32,110 @@ pub enum Direction {
     Down,
 }
 
-#[derive(Debug)]
-#[repr(i32)]
+pub type FilterSet = (HashSet<ContentType>, HashSet<FavType>);
+
+#[derive(Debug, Default)]
 pub enum Filter {
-    None = 0,
+    #[default]
+    None,
     Image,
     Favorite,
     Container,
+    Set(FilterSet),
+}
+
+impl Filter {
+    pub fn full_set() -> Self {
+        Self::Set((ContentType::all(), FavType::all()))
+    }
+
+    pub fn matches(&self, category: Category) -> bool {
+        match self {
+            Self::None => true,
+            Self::Image => category.content == ContentType::Image,
+            Self::Favorite => category.favorite == FavType::Favorite,
+            Self::Container => {
+                category.content == ContentType::Folder
+                    || category.content == ContentType::Archive
+                    || category.content == ContentType::Document
+            }
+            Self::Set((ref c_set, ref f_set)) => {
+                c_set.contains(&category.content) && f_set.contains(&category.favorite)
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
 #[repr(u32)]
 pub enum Column {
     // First 4 need to be in the order on screen
-    Cat = 0,
+    ContentType = 0,
     Name,
     Size,
     Modified,
     Index,
-    Icon,
+    ContentIcon,
+    FavIcon,
+    ShowFavIcon,
     Folder,
 }
 
 #[derive(Debug, Clone)]
 pub struct Row {
-    pub category: u32,
+    pub content_type: u32,
     pub name: String,
     pub size: u64,
     pub modified: u64,
-    pub index: u64,
-    pub icon: String,
-    pub folder: String,
+    index: u64,
+    content_icon: String,
+    fav_icon: String,
+    show_fav_icon: bool,
+    folder: String,
 }
 
 impl Row {
+    pub fn new(cat: Category, name: String, size: u64, modified: u64) -> Self {
+        Self::new_folder_index(cat, name, size, modified, 0, Default::default())
+    }
+
+    pub fn new_index(cat: Category, name: String, size: u64, modified: u64, index: u64) -> Self {
+        Self::new_folder_index(cat, name, size, modified, index, Default::default())
+    }
+
+    pub fn new_folder_index(
+        cat: Category,
+        name: String,
+        size: u64,
+        modified: u64,
+        index: u64,
+        folder: String,
+    ) -> Self {
+        Row {
+            content_type: cat.content_id(),
+            name,
+            size,
+            modified,
+            index,
+            content_icon: cat.content_icon().to_string(),
+            fav_icon: cat.fav_icon().to_string(),
+            show_fav_icon: cat.show_fav_icon(),
+            folder,
+        }
+    }
+
     pub fn push(&self, store: &ListStore) {
         store.insert_with_values(
             None,
             &[
-                (Column::Cat as u32, &self.category),
+                (Column::ContentType as u32, &self.content_type),
                 (Column::Name as u32, &self.name),
                 (Column::Size as u32, &self.size),
                 (Column::Modified as u32, &self.modified),
                 (Column::Index as u32, &self.index),
-                (Column::Icon as u32, &self.icon),
+                (Column::ContentIcon as u32, &self.content_icon),
+                (Column::FavIcon as u32, &self.fav_icon),
+                (Column::ShowFavIcon as u32, &self.show_fav_icon),
                 (Column::Folder as u32, &self.folder),
             ],
         );
@@ -84,7 +144,7 @@ impl Row {
 
 impl Column {
     pub fn empty_store() -> ListStore {
-        let col_types: [glib::Type; 7] = [
+        let col_types: [glib::Type; 9] = [
             glib::Type::U32,
             glib::Type::STRING,
             glib::Type::U64,
@@ -92,14 +152,16 @@ impl Column {
             glib::Type::U64,
             glib::Type::STRING,
             glib::Type::STRING,
+            glib::Type::BOOL,
+            glib::Type::STRING,
         ];
         let store = ListStore::new(&col_types);
         store.set_sort_func(
-            gtk4::SortColumn::Index(Column::Cat as u32),
+            gtk4::SortColumn::Index(Column::ContentType as u32),
             |model, iter1, iter2| {
-                let cat1 = model.category_id(iter1);
-                let cat2 = model.category_id(iter2);
-                let result = cat1.cmp(&cat2);
+                let content1 = model.content_id(iter1);
+                let content2 = model.content_id(iter2);
+                let result = content1.cmp(&content2);
                 if result.is_eq() {
                     let filename1 = model.name(iter1).to_lowercase();
                     let filename2 = model.name(iter2).to_lowercase();
@@ -359,12 +421,16 @@ impl Entry {
             reference,
         }
     }
+
+    pub fn favorite(&self) -> FavType {
+        self.category.favorite
+    }
 }
 
 impl Default for Entry {
     fn default() -> Self {
         Self {
-            category: Category::Unsupported,
+            category: Default::default(),
             name: Default::default(),
             reference: Reference {
                 backend: BackendRef::None,
