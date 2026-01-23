@@ -33,7 +33,7 @@ use glib::{
 };
 use gtk4::{
     glib,
-    prelude::TreeViewExt,
+    prelude::{CellRendererExt, TreeViewExt},
     subclass::{prelude::TreeViewImpl, widget::WidgetImpl},
     CellRendererPixbuf, CellRendererText, TreeView, TreeViewColumn, TreeViewColumnSizing,
 };
@@ -83,21 +83,22 @@ impl ObjectImpl for FileViewImp {
         let col_category = TreeViewColumn::new();
         col_category.pack_start(&renderer, true);
         // column.set_title("Cat");
-        col_category.add_attribute(&renderer, "icon-name", Column::Icon as i32);
+        col_category.add_attribute(&renderer, "icon-name", Column::ContentIcon as i32);
         col_category.set_sizing(TreeViewColumnSizing::Fixed);
         col_category.set_fixed_width(30);
-        col_category.set_sort_column_id(Column::Cat as i32);
+        col_category.set_sort_column_id(Column::ContentType as i32);
         instance.append_column(&col_category);
 
         // Column for file/direcory
         let renderer_txt = CellRendererText::new();
-        // let renderer_icon = CellRendererPixbuf::new();
-        // renderer_icon.set_padding(6, 0);
+        let renderer_icon = CellRendererPixbuf::new();
+        renderer_icon.set_padding(2, 0);
         let col_name = TreeViewColumn::new();
-        // column.pack_start(&renderer_icon, false);
+        col_name.pack_start(&renderer_icon, false);
         col_name.pack_start(&renderer_txt, true);
         col_name.set_title("Name");
-        // column.add_attribute(&renderer_icon, "icon-name", Columns::Icon as i32);
+        col_name.add_attribute(&renderer_icon, "icon-name", Column::FavIcon as i32);
+        col_name.add_attribute(&renderer_icon, "visible", Column::ShowFavIcon as i32);
         col_name.add_attribute(&renderer_txt, "text", Column::Name as i32);
         col_name.set_sizing(TreeViewColumnSizing::Fixed);
         col_name.set_fixed_width(300);

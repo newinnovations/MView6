@@ -154,17 +154,29 @@ where
 
 impl VectorPoint<f32> {
     pub fn distance(&self, other: &Self) -> f32 {
-        let dx = other.x - self.x;
-        let dy = other.y - self.y;
-        (dx * dx + dy * dy).sqrt()
+        (*other - *self).length()
+    }
+
+    pub fn angle(&self) -> f32 {
+        self.y.atan2(self.x)
+    }
+
+    pub fn length(&self) -> f32 {
+        (self.x * self.x + self.y * self.y).sqrt()
     }
 }
 
 impl VectorPoint<f64> {
     pub fn distance(&self, other: &Self) -> f64 {
-        let dx = other.x - self.x;
-        let dy = other.y - self.y;
-        (dx * dx + dy * dy).sqrt()
+        (*other - *self).length()
+    }
+
+    pub fn angle(&self) -> f64 {
+        self.y.atan2(self.x)
+    }
+
+    pub fn length(&self) -> f64 {
+        (self.x * self.x + self.y * self.y).sqrt()
     }
 }
 

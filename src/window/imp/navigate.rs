@@ -60,7 +60,7 @@ impl MViewWindowImp {
 
                 let can_enter = content.can_enter();
                 w.forward_button_top.set_visible(can_enter);
-                w.forward_button_panel.set_visible(can_enter);
+                w.panel.enable_enter(can_enter);
 
                 // if reference.supports_bot() {
                 //     let command = RenderBotCommand {
@@ -130,7 +130,7 @@ impl MViewWindowImp {
         // goto and navigate in parent
         self.skip_loading.set(true);
         self.dir_leave();
-        w.file_view.navigate_item(direction, Filter::Container, 1);
+        w.file_view.navigate_item(direction, &Filter::Container, 1);
 
         // enter dir
         self.skip_loading.set(false);

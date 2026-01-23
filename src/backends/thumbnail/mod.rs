@@ -28,7 +28,7 @@ use std::{
 use super::{Backend, Content, ImageParams, Target};
 use crate::{
     backends::thumbnail::model::TParent,
-    category::Category,
+    category::{Category, ContentType},
     file_view::{
         model::{BackendRef, Entry, ItemRef, Row},
         Cursor,
@@ -117,20 +117,10 @@ impl Thumbnail {
         } else {
             1
         };
-        let cat = Category::Image;
+        let cat = ContentType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
-            let row = Row {
-                category: cat.id(),
-                name,
-                size: Default::default(),
-                modified: Default::default(),
-                index: page as u64,
-                icon: cat.icon().to_string(),
-                folder: Default::default(),
-            };
-
-            result.push(row);
+            result.push(Row::new_index(cat, name, 0, 0, page as u64));
         }
         result
     }
@@ -159,7 +149,7 @@ impl Thumbnail {
             for row in 0..self.dim.capacity_y {
                 for col in 0..self.dim.capacity_x {
                     let source = Entry {
-                        category: cursor.category(),
+                        category: Category::new(cursor.content(), cursor.favorite()),
                         name: cursor.name(),
                         reference: backend.reference(&cursor),
                     };

@@ -20,7 +20,7 @@
 use std::time::Duration;
 
 use cairo::Filter;
-use gio::subclass::prelude::ObjectSubclassIsExt;
+use gio::{prelude::ObjectExt, subclass::prelude::ObjectSubclassIsExt};
 use glib::{clone, ControlFlow};
 use gtk4::prelude::WidgetExt;
 
@@ -29,7 +29,7 @@ use crate::{
         provider::surface::SurfaceData,
         view::{
             data::{RenderedImage, QUALITY_LOW},
-            Zoom, QUALITY_HIGH,
+            Zoom, QUALITY_HIGH, SIGNAL_SHOWN,
         },
     },
     rect::RectD,
@@ -50,13 +50,14 @@ pub enum RedrawReason {
     ContentPost = 3,
     InteractiveDrag = 4,
     InteractiveZoom = 5,
-    PageChanged = 6,
-    RenderDone = 7,
-    RotationChanged = 8,
-    SortChanged = 9,
-    ThumbnailSheetUpdated = 10,
-    TransparencyBackgroundChanged = 11,
-    ZoomSettingChanged = 12,
+    Measurement = 6,
+    PageChanged = 7,
+    RenderDone = 8,
+    RotationChanged = 9,
+    SortChanged = 10,
+    ThumbnailSheetUpdated = 11,
+    TransparencyBackgroundChanged = 12,
+    ZoomSettingChanged = 13,
 }
 
 impl RedrawReason {
@@ -88,13 +89,14 @@ impl From<i32> for RedrawReason {
             3 => RedrawReason::ContentPost,
             4 => RedrawReason::InteractiveDrag,
             5 => RedrawReason::InteractiveZoom,
-            6 => RedrawReason::PageChanged,
-            7 => RedrawReason::RenderDone,
-            8 => RedrawReason::RotationChanged,
-            9 => RedrawReason::SortChanged,
-            10 => RedrawReason::ThumbnailSheetUpdated,
-            11 => RedrawReason::TransparencyBackgroundChanged,
-            12 => RedrawReason::ZoomSettingChanged,
+            6 => RedrawReason::Measurement,
+            7 => RedrawReason::PageChanged,
+            8 => RedrawReason::RenderDone,
+            9 => RedrawReason::RotationChanged,
+            10 => RedrawReason::SortChanged,
+            11 => RedrawReason::ThumbnailSheetUpdated,
+            12 => RedrawReason::TransparencyBackgroundChanged,
+            13 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
         }
     }
@@ -102,7 +104,7 @@ impl From<i32> for RedrawReason {
 
 impl ImageViewData {
     fn redraw_quality(&mut self, quality: Filter, reason: RedrawReason) {
-        println!("-- redraw  reason={reason:?}");
+        // println!("-- redraw  reason={reason:?}");
         self.quality = quality;
         if let Some(view) = &self.view {
             if quality == QUALITY_HIGH
@@ -125,6 +127,11 @@ impl ImageViewData {
                                 //  have been updated for something else)
                     }
                 }
+            }
+            if !self.shown && matches!(reason, RedrawReason::ContentPost | RedrawReason::RenderDone)
+            {
+                self.shown = true;
+                view.emit_by_name::<()>(SIGNAL_SHOWN, &[]);
             }
             view.queue_draw();
         }

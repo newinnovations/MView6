@@ -28,7 +28,7 @@ use resvg::usvg::Tree;
 use syntect::{easy::HighlightLines, highlighting::Style};
 
 use crate::{
-    category::Category,
+    category::ContentType,
     config::config,
     error::MviewResult,
     file_view::{
@@ -269,11 +269,14 @@ impl ListContent {
             } else {
                 String::default()
             };
-            let cat = Category::from(row.category);
-            let cat_text = cat.short();
-            let colors = cat.colors();
+            let content = ContentType::from(row.content_type);
+            let content_short = content.short();
+            let colors = content.colors();
             let name = ellipsis_middle(&row.name, 59);
-            let line = format!("{cat_text} {modified_text:<19} {size_text:>10} {}", name);
+            let line = format!(
+                "{content_short} {modified_text:<19} {size_text:>10} {}",
+                name
+            );
             // 3+1+19+1+10+1+59=94
             sheet.add_line(&line, sheet.base_style().color(colors.1));
         }
@@ -318,8 +321,16 @@ impl ListContent {
         match sort {
             // "0a" => x.sort_by_key(|r| r.category),          // Ascending
             // "0d" => x.sort_by_key(|r| Reverse(r.category)), // Descending
-            "0a" => list.sort_by(|a, b| a.category.cmp(&b.category).then(a.name.cmp(&b.name))), // Ascending
-            "0d" => list.sort_by(|a, b| b.category.cmp(&a.category).then(b.name.cmp(&a.name))), // Descending
+            "0a" => list.sort_by(|a, b| {
+                a.content_type
+                    .cmp(&b.content_type)
+                    .then(a.name.cmp(&b.name))
+            }), // Ascending
+            "0d" => list.sort_by(|a, b| {
+                b.content_type
+                    .cmp(&a.content_type)
+                    .then(b.name.cmp(&a.name))
+            }), // Descending
             "1a" => list.sort_by(|a, b| a.name.cmp(&b.name)), // Ascending
             "1d" => list.sort_by(|a, b| b.name.cmp(&a.name)), // Descending
             "2a" => list.sort_by(|a, b| a.size.cmp(&b.size)), // Ascending

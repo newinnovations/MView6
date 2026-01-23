@@ -78,8 +78,21 @@ impl MViewWindowImp {
         thumbnail_submenu.append(Some("Show thumbnails"), Some("win.thumb.show"));
         thumbnail_submenu.append_section(Some("Size"), &thumbnail_size_submenu);
 
+        let slideshow_interval_submenu = Menu::new();
+        slideshow_interval_submenu.append(Some("1 second"), Some("win.slideshow.interval::1"));
+        slideshow_interval_submenu.append(Some("3 seconds"), Some("win.slideshow.interval::3"));
+        slideshow_interval_submenu.append(Some("5 seconds"), Some("win.slideshow.interval::5"));
+        slideshow_interval_submenu.append(Some("10 seconds"), Some("win.slideshow.interval::10"));
+        slideshow_interval_submenu.append(Some("30 seconds"), Some("win.slideshow.interval::30"));
+        slideshow_interval_submenu.append(Some("1 minute"), Some("win.slideshow.interval::60"));
+
+        let slideshow_submentu = Menu::new();
+        slideshow_submentu.append(Some("Run slideshow"), Some("win.slideshow.active"));
+        slideshow_submentu.append_section(Some("Interval"), &slideshow_interval_submenu);
+
         let flag_section = Menu::new();
         flag_section.append(Some("Full screen"), Some("win.fullscreen"));
+        flag_section.append_submenu(Some("Slideshow"), &slideshow_submentu);
         flag_section.append_submenu(Some("Thumbnails"), &thumbnail_submenu);
         flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
         flag_section.append_submenu(Some("Zoom"), &zoom_submenu);
@@ -125,6 +138,18 @@ impl MViewWindowImp {
             Self::toggle_thumbnail_view,
         );
         self.add_action_int(&action_group, "thumb.size", 250, Self::set_thumbnail_size);
+        self.add_action_bool(
+            &action_group,
+            "slideshow.active",
+            false,
+            Self::toggle_slideshow,
+        );
+        self.add_action_int(
+            &action_group,
+            "slideshow.interval",
+            3,
+            Self::set_slideshow_interval,
+        );
         action_group
     }
 

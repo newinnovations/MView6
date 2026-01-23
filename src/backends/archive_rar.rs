@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
-    category::Category,
+    category::{Category, ContentType},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -163,21 +163,11 @@ fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
         if file_size == 0 {
             continue;
         }
-        if cat.id() == Category::Unsupported.id() {
+        if cat.content == ContentType::Unsupported {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        let row = Row {
-            category: cat.id(),
-            name: name.to_string(),
-            size: file_size,
-            modified,
-            index: Default::default(),
-            icon: cat.icon().to_string(),
-            folder: Default::default(),
-        };
-
-        result.push(row);
+        result.push(Row::new(cat, name.to_string(), file_size, modified));
     }
     Ok(result)
 }

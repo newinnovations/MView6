@@ -19,7 +19,6 @@
 
 use crate::{
     backends::{filesystem::FileSystem, Backend, MarArchive, RarArchive, ZipArchive},
-    category::Category,
     content::{content_type::ContentType, paginated::PaginatedContent, Content},
     error::MviewResult,
     file_view::model::BackendRef,
@@ -154,7 +153,7 @@ impl ContentLoader {
             ContentType::Unknown => draw_text(
                 "Unknown",
                 "Content not recognized",
-                Category::Unsupported.colors(),
+                crate::category::ContentType::Unsupported.colors(),
             ),
         }
     }

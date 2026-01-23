@@ -42,7 +42,10 @@ impl Sort {
     }
 
     pub fn sort_on_category() -> Self {
-        Sort::new(SortColumn::Index(Column::Cat as u32), SortType::Ascending)
+        Sort::new(
+            SortColumn::Index(Column::ContentType as u32),
+            SortType::Ascending,
+        )
     }
 
     pub fn str_repr(&self) -> String {

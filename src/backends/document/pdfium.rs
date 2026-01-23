@@ -26,7 +26,7 @@ use crate::{
         document::{pages, PageMode, Pages},
         Backend, ImageParams,
     },
-    category::Category,
+    category::ContentType,
     content::Content,
     error::MviewResult,
     file_view::{
@@ -314,19 +314,10 @@ fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
     let mut result = Vec::new();
     println!("Total pages: {page_count}");
     if page_count > 0 {
-        let cat = Category::Image;
+        let cat = ContentType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            let row = Row {
-                category: cat.id(),
-                name: page,
-                size: Default::default(),
-                modified: Default::default(),
-                index: i as u64,
-                icon: cat.icon().to_string(),
-                folder: Default::default(),
-            };
-            result.push(row);
+            result.push(Row::new_index(cat, page, 0, 0, i as u64));
         }
         duration.elapsed("pdfium list");
         Ok((document, result, page_count - 1))

@@ -61,3 +61,83 @@
 .panel_button image {
     -gtk-icon-size: 30px;
 }
+
+.panel_text_button  {
+  padding-left: 0;
+  padding-right: 0;
+  color: #c7f6c1;
+}
+
+.cp-command-search {
+    background-color: #2d2d2d;
+    color: #cccccc;
+    border: 1px solid #454545;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 14px;
+    border-bottom: 2px solid #2892D7;
+    outline: none;
+}
+
+.cp-command-list {
+    background-color: #252526;
+}
+
+.cp-command-list row.cp-command {
+    background-color: #252526;
+    color: #cccccc;
+    border-left: 4px solid transparent;
+    padding: 4px 12px;
+    outline: none;
+}
+
+.cp-command-list row.cp-command:hover {
+    background-color: #2a2d2e;
+    color: #ffffff;
+    border-left: 4px solid #cccccc;
+}
+
+.cp-command-list row.cp-command:selected {
+    background-color: #094771;
+    border-left: 4px solid #aaaaaa;
+}
+
+.cp-command-list row.cp-command:focus {
+    background-color: #094771;
+    color: #ffffff;
+    border-left: 4px solid white;
+}
+
+.cp-shortcut {
+    background-color: #3c3c3c;
+    color: #eeeeee;
+    border: 1px solid #888888;
+    border-radius: 5px;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-family: monospace;
+    font-weight: bolder;
+}
+
+.cp-header {
+    color: #9497c2;
+    font-style: italic;
+    margin: 5px 0px 3px 16px;
+}
+
+.cp-separator {
+    padding: 1px;
+    background-color: #555;
+    margin: 6px 8px 0px 8px;
+}
+
+.navsep {
+    padding: 1px;
+    background-color: #555;
+}
+
+.intval {
+    font-weight: bolder;
+    font-size: 1.2em;
+    color: yellow;
+}

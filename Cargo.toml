@@ -11,6 +11,7 @@ license = "AGPL"
 LegalCopyright = "Copyright © 2024-2025 Martin van der Werff"
 
 [dependencies]
+arboard = "3.4"
 async-channel = "2.3.1"
 cairo-rs = { version = "0.21", features = ["v1_16"] }
 chrono = "0.4.38"

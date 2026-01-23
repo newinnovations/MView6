@@ -115,75 +115,77 @@ impl FileView {
         }
     }
 
-    /// Goto an entry in the in list (files, pages, etc). We do this delayed using idle_add_local,
+    /// Goto an entry in the list (files, pages, etc). We do this delayed using idle_add_local,
     /// so the file_view can render on screen before executing set_cursor. In some cases we go
-    /// through several goto operations before reaching the final (with skip_loading and
-    /// open_container), in those cases do not delay as the file_view does not yet contain the
-    /// desired contents.
+    /// through several goto operations before reaching the final (with the `skip_loading` and
+    /// `open_container` flags), in those cases do not delay as the file_view does not yet
+    /// contain the final/desired content.
     ///
-    /// If not found, we will select the last item. Ignores empty lists.
+    /// If `target` is `First` or `Last`, we try to honor the `filter` argument. If the none of
+    /// the items match the filter, we go to the actual first or last item.
+    ///
+    /// If a `Name` or `Index` target is not found, we will select the last item.
+    ///
+    /// Ignores empty lists.
     ///
     /// Gets called via:
     /// - MViewWindowImp::set_backend(.. goto: &target ..)
+    /// - MViewWindowImp::reload(.. target: &Target) if the reload does not trigger a new backend
+    /// - MViewWindowImp::slidshow_go_next to go to `First` item
     ///
-    pub fn goto(&self, target: &Target, window: &MViewWindow) {
+    pub fn goto(&self, target: &Target, filter: &Filter, window: &MViewWindow) {
         // println!("fileview::goto {:?}", target);
         if let Some(store) = self.store() {
             let n = store.iter_n_children(None);
             if n < 1 {
                 return;
             }
-            if *target != Target::Last {
-                if let Some(iter) = store.iter_first() {
-                    loop {
-                        let found = match target {
-                            Target::Name(filename) => *filename == store.name(&iter),
-                            Target::Index(index) => *index == store.index(&iter),
-                            _ => true,
-                        };
-                        if found {
-                            self.goto_iter(window, &store, &iter);
-                            return;
-                        }
-                        if !store.iter_next(&iter) {
-                            break;
-                        }
+            let starting_point = if *target == Target::Last {
+                store.iter_nth_child(None, n - 1)
+            } else {
+                store.iter_first()
+            };
+            if let Some(iter) = starting_point {
+                loop {
+                    if match target {
+                        Target::Name(filename) => *filename == store.name(&iter),
+                        Target::Index(index) => *index == store.index(&iter),
+                        _ => filter.matches(store.category(&iter)),
+                    } {
+                        // Found what we are looking for
+                        self.goto_iter(window, &store, &iter);
+                        return;
+                    }
+                    let has_next = if *target == Target::Last {
+                        store.iter_previous(&iter)
+                    } else {
+                        store.iter_next(&iter)
+                    };
+                    if !has_next {
+                        break;
                     }
                 }
             }
-            if let Some(iter) = store.iter_nth_child(None, n - 1) {
+            // We did not find what we are looking for
+            let fallback = if *target == Target::First {
+                store.iter_first()
+            } else {
+                store.iter_nth_child(None, n - 1)
+            };
+            if let Some(iter) = fallback {
                 self.goto_iter(window, &store, &iter);
             }
         }
     }
 
-    pub fn home(&self) {
-        if let Some(store) = self.store() {
-            if let Some(iter) = store.iter_first() {
-                let tp = store.path(&iter);
-                self.set_cursor(&tp, None::<&TreeViewColumn>, false);
-            }
-        }
-    }
-
-    pub fn end(&self) {
-        if let Some(store) = self.store() {
-            let num_items = store.iter_n_children(None);
-            if num_items > 1 {
-                if let Some(iter) = store.iter_nth_child(None, num_items - 1) {
-                    let tp = store.path(&iter);
-                    self.set_cursor(&tp, None::<&TreeViewColumn>, false);
-                }
-            }
-        }
-    }
-
-    pub fn navigate_item(&self, direction: Direction, filter: Filter, count: u32) {
+    pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
         if let Some(current) = self.current() {
             if let Some(tree_path) = current.navigate(direction, filter, count) {
                 self.set_cursor(&tree_path, None::<&TreeViewColumn>, false);
+                return true;
             }
         }
+        false
     }
 
     pub fn set_unsorted(&self) {

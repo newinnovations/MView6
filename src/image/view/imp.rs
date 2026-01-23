@@ -25,14 +25,18 @@ use std::{
 
 use super::{data::ImageViewData, ImageView, ViewCursor};
 use crate::{
-    category::Category,
+    category::FavType,
     content::Content,
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
         view::{
-            data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
-            RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE,
+            data::{
+                zoom::{ZOOM_MULTIPLIER, ZOOM_MULTIPLIER_FAST},
+                TransparencyMode,
+            },
+            measure::{MeasureTool, MeasurementState},
+            RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN,
         },
     },
     rect::{PointD, RectD, SizeI},
@@ -42,7 +46,8 @@ use cairo::{Context, Extend, FillRule, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
-    prelude::{DrawingAreaExtManual, GestureSingleExt, WidgetExt},
+    gdk::ModifierType,
+    prelude::{DrawingAreaExtManual, EventControllerExt, GestureSingleExt, WidgetExt},
     subclass::prelude::*,
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
 };
@@ -52,6 +57,7 @@ pub struct ImageViewImp {
     pub(super) data: RefCell<ImageViewData>,
     animation_timeout_id: RefCell<Option<SourceId>>,
     pub(super) window_size: Cell<SizeI>,
+    pub(super) measure_tool: MeasureTool,
 }
 
 #[glib::object_subclass]
@@ -111,6 +117,8 @@ impl ImageViewImp {
         let z = &p.zoom;
 
         let image = p.image();
+
+        let _ = context.save();
 
         context.set_fill_rule(FillRule::EvenOdd);
 
@@ -179,6 +187,11 @@ impl ImageViewImp {
         context.transform(image.transform_matrix(&p.zoom));
         image.draw(context, p.quality);
         self.draw_annotations(context);
+
+        if self.measure_tool.state() != MeasurementState::Idle {
+            let _ = context.restore();
+            self.measure_tool.draw(context, z, &self.mouse_position());
+        }
     }
 
     fn draw_annotations(&self, context: &Context) {
@@ -199,9 +212,9 @@ impl ImageViewImp {
                 let _ = context.stroke();
             }
             for annotation in &annotations.annotations {
-                match annotation.entry.category {
-                    Category::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
-                    Category::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
+                match annotation.entry.favorite() {
+                    FavType::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
+                    FavType::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
                     _ => continue,
                 };
                 context.arc(
@@ -221,7 +234,11 @@ impl ImageViewImp {
     fn button_press_event(&self, position: PointD, n_press: i32) {
         let mut p = self.data.borrow_mut();
         if n_press == 1 {
-            if p.drag.is_none() && p.content.is_movable() {
+            if self.measure_tool.is_tracking() {
+                self.measure_tool
+                    .set_point(p.zoom.screen_to_image(&position));
+                p.redraw(RedrawReason::Measurement);
+            } else if p.drag.is_none() && p.content.is_movable() {
                 p.drag = Some(position - p.zoom.origin());
                 self.obj().set_view_cursor(ViewCursor::Drag);
             }
@@ -252,14 +269,15 @@ impl ImageViewImp {
     fn motion_notify_event(&self, position: PointD) {
         let mut p = self.data.borrow_mut();
         p.mouse_position = position;
-        if let Some(annotations) = &p.annotations {
+        if self.measure_tool.is_tracking() {
+            p.redraw(RedrawReason::Measurement);
+        } else if let Some(annotations) = &p.annotations {
             let index = annotations.index_at(position - p.zoom.origin());
             if index != p.hover {
                 p.hover = index;
                 p.redraw(RedrawReason::AnnotationChanged);
             }
-        }
-        if let Some(drag) = p.drag {
+        } else if let Some(drag) = p.drag {
             p.zoom.set_origin(position - drag);
             p.redraw(RedrawReason::InteractiveDrag);
         }
@@ -273,14 +291,19 @@ impl ImageViewImp {
         }
     }
 
-    fn scroll_event(&self, dy: f64) -> Propagation {
+    fn scroll_event(&self, dy: f64, modifier: ModifierType) -> Propagation {
         let mut p = self.data.borrow_mut();
         let mouse_position = p.mouse_position;
+        let multiplier = if modifier.contains(ModifierType::CONTROL_MASK) {
+            ZOOM_MULTIPLIER_FAST
+        } else {
+            ZOOM_MULTIPLIER
+        };
         if p.content.is_movable() {
             let zoom = if dy < -0.01 {
-                p.zoom.scale() * ZOOM_MULTIPLIER
+                p.zoom.scale() * multiplier
             } else if dy > 0.01 {
-                p.zoom.scale() / ZOOM_MULTIPLIER
+                p.zoom.scale() / multiplier
             } else {
                 p.zoom.scale()
             };
@@ -310,6 +333,7 @@ impl ObjectImpl for ImageViewImp {
                         String::static_type(),
                     ])
                     .build(),
+                Signal::builder(SIGNAL_SHOWN).build(),
             ]
         })
     }
@@ -342,7 +366,10 @@ impl ObjectImpl for ImageViewImp {
             self,
             #[upgrade_or]
             Propagation::Stop,
-            move |_, _dx, dy| this.scroll_event(dy)
+            move |controller, _dx, dy| {
+                let modifiers = controller.current_event_state();
+                this.scroll_event(dy, modifiers)
+            }
         ));
 
         let gesture_click = gtk4::GestureClick::new();
