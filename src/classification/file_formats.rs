@@ -17,28 +17,44 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ContentType {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ImageFormat {
     Avif,
-    Epub,
     Gif,
     Heic,
     Jpeg,
-    Mar,
     Pcx,
-    Pdf,
     Png,
-    Rar,
     Svg,
     Webp,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ArchiveFormat {
     Zip,
+    Rar,
+    Mar, // Mozilla Archive Format
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DocumentFormat {
+    Pdf,
+    Epub,
+    // Add more document types here later (e.g., Docx, Odt, etc.)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FileFormat {
+    Image(ImageFormat),
+    Archive(ArchiveFormat),
+    Document(DocumentFormat),
     Unknown,
 }
 
-impl ContentType {
+impl FileFormat {
     pub fn determine(data: &[u8]) -> Self {
         if data.len() < 4 {
-            return ContentType::Unknown; // Not enough bytes to identify
+            return Self::Unknown; // Not enough bytes to identify
         }
 
         // ZIP: "PK" (50 4B)
@@ -50,41 +66,41 @@ impl ContentType {
                     .map(|s| s.contains("mimetype"))
                     .unwrap_or(false)
                 {
-                    return ContentType::Epub;
+                    return Self::Document(DocumentFormat::Epub);
                 }
             }
-            return ContentType::Zip;
+            return Self::Archive(ArchiveFormat::Zip);
         }
 
         // RAR: Starts with "Rar!\x1A\x07\x00" (RAR 1.5-4.x) or "Rar!\x1A\x07\x01\x00" (RAR 5.0+)
         if data.starts_with(b"Rar!\x1A\x07") {
-            return ContentType::Rar;
+            return Self::Archive(ArchiveFormat::Rar);
         }
 
         // PDF: Starts with "%PDF"
         if data.starts_with(b"%PDF") {
-            return ContentType::Pdf;
+            return Self::Document(DocumentFormat::Pdf);
         }
 
         // GIF: Starts with "GIF87a" or "GIF89a"
         if data.starts_with(b"GIF87a") || data.starts_with(b"GIF89a") {
-            return ContentType::Gif;
+            return Self::Image(ImageFormat::Gif);
         }
 
         // JPEG: Starts with "\xFF\xD8\xFF"
         if data.starts_with(b"\xFF\xD8\xFF") {
-            return ContentType::Jpeg;
+            return Self::Image(ImageFormat::Jpeg);
         }
 
         // PNG: Starts with "\x89PNG\r\n\x1A\n"
         if data.starts_with(b"\x89PNG\r\n\x1A\n") {
-            return ContentType::Png;
+            return Self::Image(ImageFormat::Png);
         }
 
         if data.len() >= 12 {
             // WebP: Starts with "RIFF" followed by length and "WEBP" (at offset 8)
             if data.starts_with(b"RIFF") && &data[8..12] == b"WEBP" {
-                return ContentType::Webp;
+                return Self::Image(ImageFormat::Webp);
             }
 
             // HEIC: Contains "ftyphei[cxms]" within first 12 bytes
@@ -92,7 +108,7 @@ impl ContentType {
                 .windows(7)
                 .any(|w| w == b"ftyphei")
             {
-                return ContentType::Heic;
+                return Self::Image(ImageFormat::Heic);
             }
 
             // AVIF: Contains "ftypavif" within first 12 bytes
@@ -100,7 +116,7 @@ impl ContentType {
                 .windows(8)
                 .any(|w| w == b"ftypavif")
             {
-                return ContentType::Avif;
+                return Self::Image(ImageFormat::Avif);
             }
         }
 
@@ -110,56 +126,35 @@ impl ContentType {
                 .map(|s| s.contains("<svg"))
                 .unwrap_or(false)
             {
-                return ContentType::Svg;
+                return Self::Image(ImageFormat::Svg);
             }
         }
 
-        ContentType::Unknown
+        Self::Unknown
     }
 
-    pub fn from_extension(ext: &str) -> Self {
-        match ext {
-            "zip" => ContentType::Zip,
-            "rar" => ContentType::Rar,
-            "mar" => ContentType::Mar,
-            "pdf" => ContentType::Pdf,
-            "epub" => ContentType::Epub,
-            "jpg" => ContentType::Jpeg,
-            "jpeg" => ContentType::Jpeg,
-            "jfif" => ContentType::Jpeg,
-            "gif" => ContentType::Gif,
-            "svg" => ContentType::Svg,
-            "svgz" => ContentType::Svg,
-            "webp" => ContentType::Webp,
-            "heic" => ContentType::Heic,
-            "avif" => ContentType::Avif,
-            "pcx" => ContentType::Pcx,
-            "png" => ContentType::Png,
-            _ => ContentType::Unknown,
+    pub fn from_extension(extension: &str) -> Self {
+        let ext_low = extension.to_lowercase();
+        match ext_low.as_str() {
+            "zip" => Self::Archive(ArchiveFormat::Zip),
+            "rar" => Self::Archive(ArchiveFormat::Rar),
+            "mar" => Self::Archive(ArchiveFormat::Mar),
+            "pdf" => Self::Document(DocumentFormat::Pdf),
+            "epub" => Self::Document(DocumentFormat::Epub),
+            "jpg" => Self::Image(ImageFormat::Jpeg),
+            "jpeg" => Self::Image(ImageFormat::Jpeg),
+            "jfif" => Self::Image(ImageFormat::Jpeg),
+            "gif" => Self::Image(ImageFormat::Gif),
+            "svg" => Self::Image(ImageFormat::Svg),
+            "svgz" => Self::Image(ImageFormat::Svg),
+            "webp" => Self::Image(ImageFormat::Webp),
+            "heic" => Self::Image(ImageFormat::Heic),
+            "avif" => Self::Image(ImageFormat::Avif),
+            "pcx" => Self::Image(ImageFormat::Pcx),
+            "png" => Self::Image(ImageFormat::Png),
+            _ => Self::Unknown,
         }
     }
-
-    // pub fn is_image(&self) -> bool {
-    //     matches!(
-    //         self,
-    //         ContentType::Avif
-    //             | ContentType::Gif
-    //             | ContentType::Heic
-    //             | ContentType::Jpeg
-    //             | ContentType::Pcx
-    //             | ContentType::Png
-    //             | ContentType::Svg
-    //             | ContentType::Webp
-    //     )
-    // }
-
-    // pub fn is_container(&self) -> bool {
-    //     matches!(self, ContentType::Mar | ContentType::Rar | ContentType::Zip)
-    // }
-
-    // pub fn is_document(&self) -> bool {
-    //     matches!(self, ContentType::Pdf | ContentType::Epub)
-    // }
 }
 
 #[cfg(test)]
@@ -170,81 +165,132 @@ mod tests {
     fn test_detect_file_format() {
         // Test cases for each format
         let zip_data = vec![0x50, 0x4B, 0x03, 0x04, 0x14, 0x00];
-        assert_eq!(ContentType::determine(&zip_data), ContentType::Zip);
+        assert_eq!(
+            FileFormat::determine(&zip_data),
+            FileFormat::Archive(ArchiveFormat::Zip)
+        );
 
         let rar_data = vec![0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00];
-        assert_eq!(ContentType::determine(&rar_data), ContentType::Rar);
+        assert_eq!(
+            FileFormat::determine(&rar_data),
+            FileFormat::Archive(ArchiveFormat::Rar)
+        );
 
         let pdf_data = vec![0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E];
-        assert_eq!(ContentType::determine(&pdf_data), ContentType::Pdf);
+        assert_eq!(
+            FileFormat::determine(&pdf_data),
+            FileFormat::Document(DocumentFormat::Pdf)
+        );
 
         let gif_data = vec![0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
-        assert_eq!(ContentType::determine(&gif_data), ContentType::Gif);
+        assert_eq!(
+            FileFormat::determine(&gif_data),
+            FileFormat::Image(ImageFormat::Gif)
+        );
 
         let jpeg_data = vec![0xFF, 0xD8, 0xFF, 0xE0];
-        assert_eq!(ContentType::determine(&jpeg_data), ContentType::Jpeg);
+        assert_eq!(
+            FileFormat::determine(&jpeg_data),
+            FileFormat::Image(ImageFormat::Jpeg)
+        );
 
         let png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-        assert_eq!(ContentType::determine(&png_data), ContentType::Png);
+        assert_eq!(
+            FileFormat::determine(&png_data),
+            FileFormat::Image(ImageFormat::Png)
+        );
 
         let webp_data = vec![
             0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
         ];
-        assert_eq!(ContentType::determine(&webp_data), ContentType::Webp);
+        assert_eq!(
+            FileFormat::determine(&webp_data),
+            FileFormat::Image(ImageFormat::Webp)
+        );
 
         let heic_data = vec![
             0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63,
         ];
-        assert_eq!(ContentType::determine(&heic_data), ContentType::Heic);
+        assert_eq!(
+            FileFormat::determine(&heic_data),
+            FileFormat::Image(ImageFormat::Heic)
+        );
 
         let svg_data = vec![0x3C, 0x73, 0x76, 0x67, 0x20];
-        assert_eq!(ContentType::determine(&svg_data), ContentType::Svg);
+        assert_eq!(
+            FileFormat::determine(&svg_data),
+            FileFormat::Image(ImageFormat::Svg)
+        );
 
         let avif_data = vec![
             0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66,
         ];
-        assert_eq!(ContentType::determine(&avif_data), ContentType::Avif);
+        assert_eq!(
+            FileFormat::determine(&avif_data),
+            FileFormat::Image(ImageFormat::Avif)
+        );
 
         let unknown_data = vec![0x00, 0x01, 0x02, 0x03];
-        assert_eq!(ContentType::determine(&unknown_data), ContentType::Unknown);
+        assert_eq!(FileFormat::determine(&unknown_data), FileFormat::Unknown);
     }
 
     #[test]
     fn test_png_detection() {
         let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00];
-        assert_eq!(ContentType::determine(&png_header), ContentType::Png);
+        assert_eq!(
+            FileFormat::determine(&png_header),
+            FileFormat::Image(ImageFormat::Png)
+        );
     }
 
     #[test]
     fn test_jpeg_detection() {
         let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
-        assert_eq!(ContentType::determine(&jpeg_header), ContentType::Jpeg);
+        assert_eq!(
+            FileFormat::determine(&jpeg_header),
+            FileFormat::Image(ImageFormat::Jpeg)
+        );
     }
 
     #[test]
     fn test_pdf_detection() {
         let pdf_header = b"%PDF-1.4".to_vec();
-        assert_eq!(ContentType::determine(&pdf_header), ContentType::Pdf);
+        assert_eq!(
+            FileFormat::determine(&pdf_header),
+            FileFormat::Document(DocumentFormat::Pdf)
+        );
     }
 
     #[test]
     fn test_gif_detection() {
         let gif87_header = b"GIF87a".to_vec();
         let gif89_header = b"GIF89a".to_vec();
-        assert_eq!(ContentType::determine(&gif87_header), ContentType::Gif);
-        assert_eq!(ContentType::determine(&gif89_header), ContentType::Gif);
+        assert_eq!(
+            FileFormat::determine(&gif87_header),
+            FileFormat::Image(ImageFormat::Gif)
+        );
+        assert_eq!(
+            FileFormat::determine(&gif89_header),
+            FileFormat::Image(ImageFormat::Gif)
+        );
     }
 
     #[test]
     fn test_zip_detection() {
         let zip_header = vec![0x50, 0x4B, 0x03, 0x04];
-        assert_eq!(ContentType::determine(&zip_header), ContentType::Zip);
+        assert_eq!(
+            FileFormat::determine(&zip_header),
+            FileFormat::Archive(ArchiveFormat::Zip)
+        );
     }
 
     #[test]
     fn test_rar_detection() {
         let rar_header = b"Rar!\x1a\x07\x00".to_vec();
-        assert_eq!(ContentType::determine(&rar_header), ContentType::Rar);
+        assert_eq!(
+            FileFormat::determine(&rar_header),
+            FileFormat::Archive(ArchiveFormat::Rar)
+        );
     }
 
     #[test]
@@ -252,25 +298,31 @@ mod tests {
         let mut webp_header = b"RIFF".to_vec();
         webp_header.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // file size placeholder
         webp_header.extend_from_slice(b"WEBP");
-        assert_eq!(ContentType::determine(&webp_header), ContentType::Webp);
+        assert_eq!(
+            FileFormat::determine(&webp_header),
+            FileFormat::Image(ImageFormat::Webp)
+        );
     }
 
     #[test]
     fn test_svg_detection() {
         let svg_content =
             b"<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\">".to_vec();
-        assert_eq!(ContentType::determine(&svg_content), ContentType::Svg);
+        assert_eq!(
+            FileFormat::determine(&svg_content),
+            FileFormat::Image(ImageFormat::Svg)
+        );
     }
 
     #[test]
     fn test_unknown_format() {
         let unknown_data = vec![0x00, 0x01, 0x02, 0x03];
-        assert_eq!(ContentType::determine(&unknown_data), ContentType::Unknown);
+        assert_eq!(FileFormat::determine(&unknown_data), FileFormat::Unknown);
     }
 
     #[test]
     fn test_empty_data() {
         let empty_data = vec![];
-        assert_eq!(ContentType::determine(&empty_data), ContentType::Unknown);
+        assert_eq!(FileFormat::determine(&empty_data), FileFormat::Unknown);
     }
 }

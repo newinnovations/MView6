@@ -26,7 +26,7 @@ use crate::{
         document::{pages, PageMode, Pages},
         Backend, ImageParams,
     },
-    category::ContentType,
+    classification::FileType,
     content::Content,
     error::MviewResult,
     file_view::{
@@ -343,7 +343,7 @@ fn list_pages(filename: &Path) -> MviewResult<(mupdf::Document, Vec<Row>, i32)> 
     let mut result = Vec::new();
     println!("Total pages: {page_count}");
     if page_count > 0 {
-        let cat = ContentType::Image.into();
+        let cat = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
             result.push(Row::new_index(cat, page, 0, 0, i as u64));

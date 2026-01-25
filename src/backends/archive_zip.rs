@@ -29,7 +29,7 @@ use std::{
 use zip::result::ZipResult;
 
 use crate::{
-    category::{ContentType, FileClassification},
+    classification::{FileClassification, FileType},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -173,7 +173,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             continue;
         }
 
-        if cat.content == ContentType::Unsupported {
+        if cat.file_type == FileType::Unsupported {
             continue;
         }
 

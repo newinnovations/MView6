@@ -28,7 +28,7 @@ use resvg::usvg::Tree;
 use syntect::{easy::HighlightLines, highlighting::Style};
 
 use crate::{
-    category::ContentType,
+    classification::FileType,
     config::config,
     error::MviewResult,
     file_view::{
@@ -269,7 +269,7 @@ impl ListContent {
             } else {
                 String::default()
             };
-            let content = ContentType::from(row.content_type);
+            let content = FileType::from(row.content_type);
             let content_short = content.short();
             let colors = content.colors();
             let name = ellipsis_middle(&row.name, 59);

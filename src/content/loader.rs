@@ -19,7 +19,8 @@
 
 use crate::{
     backends::{filesystem::FileSystem, Backend, MarArchive, RarArchive, ZipArchive},
-    content::{content_type::ContentType, paginated::PaginatedContent, Content},
+    classification::file_formats::{ArchiveFormat, FileFormat, ImageFormat},
+    content::{paginated::PaginatedContent, Content},
     error::MviewResult,
     file_view::model::BackendRef,
     image::{
@@ -61,10 +62,10 @@ impl ContentLoader {
         }
 
         let ext = path_to_extension(path);
-        let content_type = ContentType::from_extension(&ext);
+        let file_format = FileFormat::from_extension(&ext);
         // dbg!(content_type);
-        if content_type != ContentType::Unknown {
-            return Self::load_file(content_type, path);
+        if file_format != FileFormat::Unknown {
+            return Self::load_file(file_format, path);
         }
 
         let data = match Self::read_file(path) {
@@ -72,9 +73,9 @@ impl ContentLoader {
             Err(e) => return draw_error(path, e),
         };
 
-        let content_type = ContentType::determine(&data);
-        if content_type != ContentType::Unknown {
-            return Self::load_file(content_type, path);
+        let file_format = FileFormat::determine(&data);
+        if file_format != FileFormat::Unknown {
+            return Self::load_file(file_format, path);
         }
 
         // is it text? FIXME: handle utf16
@@ -95,25 +96,25 @@ impl ContentLoader {
         })
     }
 
-    fn load_file(content_type: ContentType, path: &Path) -> Content {
+    fn load_file(content_type: FileFormat, path: &Path) -> Content {
         match content_type {
-            ContentType::Epub | ContentType::Pdf => {
+            FileFormat::Document(_) => {
                 // draw_text("Document", "PDF/EPUB", Category::Document.colors())
                 Content::new_preview(path, BackendRef::Pdfium(path.into()))
             }
-            ContentType::Mar => {
+            FileFormat::Archive(ArchiveFormat::Mar) => {
                 let list = MarArchive::new(path).list().clone();
                 Content::new_list(path, BackendRef::MarArchive(path.into()), list)
             }
-            ContentType::Rar => {
+            FileFormat::Archive(ArchiveFormat::Rar) => {
                 let list = RarArchive::new(path).list().clone();
                 Content::new_list(path, BackendRef::RarArchive(path.into()), list)
             }
-            ContentType::Zip => {
+            FileFormat::Archive(ArchiveFormat::Zip) => {
                 let list = ZipArchive::new(path).list().clone();
                 Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
             }
-            ContentType::Svg => match Self::read_svg(path) {
+            FileFormat::Image(ImageFormat::Svg) => match Self::read_svg(path) {
                 Ok(tree) => Content::new_svg(
                     tree,
                     None,
@@ -122,13 +123,7 @@ impl ContentLoader {
                 ),
                 Err(error) => draw_error(path, error),
             },
-            ContentType::Avif
-            | ContentType::Gif
-            | ContentType::Heic
-            | ContentType::Jpeg
-            | ContentType::Pcx
-            | ContentType::Png
-            | ContentType::Webp => {
+            FileFormat::Image(_) => {
                 let input = match std::fs::File::open(path) {
                     Ok(file) => file,
                     Err(error) => return draw_error(path, error.into()),
@@ -150,10 +145,10 @@ impl ContentLoader {
                     }
                 }
             }
-            ContentType::Unknown => draw_text(
+            FileFormat::Unknown => draw_text(
                 "Unknown",
                 "Content not recognized",
-                crate::category::ContentType::Unsupported.colors(),
+                crate::classification::FileType::Unsupported.colors(),
             ),
         }
     }

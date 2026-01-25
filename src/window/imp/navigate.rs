@@ -28,7 +28,7 @@ use super::MViewWindowImp;
 
 use crate::{
     backends::{Backend, ImageParams},
-    category::FileClassification,
+    classification::FileClassification,
     file_view::{Direction, Filter, Target},
     util::path_to_filename,
     window::imp::TargetTime,

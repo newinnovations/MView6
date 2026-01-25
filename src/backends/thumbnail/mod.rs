@@ -28,7 +28,7 @@ use std::{
 use super::{Backend, Content, ImageParams, Target};
 use crate::{
     backends::thumbnail::model::TParent,
-    category::{ContentType, FileClassification},
+    classification::{FileClassification, FileType},
     file_view::{
         model::{BackendRef, Entry, ItemRef, Row},
         Cursor,
@@ -117,7 +117,7 @@ impl Thumbnail {
         } else {
             1
         };
-        let cat = ContentType::Image.into();
+        let cat = FileType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
             result.push(Row::new_index(cat, name, 0, 0, page as u64));

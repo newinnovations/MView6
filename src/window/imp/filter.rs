@@ -26,18 +26,18 @@ use gtk4::{
 };
 
 use crate::{
-    category::{ContentType, Preference},
+    classification::{FileType, Preference},
     file_view::Filter,
     window::imp::MViewWindowImp,
 };
 
-const C_ITEMS: &[(&str, ContentType, Key)] = &[
-    ("Images [i]", ContentType::Image, Key::i),
-    ("Videos [v]", ContentType::Video, Key::v),
-    ("Documents [d]", ContentType::Document, Key::d),
-    ("Folders [f]", ContentType::Folder, Key::f),
-    ("Archives [a]", ContentType::Archive, Key::a),
-    ("Unsupported content [u]", ContentType::Unsupported, Key::u),
+const C_ITEMS: &[(&str, FileType, Key)] = &[
+    ("Images [i]", FileType::Image, Key::i),
+    ("Videos [v]", FileType::Video, Key::v),
+    ("Documents [d]", FileType::Document, Key::d),
+    ("Folders [f]", FileType::Folder, Key::f),
+    ("Archives [a]", FileType::Archive, Key::a),
+    ("Unsupported content [u]", FileType::Unsupported, Key::u),
 ];
 
 const F_ITEMS: &[(&str, Preference, Key)] = &[
@@ -46,11 +46,11 @@ const F_ITEMS: &[(&str, Preference, Key)] = &[
     ("Disliked items [t]", Preference::Disliked, Key::t),
 ];
 
-const A_ITEMS: &[(ContentType, Key)] = &[
-    (ContentType::Image, Key::I),
-    (ContentType::Video, Key::V),
-    (ContentType::Document, Key::D),
-    (ContentType::Archive, Key::A),
+const A_ITEMS: &[(FileType, Key)] = &[
+    (FileType::Image, Key::I),
+    (FileType::Video, Key::V),
+    (FileType::Document, Key::D),
+    (FileType::Archive, Key::A),
 ];
 
 impl MViewWindowImp {
@@ -130,7 +130,7 @@ impl MViewWindowImp {
         let fb_clone = f_checks.clone();
         images_button.connect_clicked(move |_| {
             for (cb, ct) in &cb_clone {
-                cb.set_active(*ct == ContentType::Image);
+                cb.set_active(*ct == FileType::Image);
             }
             for (cb, preference) in &fb_clone {
                 cb.set_active(*preference != Preference::Disliked);
@@ -142,7 +142,7 @@ impl MViewWindowImp {
         let fb_clone = f_checks.clone();
         videos_button.connect_clicked(move |_| {
             for (cb, ct) in &cb_clone {
-                cb.set_active(*ct == ContentType::Video);
+                cb.set_active(*ct == FileType::Video);
             }
             for (cb, preference) in &fb_clone {
                 cb.set_active(*preference != Preference::Disliked);
@@ -154,7 +154,7 @@ impl MViewWindowImp {
         let fb_clone = f_checks.clone();
         archives_button.connect_clicked(move |_| {
             for (cb, ct) in &cb_clone {
-                cb.set_active(*ct == ContentType::Archive);
+                cb.set_active(*ct == FileType::Archive);
             }
             for (cb, preference) in &fb_clone {
                 cb.set_active(*preference != Preference::Disliked);
@@ -166,7 +166,7 @@ impl MViewWindowImp {
         let fb_clone = f_checks.clone();
         documents_button.connect_clicked(move |_| {
             for (cb, ct) in &cb_clone {
-                cb.set_active(*ct == ContentType::Document);
+                cb.set_active(*ct == FileType::Document);
             }
             for (cb, preference) in &fb_clone {
                 cb.set_active(*preference != Preference::Disliked);
@@ -263,7 +263,7 @@ impl MViewWindowImp {
             self,
             move |dialog, response| {
                 if response == ResponseType::Ok {
-                    let c_selected: HashSet<ContentType> = c_checks
+                    let c_selected: HashSet<FileType> = c_checks
                         .iter()
                         .filter(|&(cb, _)| cb.is_active())
                         .map(|(_, content_type)| *content_type)

@@ -23,7 +23,7 @@ use gtk4::{
     ListStore, TreeIter, TreeModel, TreePath,
 };
 
-use crate::category::{ContentType, FileClassification, Preference};
+use crate::classification::{FileClassification, FileType, Preference};
 
 use super::model::{Column, Direction, Filter};
 
@@ -68,7 +68,7 @@ impl Cursor {
     }
 
     /// Value of the content field of the row (as ContentType)
-    pub fn content(&self) -> ContentType {
+    pub fn content(&self) -> FileType {
         self.store.content(&self.iter)
     }
 
@@ -123,7 +123,7 @@ pub trait TreeModelMviewExt: IsA<TreeModel> {
     fn folder(&self, iter: &TreeIter) -> String;
     fn content_id(&self, iter: &TreeIter) -> u32;
     fn category(&self, iter: &TreeIter) -> FileClassification;
-    fn content(&self, iter: &TreeIter) -> ContentType;
+    fn content(&self, iter: &TreeIter) -> FileType;
     fn preference(&self, iter: &TreeIter) -> Preference;
     fn index(&self, iter: &TreeIter) -> u64;
     fn modified(&self, iter: &TreeIter) -> u64;
@@ -144,18 +144,18 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
     fn content_id(&self, iter: &TreeIter) -> u32 {
         self.get_value(iter, Column::ContentType as i32)
             .get::<u32>()
-            .unwrap_or(ContentType::Unsupported.id())
+            .unwrap_or(FileType::Unsupported.id())
     }
     fn category(&self, iter: &TreeIter) -> FileClassification {
         FileClassification::new(self.content(iter), self.preference(iter))
     }
-    fn content(&self, iter: &TreeIter) -> ContentType {
+    fn content(&self, iter: &TreeIter) -> FileType {
         match self
             .get_value(iter, Column::ContentType as i32)
             .get::<u32>()
         {
-            Ok(id) => ContentType::from(id),
-            Err(_) => ContentType::Unsupported,
+            Ok(id) => FileType::from(id),
+            Err(_) => FileType::Unsupported,
         }
     }
     fn preference(&self, iter: &TreeIter) -> Preference {

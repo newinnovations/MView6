@@ -21,7 +21,7 @@
 
 mod application;
 mod backends;
-mod category;
+mod classification;
 mod config;
 mod content;
 mod error;

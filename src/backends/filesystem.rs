@@ -19,7 +19,7 @@
 
 use super::{Content, ImageParams};
 use crate::{
-    category::{ContentType, FileClassification, Preference},
+    classification::{FileClassification, FileType, Preference},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -128,7 +128,7 @@ impl Backend for FileSystem {
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
         let content = cursor.content();
-        if content == ContentType::Video {
+        if content == FileType::Video {
             let full_path = self.directory.join(cursor.name());
             println!("Launch video external {}", full_path.to_string_lossy());
             let child = Command::new("mpv")
@@ -142,9 +142,9 @@ impl Backend for FileSystem {
                 eprintln!("Failed to launch mpv {:?}", error);
             };
             None
-        } else if content == ContentType::Folder
-            || content == ContentType::Archive
-            || content == ContentType::Document
+        } else if content == FileType::Folder
+            || content == FileType::Archive
+            || content == FileType::Document
         {
             Some(<dyn Backend>::new_from_path(
                 &self.directory.join(cursor.name()),
@@ -186,7 +186,7 @@ impl Backend for FileSystem {
 
     fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
         let content = cursor.content();
-        if content != ContentType::Image {
+        if content != FileType::Image {
             //TODO: drop this restriction?
             return false;
         }

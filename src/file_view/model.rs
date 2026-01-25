@@ -23,7 +23,7 @@ use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
 
 use super::cursor::TreeModelMviewExt;
-use crate::category::{ContentType, FileClassification, Preference};
+use crate::classification::{FileClassification, FileType, Preference};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(i32)]
@@ -32,7 +32,7 @@ pub enum Direction {
     Down,
 }
 
-pub type FilterSet = (HashSet<ContentType>, HashSet<Preference>);
+pub type FilterSet = (HashSet<FileType>, HashSet<Preference>);
 
 #[derive(Debug, Default)]
 pub enum Filter {
@@ -46,21 +46,21 @@ pub enum Filter {
 
 impl Filter {
     pub fn full_set() -> Self {
-        Self::Set((ContentType::all(), Preference::all()))
+        Self::Set((FileType::all(), Preference::all()))
     }
 
     pub fn matches(&self, category: FileClassification) -> bool {
         match self {
             Self::None => true,
-            Self::Image => category.content == ContentType::Image,
+            Self::Image => category.file_type == FileType::Image,
             Self::Liked => category.preference == Preference::Liked,
             Self::Container => {
-                category.content == ContentType::Folder
-                    || category.content == ContentType::Archive
-                    || category.content == ContentType::Document
+                category.file_type == FileType::Folder
+                    || category.file_type == FileType::Archive
+                    || category.file_type == FileType::Document
             }
             Self::Set((ref c_set, ref f_set)) => {
-                c_set.contains(&category.content) && f_set.contains(&category.preference)
+                c_set.contains(&category.file_type) && f_set.contains(&category.preference)
             }
         }
     }
@@ -118,12 +118,12 @@ impl Row {
         folder: String,
     ) -> Self {
         Row {
-            content_type: cat.content_id(),
+            content_type: cat.file_type_id(),
             name,
             size,
             modified,
             index,
-            content_icon: cat.content_icon().to_string(),
+            content_icon: cat.file_type_icon().to_string(),
             preference_icon: cat.preference_icon().to_string(),
             show_preference_icon: cat.show_preference_icon(),
             folder,

@@ -17,6 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+pub mod file_formats;
+
 use std::{collections::HashSet, path::Path};
 
 use crate::image::colors::Color;
@@ -35,7 +37,7 @@ const VIDEO_EXT: &[&str] = &[
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum ContentType {
+pub enum FileType {
     Folder = 0,
     Archive = 1,
     Image = 2,
@@ -45,7 +47,7 @@ pub enum ContentType {
     Unsupported = 5,
 }
 
-impl From<u32> for ContentType {
+impl From<u32> for FileType {
     fn from(value: u32) -> Self {
         match value {
             0 => Self::Folder,
@@ -58,7 +60,7 @@ impl From<u32> for ContentType {
     }
 }
 
-impl ContentType {
+impl FileType {
     pub fn id(&self) -> u32 {
         *self as u32
     }
@@ -125,25 +127,29 @@ impl ContentType {
             Self::Unsupported,
         ])
     }
-}
 
-impl From<&Path> for ContentType {
-    fn from(path: &Path) -> Self {
-        let extension = path.extension().unwrap_or_default();
-        let extension = extension.to_string_lossy().to_lowercase();
-        if ARCHIVE_EXT.contains(&extension.as_str()) {
+    pub fn from_extension(extension: &str) -> Self {
+        let ext_low = extension.to_lowercase();
+        if ARCHIVE_EXT.contains(&ext_low.as_str()) {
             return Self::Archive;
         }
-        if DOC_EXT.contains(&extension.as_str()) {
+        if DOC_EXT.contains(&ext_low.as_str()) {
             return Self::Document;
         }
-        if IMAGE_EXT.contains(&extension.as_str()) {
+        if IMAGE_EXT.contains(&ext_low.as_str()) {
             return Self::Image;
         }
-        if VIDEO_EXT.contains(&extension.as_str()) {
+        if VIDEO_EXT.contains(&ext_low.as_str()) {
             return Self::Video;
         }
         Self::Unsupported
+    }
+}
+
+impl From<&Path> for FileType {
+    fn from(path: &Path) -> Self {
+        let extension = path.extension().unwrap_or_default();
+        Self::from_extension(&extension.to_string_lossy())
     }
 }
 
@@ -200,33 +206,33 @@ impl From<&Path> for Preference {
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct FileClassification {
-    pub content: ContentType,
+    pub file_type: FileType,
     pub preference: Preference,
 }
 
 impl FileClassification {
-    pub fn new(content: ContentType, preference: Preference) -> Self {
+    pub fn new(file_type: FileType, preference: Preference) -> Self {
         FileClassification {
-            content,
+            file_type,
             preference,
         }
     }
 
     pub fn determine(path: &Path, is_dir: bool) -> Self {
-        let content = if is_dir {
-            ContentType::Folder
+        let file_type = if is_dir {
+            FileType::Folder
         } else {
             path.into()
         };
 
         Self {
-            content,
+            file_type,
             preference: path.into(),
         }
     }
 
-    pub fn content_id(&self) -> u32 {
-        self.content.id()
+    pub fn file_type_id(&self) -> u32 {
+        self.file_type.id()
     }
 
     // https://www.svgrepo.com/svg/347736/file-directory
@@ -251,8 +257,8 @@ impl FileClassification {
     //
     // https://www.svgrepo.com/svg/533035/bookmark
 
-    pub fn content_icon(&self) -> &str {
-        self.content.icon()
+    pub fn file_type_icon(&self) -> &str {
+        self.file_type.icon()
     }
 
     pub fn preference_icon(&self) -> &str {
@@ -264,26 +270,26 @@ impl FileClassification {
     }
 
     pub fn colors(&self) -> (Color, Color, Color) {
-        self.content.colors()
+        self.file_type.colors()
     }
 
     pub fn name(&self) -> String {
-        self.content.name()
+        self.file_type.name()
     }
 
     pub fn short(&self) -> String {
-        self.content.short()
+        self.file_type.short()
     }
 
     pub fn is_container(&self) -> bool {
-        self.content.is_container()
+        self.file_type.is_container()
     }
 }
 
-impl From<ContentType> for FileClassification {
-    fn from(content: ContentType) -> Self {
+impl From<FileType> for FileClassification {
+    fn from(file_type: FileType) -> Self {
         Self {
-            content,
+            file_type,
             preference: Preference::Normal,
         }
     }

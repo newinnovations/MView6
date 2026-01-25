@@ -18,7 +18,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 pub mod analyze_text;
-pub mod content_type;
 pub mod loader;
 pub mod paginated;
 pub mod preview;

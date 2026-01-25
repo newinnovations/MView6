@@ -25,7 +25,7 @@ use std::{
 
 use super::{data::ImageViewData, ImageView, ViewCursor};
 use crate::{
-    category::Preference,
+    classification::Preference,
     content::Content,
     image::{
         colors::{CairoColorExt, Color},
