@@ -28,7 +28,7 @@ use std::{
 use super::{Backend, Content, ImageParams, Target};
 use crate::{
     backends::thumbnail::model::TParent,
-    category::{Category, ContentType},
+    category::{ContentType, FileClassification},
     file_view::{
         model::{BackendRef, Entry, ItemRef, Row},
         Cursor,
@@ -149,7 +149,7 @@ impl Thumbnail {
             for row in 0..self.dim.capacity_y {
                 for col in 0..self.dim.capacity_x {
                     let source = Entry {
-                        category: Category::new(cursor.content(), cursor.favorite()),
+                        category: FileClassification::new(cursor.content(), cursor.preference()),
                         name: cursor.name(),
                         reference: backend.reference(&cursor),
                     };

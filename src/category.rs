@@ -149,49 +149,49 @@ impl From<&Path> for ContentType {
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
-pub enum FavType {
+pub enum Preference {
     #[default]
     Normal = 0,
-    Favorite = 1,
-    Trash = 2,
+    Liked = 1,
+    Disliked = 2,
 }
 
-impl FavType {
+impl Preference {
     pub fn icon(&self) -> &str {
         match self {
-            Self::Favorite => "mv6-favorite",
-            Self::Trash => "mv6-garbage",
+            Self::Liked => "mv6-liked",
+            Self::Disliked => "mv6-disliked",
             _ => "mv6-unknown",
         }
     }
 
-    pub fn from_fav_icon(fav_icon: &str) -> Self {
-        if fav_icon == "mv6-favorite" {
-            Self::Favorite
-        } else if fav_icon == "mv6-garbage" {
-            Self::Trash
+    pub fn from_icon(icon_name: &str) -> Self {
+        if icon_name == "mv6-liked" {
+            Self::Liked
+        } else if icon_name == "mv6-disliked" {
+            Self::Disliked
         } else {
             Self::Normal
         }
     }
 
     pub fn show_icon(&self) -> bool {
-        matches!(self, Self::Favorite | Self::Trash)
+        matches!(self, Self::Liked | Self::Disliked)
     }
 
     pub fn all() -> HashSet<Self> {
-        HashSet::from([Self::Normal, Self::Favorite, Self::Trash])
+        HashSet::from([Self::Normal, Self::Liked, Self::Disliked])
     }
 }
 
-impl From<&Path> for FavType {
+impl From<&Path> for Preference {
     fn from(path: &Path) -> Self {
         let filename = path.file_name().unwrap_or_default();
         let filename = filename.to_string_lossy().to_lowercase();
         if filename.contains(".hi.") {
-            Self::Favorite
+            Self::Liked
         } else if filename.contains(".lo.") {
-            Self::Trash
+            Self::Disliked
         } else {
             Self::Normal
         }
@@ -199,14 +199,17 @@ impl From<&Path> for FavType {
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct Category {
+pub struct FileClassification {
     pub content: ContentType,
-    pub favorite: FavType,
+    pub preference: Preference,
 }
 
-impl Category {
-    pub fn new(content: ContentType, favorite: FavType) -> Self {
-        Category { content, favorite }
+impl FileClassification {
+    pub fn new(content: ContentType, preference: Preference) -> Self {
+        FileClassification {
+            content,
+            preference,
+        }
     }
 
     pub fn determine(path: &Path, is_dir: bool) -> Self {
@@ -218,7 +221,7 @@ impl Category {
 
         Self {
             content,
-            favorite: path.into(),
+            preference: path.into(),
         }
     }
 
@@ -252,12 +255,12 @@ impl Category {
         self.content.icon()
     }
 
-    pub fn fav_icon(&self) -> &str {
-        self.favorite.icon()
+    pub fn preference_icon(&self) -> &str {
+        self.preference.icon()
     }
 
-    pub fn show_fav_icon(&self) -> bool {
-        self.favorite.show_icon()
+    pub fn show_preference_icon(&self) -> bool {
+        self.preference.show_icon()
     }
 
     pub fn colors(&self) -> (Color, Color, Color) {
@@ -277,25 +280,11 @@ impl Category {
     }
 }
 
-impl From<ContentType> for Category {
+impl From<ContentType> for FileClassification {
     fn from(content: ContentType) -> Self {
         Self {
             content,
-            favorite: FavType::Normal,
+            preference: Preference::Normal,
         }
     }
 }
-
-// impl From<u32> for Category {
-//     fn from(value: u32) -> Self {
-//         match value {
-//             0 => Self::Folder,
-//             1 => Self::Favorite,
-//             2 => Self::Image,
-//             3 => Self::Archive,
-//             4 => Self::Document,
-//             5 => Self::Trash,
-//             _ => Self::Unsupported,
-//         }
-//     }
-// }

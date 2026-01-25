@@ -19,7 +19,7 @@
 
 use super::{Content, ImageParams};
 use crate::{
-    category::{Category, ContentType, FavType},
+    category::{ContentType, FileClassification, Preference},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -82,7 +82,7 @@ impl FileSystem {
             };
             let size = metadata.len();
 
-            let cat = Category::determine(&path, metadata.is_dir());
+            let cat = FileClassification::determine(&path, metadata.is_dir());
 
             result.push(Row::new(cat, filename.to_string(), size, modified));
         }
@@ -133,6 +133,7 @@ impl Backend for FileSystem {
             println!("Launch video external {}", full_path.to_string_lossy());
             let child = Command::new("mpv")
                 .arg(full_path)
+                .arg("--fullscreen=yes")
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -183,7 +184,7 @@ impl Backend for FileSystem {
     //     )
     // }
 
-    fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
+    fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
         let content = cursor.content();
         if content != ContentType::Image {
             //TODO: drop this restriction?
@@ -192,23 +193,26 @@ impl Backend for FileSystem {
 
         let filename = cursor.name();
         let re = Regex::new(r"\.([^\.]+)$").unwrap();
-        let (new_filename, new_favorite) = if matches!(direction, Direction::Up) {
+        let (new_filename, new_preference) = if matches!(direction, Direction::Up) {
             if filename.contains(".hi.") {
                 return true;
             } else if filename.contains(".lo.") {
-                (filename.replace(".lo", ""), FavType::Normal)
+                (filename.replace(".lo", ""), Preference::Normal)
             } else {
                 (
                     re.replace(&filename, ".hi.$1").to_string(),
-                    FavType::Favorite,
+                    Preference::Liked,
                 )
             }
         } else if filename.contains(".lo.") {
             return true;
         } else if filename.contains(".hi.") {
-            (filename.replace(".hi", ""), FavType::Normal)
+            (filename.replace(".hi", ""), Preference::Normal)
         } else {
-            (re.replace(&filename, ".lo.$1").to_string(), FavType::Trash)
+            (
+                re.replace(&filename, ".lo.$1").to_string(),
+                Preference::Disliked,
+            )
         };
         dbg!(&self.directory, &filename, &new_filename);
         match rename(
@@ -216,7 +220,7 @@ impl Backend for FileSystem {
             self.directory.join(&new_filename),
         ) {
             Ok(()) => {
-                cursor.update(new_favorite, &new_filename);
+                cursor.update(new_preference, &new_filename);
                 true
             }
             Err(e) => {

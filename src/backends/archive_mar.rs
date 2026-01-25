@@ -27,7 +27,7 @@ use std::{
 };
 
 use crate::{
-    category::{Category, ContentType},
+    category::{ContentType, FileClassification},
     error::MviewResult,
     file_view::{
         model::{BackendRef, ItemRef, Reference, Row},
@@ -157,7 +157,7 @@ fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
     for _ in 0..num_entries {
         let entry = MarEntry::read(&mut reader, buf[3])?;
 
-        let cat = Category::determine(Path::new(&entry.filename), false);
+        let cat = FileClassification::determine(Path::new(&entry.filename), false);
         let file_size = entry.image_size as u64;
 
         if cat.content == ContentType::Unsupported {

@@ -25,7 +25,7 @@ use std::{
 
 use super::{data::ImageViewData, ImageView, ViewCursor};
 use crate::{
-    category::FavType,
+    category::Preference,
     content::Content,
     image::{
         colors::{CairoColorExt, Color},
@@ -212,9 +212,9 @@ impl ImageViewImp {
                 let _ = context.stroke();
             }
             for annotation in &annotations.annotations {
-                match annotation.entry.favorite() {
-                    FavType::Favorite => context.set_source_rgb(0.0, 1.0, 0.0),
-                    FavType::Trash => context.set_source_rgb(1.0, 1.0, 0.0),
+                match annotation.entry.preference() {
+                    Preference::Liked => context.set_source_rgb(0.0, 1.0, 0.0),
+                    Preference::Disliked => context.set_source_rgb(1.0, 1.0, 0.0),
                     _ => continue,
                 };
                 context.arc(

@@ -4,9 +4,9 @@
     <file>mv6-box.svg</file>
     <file>mv6-image.svg</file>
     <file>mv6-video.svg</file>
-    <file>mv6-garbage.svg</file>
     <file>mv6-unknown.svg</file>
-    <file>mv6-favorite.svg</file>
+    <file>mv6-liked.svg</file>
+    <file>mv6-disliked.svg</file>
     <file>mv6-doc.svg</file>
     <file>mview6.svg</file>
     <file>panel-down.svg</file>

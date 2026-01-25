@@ -28,7 +28,7 @@ use super::MViewWindowImp;
 
 use crate::{
     backends::{Backend, ImageParams},
-    category::Category,
+    category::FileClassification,
     file_view::{Direction, Filter, Target},
     util::path_to_filename,
     window::imp::TargetTime,
@@ -117,7 +117,7 @@ impl MViewWindowImp {
         println!("navigate_to {}", path.display());
         let filename = path_to_filename(path);
         let directory = path.parent().unwrap_or_else(|| Path::new(""));
-        let category = Category::determine(path, path.is_dir());
+        let category = FileClassification::determine(path, path.is_dir());
         dbg!(&filename, directory, category);
         let new_backend = <dyn Backend>::new_from_path(directory);
         self.open_container.set(category.is_container());

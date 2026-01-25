@@ -108,7 +108,11 @@ impl MViewWindowImp {
             Key::minus | Key::KP_Subtract => {
                 w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
-                    if self.backend.borrow().favorite(&current, Direction::Down) {
+                    if self
+                        .backend
+                        .borrow()
+                        .set_preference(&current, Direction::Down)
+                    {
                         w.file_view
                             .navigate_item(Direction::Down, &Filter::Image, 1);
                     }
@@ -117,19 +121,22 @@ impl MViewWindowImp {
             Key::equal | Key::KP_Add => {
                 w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
-                    if self.backend.borrow().favorite(&current, Direction::Up) {
+                    if self
+                        .backend
+                        .borrow()
+                        .set_preference(&current, Direction::Up)
+                    {
                         w.file_view
                             .navigate_item(Direction::Down, &Filter::Image, 1);
                     }
                 }
             }
             Key::a => {
-                w.file_view
-                    .navigate_item(Direction::Up, &Filter::Favorite, 1);
+                w.file_view.navigate_item(Direction::Up, &Filter::Liked, 1);
             }
             Key::s => {
                 w.file_view
-                    .navigate_item(Direction::Down, &Filter::Favorite, 1);
+                    .navigate_item(Direction::Down, &Filter::Liked, 1);
             }
             Key::Up | Key::z => {
                 w.file_view.navigate_item(

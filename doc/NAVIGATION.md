@@ -16,8 +16,8 @@ Press <kbd>h</kbd> for help. Press <kbd>h</kbd> again for the second help page.
 | <kbd>↓</kbd> _or_ <kbd>keypad 2</kbd>                   | next 5 images                                            |
 | <kbd>page up</kbd>                                      | previous 25 images                                       |
 | <kbd>page down</kbd>                                    | next 25 images                                           |
-| <kbd>a</kbd>                                            | previous __favorite__ image                              |
-| <kbd>s</kbd>                                            | next __favorite__ image                                  |
+| <kbd>a</kbd>                                            | previous __liked__ image                                 |
+| <kbd>s</kbd>                                            | next __liked__ image                                     |
 | <kbd>w</kbd> _or_ <kbd>keypad 7</kbd>                   | hop to previous folder/archive                           |
 | <kbd>e</kbd> _or_ <kbd>keypad 9</kbd>                   | hop to next folder/archive                               |
 | <kbd>enter</kbd> _or_ <kbd>keypad enter</kbd>           | enter (open) folder/archive                              |
@@ -35,12 +35,12 @@ current, navigation in the parent and opening the previous or next container.
 
 Click on the table headers or use the following keys
 
-| Key(s)                          | Function                                               |
-| ------------------------------- | ------------------------------------------------------ |
-| <kbd>1</kbd>                    | sort on category (folder/archive/image/favorite/trash) |
-| <kbd>2</kbd>                    | sort on name                                           |
-| <kbd>3</kbd>                    | sort on size                                           |
-| <kbd>4</kbd>                    | sort on date                                           |
+| Key(s)       | Function                                                |
+| ------------ | ------------------------------------------------------- |
+| <kbd>1</kbd> | sort on file type (folder/archive/image/document/video) |
+| <kbd>2</kbd> | sort on name                                            |
+| <kbd>3</kbd> | sort on size                                            |
+| <kbd>4</kbd> | sort on date                                            |
 
 ## Thumbnails
 
@@ -108,12 +108,12 @@ Zoom modes explained
 | `zoom_fill` | Will shrink or enlarge image to fill the available window area. All of the image will be visible, there may be black margins          |
 | `zoom_max`  | Will shrink or enlarge image to fill the available window area. There will be no black margins, part of the image may fall off-screen |
 
-## Marking images as "favorite" or "trash"
+## Marking images as "liked" or "disliked"
 
-| Key(s)                                | Function                                    |
-| ------------------------------------- | ------------------------------------------- |
-| <kbd>=</kbd> _or_ <kbd>keypad +</kbd> | mark image as favorite (or unmark as trash) |
-| <kbd>-</kbd> _or_ <kbd>keypad -</kbd> | mark image as trash (or unmark as favorite) |
+| Key(s)                                | Function                                        |
+| ------------------------------------- | ----------------------------------------------- |
+| <kbd>=</kbd> _or_ <kbd>keypad +</kbd> | mark image as `liked` (or unmark as `disliked`) |
+| <kbd>-</kbd> _or_ <kbd>keypad -</kbd> | mark image as `disliked` (or unmark as `liked`) |
 
 Marking is done by adding `.lo.` or `.hi.` to the image filename. For example `image_123.jpg` will be renamed to `image_123.hi.jpg`. This does currently not work inside zip or rar archives.
 

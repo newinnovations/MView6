@@ -26,7 +26,7 @@ use gtk4::{
 };
 
 use crate::{
-    category::{ContentType, FavType},
+    category::{ContentType, Preference},
     file_view::Filter,
     window::imp::MViewWindowImp,
 };
@@ -40,10 +40,10 @@ const C_ITEMS: &[(&str, ContentType, Key)] = &[
     ("Unsupported content [u]", ContentType::Unsupported, Key::u),
 ];
 
-const F_ITEMS: &[(&str, FavType, Key)] = &[
-    ("Normal items [n]", FavType::Normal, Key::n),
-    ("Favorite items [l]", FavType::Favorite, Key::l),
-    ("Trashed items [t]", FavType::Trash, Key::t),
+const F_ITEMS: &[(&str, Preference, Key)] = &[
+    ("Normal items [n]", Preference::Normal, Key::n),
+    ("Liked items [l]", Preference::Liked, Key::l),
+    ("Disliked items [t]", Preference::Disliked, Key::t),
 ];
 
 const A_ITEMS: &[(ContentType, Key)] = &[
@@ -95,14 +95,14 @@ impl MViewWindowImp {
             let separator = Separator::new(Orientation::Horizontal);
             separator.add_css_class("navsep");
             vbox_checks.append(&separator);
-            for (item, fav_type, _) in F_ITEMS {
+            for (item, pref_type, _) in F_ITEMS {
                 let checkbox = CheckButton::with_label(item);
-                checkbox.set_active(f_filter.contains(fav_type));
+                checkbox.set_active(f_filter.contains(pref_type));
                 if let Some(label) = checkbox.last_child() {
                     label.set_margin_start(8)
                 }
                 vbox_checks.append(&checkbox);
-                f_checks.push((checkbox, *fav_type));
+                f_checks.push((checkbox, *pref_type));
             }
         }
 
@@ -132,8 +132,8 @@ impl MViewWindowImp {
             for (cb, ct) in &cb_clone {
                 cb.set_active(*ct == ContentType::Image);
             }
-            for (cb, fav) in &fb_clone {
-                cb.set_active(*fav != FavType::Trash);
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
             }
         });
 
@@ -144,8 +144,8 @@ impl MViewWindowImp {
             for (cb, ct) in &cb_clone {
                 cb.set_active(*ct == ContentType::Video);
             }
-            for (cb, fav) in &fb_clone {
-                cb.set_active(*fav != FavType::Trash);
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
             }
         });
 
@@ -156,8 +156,8 @@ impl MViewWindowImp {
             for (cb, ct) in &cb_clone {
                 cb.set_active(*ct == ContentType::Archive);
             }
-            for (cb, fav) in &fb_clone {
-                cb.set_active(*fav != FavType::Trash);
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
             }
         });
 
@@ -168,8 +168,8 @@ impl MViewWindowImp {
             for (cb, ct) in &cb_clone {
                 cb.set_active(*ct == ContentType::Document);
             }
-            for (cb, fav) in &fb_clone {
-                cb.set_active(*fav != FavType::Trash);
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
             }
         });
 
@@ -217,10 +217,10 @@ impl MViewWindowImp {
                         }
                     }
                 }
-                for (_, fav_type, key) in F_ITEMS {
+                for (_, preference, key) in F_ITEMS {
                     if *key == keyval {
-                        for (cb, cb_fav) in &fb_clone {
-                            if *fav_type == *cb_fav {
+                        for (cb, cb_preference) in &fb_clone {
+                            if *preference == *cb_preference {
                                 cb.set_active(!cb.is_active());
                                 return Propagation::Stop;
                             }
@@ -232,8 +232,8 @@ impl MViewWindowImp {
                         for (cb, ct) in &cb_clone {
                             cb.set_active(*ct == *content_type);
                         }
-                        for (cb, fav) in &fb_clone {
-                            cb.set_active(*fav != FavType::Trash);
+                        for (cb, preference) in &fb_clone {
+                            cb.set_active(*preference != Preference::Disliked);
                         }
                     }
                 }
@@ -268,10 +268,10 @@ impl MViewWindowImp {
                         .filter(|&(cb, _)| cb.is_active())
                         .map(|(_, content_type)| *content_type)
                         .collect();
-                    let f_selected: HashSet<FavType> = f_checks
+                    let f_selected: HashSet<Preference> = f_checks
                         .iter()
                         .filter(|&(cb, _)| cb.is_active())
-                        .map(|(_, fav_type)| *fav_type)
+                        .map(|(_, preference_type)| *preference_type)
                         .collect();
                     this.current_filter
                         .replace(Filter::Set((c_selected, f_selected)));

@@ -48,7 +48,7 @@ Built on modern, performance-focused technologies such as Rust and GTK4.
 
 ### Organization Tools
 
-- Tagging images for favorites and deletion candidates
+- Tagging images as `liked` or `disliked` (deletion candidates)
 - Sorting options on type, status, name and data
 - Thumbnail presentation
 

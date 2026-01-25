@@ -97,8 +97,8 @@ impl ObjectImpl for FileViewImp {
         col_name.pack_start(&renderer_icon, false);
         col_name.pack_start(&renderer_txt, true);
         col_name.set_title("Name");
-        col_name.add_attribute(&renderer_icon, "icon-name", Column::FavIcon as i32);
-        col_name.add_attribute(&renderer_icon, "visible", Column::ShowFavIcon as i32);
+        col_name.add_attribute(&renderer_icon, "icon-name", Column::PrefIcon as i32);
+        col_name.add_attribute(&renderer_icon, "visible", Column::ShowPrefIcon as i32);
         col_name.add_attribute(&renderer_txt, "text", Column::Name as i32);
         col_name.set_sizing(TreeViewColumnSizing::Fixed);
         col_name.set_fixed_width(300);

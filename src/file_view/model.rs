@@ -23,7 +23,7 @@ use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
 
 use super::cursor::TreeModelMviewExt;
-use crate::category::{Category, ContentType, FavType};
+use crate::category::{ContentType, FileClassification, Preference};
 
 #[derive(Debug, Clone, Copy)]
 #[repr(i32)]
@@ -32,35 +32,35 @@ pub enum Direction {
     Down,
 }
 
-pub type FilterSet = (HashSet<ContentType>, HashSet<FavType>);
+pub type FilterSet = (HashSet<ContentType>, HashSet<Preference>);
 
 #[derive(Debug, Default)]
 pub enum Filter {
     #[default]
     None,
     Image,
-    Favorite,
+    Liked,
     Container,
     Set(FilterSet),
 }
 
 impl Filter {
     pub fn full_set() -> Self {
-        Self::Set((ContentType::all(), FavType::all()))
+        Self::Set((ContentType::all(), Preference::all()))
     }
 
-    pub fn matches(&self, category: Category) -> bool {
+    pub fn matches(&self, category: FileClassification) -> bool {
         match self {
             Self::None => true,
             Self::Image => category.content == ContentType::Image,
-            Self::Favorite => category.favorite == FavType::Favorite,
+            Self::Liked => category.preference == Preference::Liked,
             Self::Container => {
                 category.content == ContentType::Folder
                     || category.content == ContentType::Archive
                     || category.content == ContentType::Document
             }
             Self::Set((ref c_set, ref f_set)) => {
-                c_set.contains(&category.content) && f_set.contains(&category.favorite)
+                c_set.contains(&category.content) && f_set.contains(&category.preference)
             }
         }
     }
@@ -76,8 +76,8 @@ pub enum Column {
     Modified,
     Index,
     ContentIcon,
-    FavIcon,
-    ShowFavIcon,
+    PrefIcon,
+    ShowPrefIcon,
     Folder,
 }
 
@@ -89,22 +89,28 @@ pub struct Row {
     pub modified: u64,
     index: u64,
     content_icon: String,
-    fav_icon: String,
-    show_fav_icon: bool,
+    preference_icon: String,
+    show_preference_icon: bool,
     folder: String,
 }
 
 impl Row {
-    pub fn new(cat: Category, name: String, size: u64, modified: u64) -> Self {
+    pub fn new(cat: FileClassification, name: String, size: u64, modified: u64) -> Self {
         Self::new_folder_index(cat, name, size, modified, 0, Default::default())
     }
 
-    pub fn new_index(cat: Category, name: String, size: u64, modified: u64, index: u64) -> Self {
+    pub fn new_index(
+        cat: FileClassification,
+        name: String,
+        size: u64,
+        modified: u64,
+        index: u64,
+    ) -> Self {
         Self::new_folder_index(cat, name, size, modified, index, Default::default())
     }
 
     pub fn new_folder_index(
-        cat: Category,
+        cat: FileClassification,
         name: String,
         size: u64,
         modified: u64,
@@ -118,8 +124,8 @@ impl Row {
             modified,
             index,
             content_icon: cat.content_icon().to_string(),
-            fav_icon: cat.fav_icon().to_string(),
-            show_fav_icon: cat.show_fav_icon(),
+            preference_icon: cat.preference_icon().to_string(),
+            show_preference_icon: cat.show_preference_icon(),
             folder,
         }
     }
@@ -134,8 +140,8 @@ impl Row {
                 (Column::Modified as u32, &self.modified),
                 (Column::Index as u32, &self.index),
                 (Column::ContentIcon as u32, &self.content_icon),
-                (Column::FavIcon as u32, &self.fav_icon),
-                (Column::ShowFavIcon as u32, &self.show_fav_icon),
+                (Column::PrefIcon as u32, &self.preference_icon),
+                (Column::ShowPrefIcon as u32, &self.show_preference_icon),
                 (Column::Folder as u32, &self.folder),
             ],
         );
@@ -408,13 +414,13 @@ impl FromStr for ItemRef {
 
 #[derive(Debug, Clone)]
 pub struct Entry {
-    pub category: Category,
+    pub category: FileClassification,
     pub name: String,
     pub reference: Reference,
 }
 
 impl Entry {
-    pub fn new(category: Category, name: &str, reference: Reference) -> Self {
+    pub fn new(category: FileClassification, name: &str, reference: Reference) -> Self {
         Entry {
             category,
             name: name.to_string(),
@@ -422,8 +428,8 @@ impl Entry {
         }
     }
 
-    pub fn favorite(&self) -> FavType {
-        self.category.favorite
+    pub fn preference(&self) -> Preference {
+        self.category.preference
     }
 }
 

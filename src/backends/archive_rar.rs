@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
-    category::{Category, ContentType},
+    category::{ContentType, FileClassification},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -157,7 +157,7 @@ fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
-        let cat = Category::determine(&entry.filename, false); //file.is_dir());
+        let cat = FileClassification::determine(&entry.filename, false); //file.is_dir());
         let file_size = entry.unpacked_size;
         let modified = unix_from_msdos(entry.file_time);
         if file_size == 0 {

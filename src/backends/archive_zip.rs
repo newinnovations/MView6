@@ -29,7 +29,7 @@ use std::{
 use zip::result::ZipResult;
 
 use crate::{
-    category::{Category, ContentType},
+    category::{ContentType, FileClassification},
     content::loader::ContentLoader,
     error::MviewResult,
     file_view::{
@@ -165,7 +165,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        let cat = Category::determine(&outpath, file.is_dir());
+        let cat = FileClassification::determine(&outpath, file.is_dir());
         let file_size = file.size();
         let index = i as u64;
 

@@ -69,7 +69,7 @@ pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
     fn list(&self) -> &Vec<Row>;
-    fn favorite(&self, cursor: &Cursor, direction: Direction) -> bool {
+    fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
     }
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {

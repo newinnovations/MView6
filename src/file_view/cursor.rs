@@ -23,7 +23,7 @@ use gtk4::{
     ListStore, TreeIter, TreeModel, TreePath,
 };
 
-use crate::category::{Category, ContentType, FavType};
+use crate::category::{ContentType, FileClassification, Preference};
 
 use super::model::{Column, Direction, Filter};
 
@@ -72,17 +72,17 @@ impl Cursor {
         self.store.content(&self.iter)
     }
 
-    /// Value of the favorite field of the row (as FavType)
-    pub fn favorite(&self) -> FavType {
-        self.store.favorite(&self.iter)
+    /// Value of the preference field of the row (as Preference})
+    pub fn preference(&self) -> Preference {
+        self.store.preference(&self.iter)
     }
 
-    pub fn update(&self, new_favorite: FavType, new_filename: &str) {
+    pub fn update(&self, new_preference: Preference, new_filename: &str) {
         self.store.set(
             &self.iter,
             &[
-                (Column::FavIcon as u32, &new_favorite.icon()),
-                (Column::ShowFavIcon as u32, &new_favorite.show_icon()),
+                (Column::PrefIcon as u32, &new_preference.icon()),
+                (Column::ShowPrefIcon as u32, &new_preference.show_icon()),
                 (Column::Name as u32, &new_filename),
             ],
         );
@@ -122,9 +122,9 @@ pub trait TreeModelMviewExt: IsA<TreeModel> {
     fn name(&self, iter: &TreeIter) -> String;
     fn folder(&self, iter: &TreeIter) -> String;
     fn content_id(&self, iter: &TreeIter) -> u32;
-    fn category(&self, iter: &TreeIter) -> Category;
+    fn category(&self, iter: &TreeIter) -> FileClassification;
     fn content(&self, iter: &TreeIter) -> ContentType;
-    fn favorite(&self, iter: &TreeIter) -> FavType;
+    fn preference(&self, iter: &TreeIter) -> Preference;
     fn index(&self, iter: &TreeIter) -> u64;
     fn modified(&self, iter: &TreeIter) -> u64;
     fn size(&self, iter: &TreeIter) -> u64;
@@ -146,8 +146,8 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
             .get::<u32>()
             .unwrap_or(ContentType::Unsupported.id())
     }
-    fn category(&self, iter: &TreeIter) -> Category {
-        Category::new(self.content(iter), self.favorite(iter))
+    fn category(&self, iter: &TreeIter) -> FileClassification {
+        FileClassification::new(self.content(iter), self.preference(iter))
     }
     fn content(&self, iter: &TreeIter) -> ContentType {
         match self
@@ -158,12 +158,12 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
             Err(_) => ContentType::Unsupported,
         }
     }
-    fn favorite(&self, iter: &TreeIter) -> FavType {
-        let fav_icon = self
-            .get_value(iter, Column::FavIcon as i32)
+    fn preference(&self, iter: &TreeIter) -> Preference {
+        let pref_icon = self
+            .get_value(iter, Column::PrefIcon as i32)
             .get::<String>()
             .unwrap_or_default();
-        FavType::from_fav_icon(&fav_icon)
+        Preference::from_icon(&pref_icon)
     }
     fn index(&self, iter: &TreeIter) -> u64 {
         self.get_value(iter, Column::Index as i32)
