@@ -139,29 +139,32 @@ impl FileFormat {
         Self::Unknown
     }
 
-    // TODO: -1, jxl
+    // TODO: jxl
     pub fn from_extension(extension: &str) -> Self {
         let ext_low = extension.to_lowercase();
         if VIDEO_EXT.contains(&ext_low.as_str()) {
             return Self::Video;
         }
         match ext_low.as_str() {
-            "zip" => Self::Archive(ArchiveFormat::Zip),
-            "rar" => Self::Archive(ArchiveFormat::Rar),
-            "mar" => Self::Archive(ArchiveFormat::Mar),
-            "pdf" => Self::Document(DocumentFormat::Pdf),
-            "epub" => Self::Document(DocumentFormat::Epub),
-            "jpg" => Self::Image(ImageFormat::Jpeg),
-            "jpeg" => Self::Image(ImageFormat::Jpeg),
-            "jfif" => Self::Image(ImageFormat::Jpeg),
+            "avif" => Self::Image(ImageFormat::Avif),
             "gif" => Self::Image(ImageFormat::Gif),
+            "g-1" => Self::Image(ImageFormat::Gif),
+            "heic" => Self::Image(ImageFormat::Heic),
+            "jfif" => Self::Image(ImageFormat::Jpeg),
+            "jpeg" => Self::Image(ImageFormat::Jpeg),
+            "jpg" => Self::Image(ImageFormat::Jpeg),
+            "j-1" => Self::Image(ImageFormat::Jpeg),
+            "pcx" => Self::Image(ImageFormat::Pcx),
+            "png" => Self::Image(ImageFormat::Png),
+            "p-1" => Self::Image(ImageFormat::Png),
             "svg" => Self::Image(ImageFormat::Svg),
             "svgz" => Self::Image(ImageFormat::Svg),
             "webp" => Self::Image(ImageFormat::Webp),
-            "heic" => Self::Image(ImageFormat::Heic),
-            "avif" => Self::Image(ImageFormat::Avif),
-            "pcx" => Self::Image(ImageFormat::Pcx),
-            "png" => Self::Image(ImageFormat::Png),
+            "pdf" => Self::Document(DocumentFormat::Pdf),
+            "epub" => Self::Document(DocumentFormat::Epub),
+            "mar" => Self::Archive(ArchiveFormat::Mar),
+            "rar" => Self::Archive(ArchiveFormat::Rar),
+            "zip" => Self::Archive(ArchiveFormat::Zip),
             _ => Self::Unknown,
         }
     }
