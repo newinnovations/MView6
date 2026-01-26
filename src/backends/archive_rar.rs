@@ -157,17 +157,22 @@ fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
-        let cat = FileClassification::determine(&entry.filename, false); //file.is_dir());
+        let classification = FileClassification::determine(&entry.filename, false); //file.is_dir());
         let file_size = entry.unpacked_size;
         let modified = unix_from_msdos(entry.file_time);
         if file_size == 0 {
             continue;
         }
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        result.push(Row::new(cat, name.to_string(), file_size, modified));
+        result.push(Row::new(
+            classification,
+            name.to_string(),
+            file_size,
+            modified,
+        ));
     }
     Ok(result)
 }

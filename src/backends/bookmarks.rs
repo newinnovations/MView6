@@ -69,9 +69,9 @@ impl Bookmarks {
                 0
             };
             let file_size = metadata.len();
-            let cat = FileType::Folder.into();
+            let classification = FileType::Folder.into();
             result.push(Row::new_folder_index(
-                cat,
+                classification,
                 entry.name.clone(),
                 file_size,
                 modified,
@@ -110,12 +110,6 @@ impl Backend for Bookmarks {
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let path = Path::new(item.str());
         ContentLoader::content_from_file(path)
-        // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
-        //     Category::Archive
-        // } else {
-        //     Category::Folder
-        // };
-        // draw_text(&cat.name(), folder, cat.colors())
     }
 
     fn backend_ref(&self) -> BackendRef {

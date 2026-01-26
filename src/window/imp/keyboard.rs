@@ -223,7 +223,7 @@ impl MViewWindowImp {
                 self.toggle_pdf_engine();
             }
             Key::_1 => {
-                self.change_sort(Column::ContentType, &w.file_view);
+                self.change_sort(Column::FileType, &w.file_view);
             }
             Key::_2 => {
                 self.change_sort(Column::Name, &w.file_view);

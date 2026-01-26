@@ -73,7 +73,7 @@ impl ContentLoader {
             Err(e) => return draw_error(path, e),
         };
 
-        let file_format = FileFormat::determine(&data);
+        let file_format = FileFormat::detect(&data);
         if file_format != FileFormat::Unknown {
             return Self::load_file(file_format, path);
         }
@@ -145,6 +145,11 @@ impl ContentLoader {
                     }
                 }
             }
+            FileFormat::Video => draw_text(
+                "Video",
+                "Video file",
+                crate::classification::FileType::Unsupported.colors(),
+            ),
             FileFormat::Unknown => draw_text(
                 "Unknown",
                 "Content not recognized",

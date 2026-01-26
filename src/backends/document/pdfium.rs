@@ -314,10 +314,10 @@ fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
     let mut result = Vec::new();
     println!("Total pages: {page_count}");
     if page_count > 0 {
-        let cat = FileType::Image.into();
+        let classification = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            result.push(Row::new_index(cat, page, 0, 0, i as u64));
+            result.push(Row::new_index(classification, page, 0, 0, i as u64));
         }
         duration.elapsed("pdfium list");
         Ok((document, result, page_count - 1))

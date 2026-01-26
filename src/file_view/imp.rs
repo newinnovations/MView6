@@ -86,7 +86,7 @@ impl ObjectImpl for FileViewImp {
         col_category.add_attribute(&renderer, "icon-name", Column::ContentIcon as i32);
         col_category.set_sizing(TreeViewColumnSizing::Fixed);
         col_category.set_fixed_width(30);
-        col_category.set_sort_column_id(Column::ContentType as i32);
+        col_category.set_sort_column_id(Column::FileType as i32);
         instance.append_column(&col_category);
 
         // Column for file/direcory
