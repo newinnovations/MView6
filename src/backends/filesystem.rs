@@ -82,9 +82,14 @@ impl FileSystem {
             };
             let size = metadata.len();
 
-            let cat = FileClassification::determine(&path, metadata.is_dir());
+            let classification = FileClassification::determine(&path, metadata.is_dir());
 
-            result.push(Row::new(cat, filename.to_string(), size, modified));
+            result.push(Row::new(
+                classification,
+                filename.to_string(),
+                size,
+                modified,
+            ));
         }
         Ok(result)
     }

@@ -142,7 +142,7 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
             .unwrap_or_default()
     }
     fn content_id(&self, iter: &TreeIter) -> u32 {
-        self.get_value(iter, Column::ContentType as i32)
+        self.get_value(iter, Column::FileType as i32)
             .get::<u32>()
             .unwrap_or(FileType::Unsupported.id())
     }
@@ -150,10 +150,7 @@ impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
         FileClassification::new(self.content(iter), self.preference(iter))
     }
     fn content(&self, iter: &TreeIter) -> FileType {
-        match self
-            .get_value(iter, Column::ContentType as i32)
-            .get::<u32>()
-        {
+        match self.get_value(iter, Column::FileType as i32).get::<u32>() {
             Ok(id) => FileType::from(id),
             Err(_) => FileType::Unsupported,
         }

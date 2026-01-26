@@ -70,7 +70,7 @@ impl Filter {
 #[repr(u32)]
 pub enum Column {
     // First 4 need to be in the order on screen
-    ContentType = 0,
+    FileType = 0,
     Name,
     Size,
     Modified,
@@ -83,7 +83,7 @@ pub enum Column {
 
 #[derive(Debug, Clone)]
 pub struct Row {
-    pub content_type: u32,
+    pub file_type: u32,
     pub name: String,
     pub size: u64,
     pub modified: u64,
@@ -95,22 +95,29 @@ pub struct Row {
 }
 
 impl Row {
-    pub fn new(cat: FileClassification, name: String, size: u64, modified: u64) -> Self {
-        Self::new_folder_index(cat, name, size, modified, 0, Default::default())
+    pub fn new(classification: FileClassification, name: String, size: u64, modified: u64) -> Self {
+        Self::new_folder_index(classification, name, size, modified, 0, Default::default())
     }
 
     pub fn new_index(
-        cat: FileClassification,
+        classification: FileClassification,
         name: String,
         size: u64,
         modified: u64,
         index: u64,
     ) -> Self {
-        Self::new_folder_index(cat, name, size, modified, index, Default::default())
+        Self::new_folder_index(
+            classification,
+            name,
+            size,
+            modified,
+            index,
+            Default::default(),
+        )
     }
 
     pub fn new_folder_index(
-        cat: FileClassification,
+        classification: FileClassification,
         name: String,
         size: u64,
         modified: u64,
@@ -118,14 +125,14 @@ impl Row {
         folder: String,
     ) -> Self {
         Row {
-            content_type: cat.file_type_id(),
+            file_type: classification.file_type_id(),
             name,
             size,
             modified,
             index,
-            content_icon: cat.file_type_icon().to_string(),
-            preference_icon: cat.preference_icon().to_string(),
-            show_preference_icon: cat.show_preference_icon(),
+            content_icon: classification.file_type_icon().to_string(),
+            preference_icon: classification.preference_icon().to_string(),
+            show_preference_icon: classification.show_preference_icon(),
             folder,
         }
     }
@@ -134,7 +141,7 @@ impl Row {
         store.insert_with_values(
             None,
             &[
-                (Column::ContentType as u32, &self.content_type),
+                (Column::FileType as u32, &self.file_type),
                 (Column::Name as u32, &self.name),
                 (Column::Size as u32, &self.size),
                 (Column::Modified as u32, &self.modified),
@@ -163,7 +170,7 @@ impl Column {
         ];
         let store = ListStore::new(&col_types);
         store.set_sort_func(
-            gtk4::SortColumn::Index(Column::ContentType as u32),
+            gtk4::SortColumn::Index(Column::FileType as u32),
             |model, iter1, iter2| {
                 let content1 = model.content_id(iter1);
                 let content2 = model.content_id(iter2);

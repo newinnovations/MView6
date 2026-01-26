@@ -165,7 +165,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        let cat = FileClassification::determine(&outpath, file.is_dir());
+        let classification = FileClassification::determine(&outpath, file.is_dir());
         let file_size = file.size();
         let index = i as u64;
 
@@ -173,7 +173,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             continue;
         }
 
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
 
@@ -194,7 +194,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
         };
 
         result.push(Row::new_index(
-            cat,
+            classification,
             path_to_filename(&outpath),
             file_size,
             modified,

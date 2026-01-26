@@ -21,19 +21,7 @@ pub mod file_formats;
 
 use std::{collections::HashSet, path::Path};
 
-use crate::image::colors::Color;
-
-const ARCHIVE_EXT: &[&str] = &["zip", "rar", "mar"];
-const DOC_EXT: &[&str] = &["pdf", "epub"];
-// TODO: -1, jxl
-const IMAGE_EXT: &[&str] = &[
-    "jpg", "jpeg", "jfif", "gif", "svg", "svgz", "webp", "heic", "avif", "pcx", "png",
-];
-const VIDEO_EXT: &[&str] = &[
-    "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv",
-    "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v",
-    "svi", "3gp", "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod",
-];
+use crate::{classification::file_formats::FileFormat, image::colors::Color};
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
@@ -129,20 +117,7 @@ impl FileType {
     }
 
     pub fn from_extension(extension: &str) -> Self {
-        let ext_low = extension.to_lowercase();
-        if ARCHIVE_EXT.contains(&ext_low.as_str()) {
-            return Self::Archive;
-        }
-        if DOC_EXT.contains(&ext_low.as_str()) {
-            return Self::Document;
-        }
-        if IMAGE_EXT.contains(&ext_low.as_str()) {
-            return Self::Image;
-        }
-        if VIDEO_EXT.contains(&ext_low.as_str()) {
-            return Self::Video;
-        }
-        Self::Unsupported
+        FileFormat::from_extension(extension).into()
     }
 }
 
@@ -150,6 +125,18 @@ impl From<&Path> for FileType {
     fn from(path: &Path) -> Self {
         let extension = path.extension().unwrap_or_default();
         Self::from_extension(&extension.to_string_lossy())
+    }
+}
+
+impl From<FileFormat> for FileType {
+    fn from(file_format: FileFormat) -> Self {
+        match file_format {
+            FileFormat::Image(_) => Self::Image,
+            FileFormat::Archive(_) => Self::Archive,
+            FileFormat::Document(_) => Self::Document,
+            FileFormat::Video => Self::Video,
+            FileFormat::Unknown => Self::Unsupported,
+        }
     }
 }
 

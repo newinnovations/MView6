@@ -157,15 +157,15 @@ fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
     for _ in 0..num_entries {
         let entry = MarEntry::read(&mut reader, buf[3])?;
 
-        let cat = FileClassification::determine(Path::new(&entry.filename), false);
+        let classification = FileClassification::determine(Path::new(&entry.filename), false);
         let file_size = entry.image_size as u64;
 
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
 
         result.push(Row::new_index(
-            cat,
+            classification,
             entry.filename.to_string(),
             file_size,
             entry.date,

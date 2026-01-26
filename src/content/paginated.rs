@@ -269,7 +269,7 @@ impl ListContent {
             } else {
                 String::default()
             };
-            let content = FileType::from(row.content_type);
+            let content = FileType::from(row.file_type);
             let content_short = content.short();
             let colors = content.colors();
             let name = ellipsis_middle(&row.name, 59);
@@ -321,16 +321,8 @@ impl ListContent {
         match sort {
             // "0a" => x.sort_by_key(|r| r.category),          // Ascending
             // "0d" => x.sort_by_key(|r| Reverse(r.category)), // Descending
-            "0a" => list.sort_by(|a, b| {
-                a.content_type
-                    .cmp(&b.content_type)
-                    .then(a.name.cmp(&b.name))
-            }), // Ascending
-            "0d" => list.sort_by(|a, b| {
-                b.content_type
-                    .cmp(&a.content_type)
-                    .then(b.name.cmp(&a.name))
-            }), // Descending
+            "0a" => list.sort_by(|a, b| a.file_type.cmp(&b.file_type).then(a.name.cmp(&b.name))), // Ascending
+            "0d" => list.sort_by(|a, b| b.file_type.cmp(&a.file_type).then(b.name.cmp(&a.name))), // Descending
             "1a" => list.sort_by(|a, b| a.name.cmp(&b.name)), // Ascending
             "1d" => list.sort_by(|a, b| b.name.cmp(&a.name)), // Descending
             "2a" => list.sort_by(|a, b| a.size.cmp(&b.size)), // Ascending

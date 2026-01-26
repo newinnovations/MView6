@@ -43,7 +43,7 @@ impl Sort {
 
     pub fn sort_on_category() -> Self {
         Sort::new(
-            SortColumn::Index(Column::ContentType as u32),
+            SortColumn::Index(Column::FileType as u32),
             SortType::Ascending,
         )
     }

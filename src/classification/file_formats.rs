@@ -17,6 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+const VIDEO_EXT: &[&str] = &[
+    "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv",
+    "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v",
+    "svi", "3gp", "3g2", "mxf", "roq", "nsv", "flv", "f4v", "f4p", "f4a", "f4b", "mod",
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageFormat {
     Avif,
@@ -33,14 +39,13 @@ pub enum ImageFormat {
 pub enum ArchiveFormat {
     Zip,
     Rar,
-    Mar, // Mozilla Archive Format
+    Mar,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DocumentFormat {
     Pdf,
     Epub,
-    // Add more document types here later (e.g., Docx, Odt, etc.)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -48,11 +53,12 @@ pub enum FileFormat {
     Image(ImageFormat),
     Archive(ArchiveFormat),
     Document(DocumentFormat),
+    Video,
     Unknown,
 }
 
 impl FileFormat {
-    pub fn determine(data: &[u8]) -> Self {
+    pub fn detect(data: &[u8]) -> Self {
         if data.len() < 4 {
             return Self::Unknown; // Not enough bytes to identify
         }
@@ -133,8 +139,12 @@ impl FileFormat {
         Self::Unknown
     }
 
+    // TODO: -1, jxl
     pub fn from_extension(extension: &str) -> Self {
         let ext_low = extension.to_lowercase();
+        if VIDEO_EXT.contains(&ext_low.as_str()) {
+            return Self::Video;
+        }
         match ext_low.as_str() {
             "zip" => Self::Archive(ArchiveFormat::Zip),
             "rar" => Self::Archive(ArchiveFormat::Rar),
@@ -166,37 +176,37 @@ mod tests {
         // Test cases for each format
         let zip_data = vec![0x50, 0x4B, 0x03, 0x04, 0x14, 0x00];
         assert_eq!(
-            FileFormat::determine(&zip_data),
+            FileFormat::detect(&zip_data),
             FileFormat::Archive(ArchiveFormat::Zip)
         );
 
         let rar_data = vec![0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x00];
         assert_eq!(
-            FileFormat::determine(&rar_data),
+            FileFormat::detect(&rar_data),
             FileFormat::Archive(ArchiveFormat::Rar)
         );
 
         let pdf_data = vec![0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E];
         assert_eq!(
-            FileFormat::determine(&pdf_data),
+            FileFormat::detect(&pdf_data),
             FileFormat::Document(DocumentFormat::Pdf)
         );
 
         let gif_data = vec![0x47, 0x49, 0x46, 0x38, 0x39, 0x61];
         assert_eq!(
-            FileFormat::determine(&gif_data),
+            FileFormat::detect(&gif_data),
             FileFormat::Image(ImageFormat::Gif)
         );
 
         let jpeg_data = vec![0xFF, 0xD8, 0xFF, 0xE0];
         assert_eq!(
-            FileFormat::determine(&jpeg_data),
+            FileFormat::detect(&jpeg_data),
             FileFormat::Image(ImageFormat::Jpeg)
         );
 
         let png_data = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
         assert_eq!(
-            FileFormat::determine(&png_data),
+            FileFormat::detect(&png_data),
             FileFormat::Image(ImageFormat::Png)
         );
 
@@ -204,7 +214,7 @@ mod tests {
             0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
         ];
         assert_eq!(
-            FileFormat::determine(&webp_data),
+            FileFormat::detect(&webp_data),
             FileFormat::Image(ImageFormat::Webp)
         );
 
@@ -212,13 +222,13 @@ mod tests {
             0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63,
         ];
         assert_eq!(
-            FileFormat::determine(&heic_data),
+            FileFormat::detect(&heic_data),
             FileFormat::Image(ImageFormat::Heic)
         );
 
         let svg_data = vec![0x3C, 0x73, 0x76, 0x67, 0x20];
         assert_eq!(
-            FileFormat::determine(&svg_data),
+            FileFormat::detect(&svg_data),
             FileFormat::Image(ImageFormat::Svg)
         );
 
@@ -226,19 +236,19 @@ mod tests {
             0x00, 0x00, 0x00, 0x20, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66,
         ];
         assert_eq!(
-            FileFormat::determine(&avif_data),
+            FileFormat::detect(&avif_data),
             FileFormat::Image(ImageFormat::Avif)
         );
 
         let unknown_data = vec![0x00, 0x01, 0x02, 0x03];
-        assert_eq!(FileFormat::determine(&unknown_data), FileFormat::Unknown);
+        assert_eq!(FileFormat::detect(&unknown_data), FileFormat::Unknown);
     }
 
     #[test]
     fn test_png_detection() {
         let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00];
         assert_eq!(
-            FileFormat::determine(&png_header),
+            FileFormat::detect(&png_header),
             FileFormat::Image(ImageFormat::Png)
         );
     }
@@ -247,7 +257,7 @@ mod tests {
     fn test_jpeg_detection() {
         let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
         assert_eq!(
-            FileFormat::determine(&jpeg_header),
+            FileFormat::detect(&jpeg_header),
             FileFormat::Image(ImageFormat::Jpeg)
         );
     }
@@ -256,7 +266,7 @@ mod tests {
     fn test_pdf_detection() {
         let pdf_header = b"%PDF-1.4".to_vec();
         assert_eq!(
-            FileFormat::determine(&pdf_header),
+            FileFormat::detect(&pdf_header),
             FileFormat::Document(DocumentFormat::Pdf)
         );
     }
@@ -266,11 +276,11 @@ mod tests {
         let gif87_header = b"GIF87a".to_vec();
         let gif89_header = b"GIF89a".to_vec();
         assert_eq!(
-            FileFormat::determine(&gif87_header),
+            FileFormat::detect(&gif87_header),
             FileFormat::Image(ImageFormat::Gif)
         );
         assert_eq!(
-            FileFormat::determine(&gif89_header),
+            FileFormat::detect(&gif89_header),
             FileFormat::Image(ImageFormat::Gif)
         );
     }
@@ -279,7 +289,7 @@ mod tests {
     fn test_zip_detection() {
         let zip_header = vec![0x50, 0x4B, 0x03, 0x04];
         assert_eq!(
-            FileFormat::determine(&zip_header),
+            FileFormat::detect(&zip_header),
             FileFormat::Archive(ArchiveFormat::Zip)
         );
     }
@@ -288,7 +298,7 @@ mod tests {
     fn test_rar_detection() {
         let rar_header = b"Rar!\x1a\x07\x00".to_vec();
         assert_eq!(
-            FileFormat::determine(&rar_header),
+            FileFormat::detect(&rar_header),
             FileFormat::Archive(ArchiveFormat::Rar)
         );
     }
@@ -299,7 +309,7 @@ mod tests {
         webp_header.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // file size placeholder
         webp_header.extend_from_slice(b"WEBP");
         assert_eq!(
-            FileFormat::determine(&webp_header),
+            FileFormat::detect(&webp_header),
             FileFormat::Image(ImageFormat::Webp)
         );
     }
@@ -309,7 +319,7 @@ mod tests {
         let svg_content =
             b"<?xml version=\"1.0\"?><svg xmlns=\"http://www.w3.org/2000/svg\">".to_vec();
         assert_eq!(
-            FileFormat::determine(&svg_content),
+            FileFormat::detect(&svg_content),
             FileFormat::Image(ImageFormat::Svg)
         );
     }
@@ -317,12 +327,12 @@ mod tests {
     #[test]
     fn test_unknown_format() {
         let unknown_data = vec![0x00, 0x01, 0x02, 0x03];
-        assert_eq!(FileFormat::determine(&unknown_data), FileFormat::Unknown);
+        assert_eq!(FileFormat::detect(&unknown_data), FileFormat::Unknown);
     }
 
     #[test]
     fn test_empty_data() {
         let empty_data = vec![];
-        assert_eq!(FileFormat::determine(&empty_data), FileFormat::Unknown);
+        assert_eq!(FileFormat::detect(&empty_data), FileFormat::Unknown);
     }
 }
