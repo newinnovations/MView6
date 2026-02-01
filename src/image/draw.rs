@@ -32,7 +32,7 @@ use crate::{
     },
     error::{MviewError, MviewResult},
     image::{
-        svg::text_sheet::{svg_options, svg_text_sheet, TextSheet},
+        svg::text_sheet::{svg_options, TextSheet},
         view::{data::TransparencyMode, ZoomMode},
     },
     mview6_error,
@@ -40,30 +40,7 @@ use crate::{
 
 use super::colors::{CairoColorExt, Color};
 
-pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Content {
-    match svg_text_sheet(title, msg, colors) {
-        Ok(image) => image,
-        Err(e) => {
-            println!("Failed to draw text: {e:?}");
-            Content::default()
-        }
-    }
-}
-
 pub fn draw_error(path: &Path, error: MviewError) -> Content {
-    // println!("{error:#?}");
-    // let msg = &format!("{error:?}");
-    // match svg_text_sheet(
-    //     "error",
-    //     msg,
-    //     (Color::ErrorBack, Color::ErrorTitle, Color::ErrorMsg),
-    // ) {
-    //     Ok(image) => image,
-    //     Err(e) => {
-    //         println!("Failed to draw text: {e:?}");
-    //         Content::default()
-    //     }
-    // }
     let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
     sheet.header(path, FONT_SIZE_TITLE, 54);
 
@@ -83,7 +60,7 @@ pub fn draw_error(path: &Path, error: MviewError) -> Content {
         sheet.add_line(line, sheet.base_style().color(Color::ErrorMsg));
     }
 
-    let svg_content = sheet.finish().render();
+    let svg_content = sheet.finish().to_svg_string();
     match Tree::from_str(&svg_content, &svg_options()) {
         Ok(tree) => Content::new_svg(tree, None, ZoomMode::NotSpecified, TransparencyMode::Black),
         Err(e) => {

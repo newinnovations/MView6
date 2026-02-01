@@ -17,6 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::fmt::Display;
+
 const VIDEO_EXT: &[&str] = &[
     "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv",
     "yuv", "rm", "asf", "amv", "mp4", "m4p", "m4v", "mpg", "mp2", "mpeg", "mpe", "mpv", "m4v",
@@ -48,12 +50,13 @@ pub enum DocumentFormat {
     Epub,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileFormat {
     Image(ImageFormat),
     Archive(ArchiveFormat),
     Document(DocumentFormat),
-    Video,
+    Video(String),
+    Folder,
     Unknown,
 }
 
@@ -143,7 +146,7 @@ impl FileFormat {
     pub fn from_extension(extension: &str) -> Self {
         let ext_low = extension.to_lowercase();
         if VIDEO_EXT.contains(&ext_low.as_str()) {
-            return Self::Video;
+            return Self::Video(ext_low);
         }
         match ext_low.as_str() {
             "avif" => Self::Image(ImageFormat::Avif),
@@ -166,6 +169,53 @@ impl FileFormat {
             "rar" => Self::Archive(ArchiveFormat::Rar),
             "zip" => Self::Archive(ArchiveFormat::Zip),
             _ => Self::Unknown,
+        }
+    }
+}
+
+impl Display for ImageFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ImageFormat::Avif => write!(f, "AVIF"),
+            ImageFormat::Gif => write!(f, "GIF"),
+            ImageFormat::Heic => write!(f, "HEIC"),
+            ImageFormat::Jpeg => write!(f, "JPEG"),
+            ImageFormat::Pcx => write!(f, "PCX"),
+            ImageFormat::Png => write!(f, "PNG"),
+            ImageFormat::Svg => write!(f, "SVG"),
+            ImageFormat::Webp => write!(f, "WEBP"),
+        }
+    }
+}
+
+impl Display for ArchiveFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ArchiveFormat::Zip => write!(f, "ZIP"),
+            ArchiveFormat::Rar => write!(f, "RAR"),
+            ArchiveFormat::Mar => write!(f, "MAR"),
+        }
+    }
+}
+
+impl Display for DocumentFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DocumentFormat::Pdf => write!(f, "PDF"),
+            DocumentFormat::Epub => write!(f, "EPUB"),
+        }
+    }
+}
+
+impl Display for FileFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileFormat::Image(image_format) => write!(f, "Image ({image_format})"),
+            FileFormat::Archive(archive_format) => write!(f, "Archive ({archive_format})"),
+            FileFormat::Document(document_format) => write!(f, "Document ({document_format})"),
+            FileFormat::Video(ext) => write!(f, "Video ({})", ext.to_uppercase()),
+            FileFormat::Folder => write!(f, "Folder"),
+            FileFormat::Unknown => write!(f, "Unknown"),
         }
     }
 }

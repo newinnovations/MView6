@@ -131,10 +131,11 @@ impl From<&Path> for FileType {
 impl From<FileFormat> for FileType {
     fn from(file_format: FileFormat) -> Self {
         match file_format {
+            FileFormat::Folder => Self::Folder,
             FileFormat::Image(_) => Self::Image,
             FileFormat::Archive(_) => Self::Archive,
             FileFormat::Document(_) => Self::Document,
-            FileFormat::Video => Self::Video,
+            FileFormat::Video(_) => Self::Video,
             FileFormat::Unknown => Self::Unsupported,
         }
     }

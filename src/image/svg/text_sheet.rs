@@ -19,15 +19,12 @@
 
 use std::path::Path;
 
-use resvg::usvg::{fontdb, Options, Tree};
+use resvg::usvg::{fontdb, Options};
 
 use crate::{
-    content::Content,
-    error::MviewResult,
     image::{
         colors::{Color, MViewColor},
         svg::creator::{FontWeight, LineStyle, SvgCanvas, TextAnchor, TextStyle},
-        view::{data::TransparencyMode, ZoomMode},
     },
     rect::{PointD, RectD, VectorD},
     util::{ellipsis_middle, path_to_directory, path_to_filename},
@@ -180,19 +177,4 @@ fn load_font_file(fontdb: &mut fontdb::Database, name: &str) {
     if fontdb.load_font_file(&path).is_err() {
         eprintln!("Failed to load font {path:?}");
     }
-}
-
-pub fn svg_text_sheet(
-    title: &str,
-    msg: &str,
-    colors: (Color, Color, Color),
-) -> MviewResult<Content> {
-    let svg_content = SvgCanvas::create_text_sheet(title, msg, colors);
-    let tree = Tree::from_str(&svg_content, &svg_options())?;
-    Ok(Content::new_svg(
-        tree,
-        None,
-        ZoomMode::NotSpecified,
-        TransparencyMode::Black,
-    ))
 }

@@ -80,7 +80,7 @@ impl RawContent {
         }
 
         sheet.show_page_no(page, self.num_pages());
-        let svg_content = sheet.finish().render();
+        let svg_content = sheet.finish().to_svg_string();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
 
@@ -203,7 +203,7 @@ impl TextContent {
         }
 
         sheet.show_page_no(page, self.num_pages());
-        let svg_content = sheet.finish().render();
+        let svg_content = sheet.finish().to_svg_string();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
 }
@@ -295,7 +295,7 @@ impl ListContent {
         //     LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
         // );
 
-        let svg_content = sheet.finish().render();
+        let svg_content = sheet.finish().to_svg_string();
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
 

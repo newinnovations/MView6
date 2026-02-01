@@ -18,13 +18,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::{
-    backends::{filesystem::FileSystem, Backend, MarArchive, RarArchive, ZipArchive},
-    classification::file_formats::{ArchiveFormat, FileFormat, ImageFormat},
-    content::{paginated::PaginatedContent, Content},
+    classification::file_formats::{FileFormat, ImageFormat},
+    content::{paginated::PaginatedContent, preview::Preview, Content},
     error::MviewResult,
-    file_view::model::BackendRef,
     image::{
-        draw::{draw_error, draw_text},
+        draw::draw_error,
         provider::{gdk::GdkImageLoader, image_rs::RsImageLoader, internal::InternalImageLoader},
         view::{data::TransparencyMode, ZoomMode},
     },
@@ -56,14 +54,13 @@ impl ContentLoader {
     ///    - if textual content handle by highlighter with "txt" format
     ///    - handle raw
     pub fn content_from_file(path: &Path) -> Content {
-        if path.is_dir() {
-            let list = FileSystem::new(path).list().clone();
-            return Content::new_list(path, BackendRef::FileSystem(path.into()), list);
-        }
+        let file_format = if path.is_dir() {
+            FileFormat::Folder
+        } else {
+            let ext = path_to_extension(path);
+            FileFormat::from_extension(&ext)
+        };
 
-        let ext = path_to_extension(path);
-        let file_format = FileFormat::from_extension(&ext);
-        // dbg!(content_type);
         if file_format != FileFormat::Unknown {
             return Self::load_file(file_format, path);
         }
@@ -96,24 +93,20 @@ impl ContentLoader {
         })
     }
 
-    fn load_file(content_type: FileFormat, path: &Path) -> Content {
-        match content_type {
-            FileFormat::Document(_) => {
-                // draw_text("Document", "PDF/EPUB", Category::Document.colors())
-                Content::new_preview(path, BackendRef::Pdfium(path.into()))
-            }
-            FileFormat::Archive(ArchiveFormat::Mar) => {
-                let list = MarArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::MarArchive(path.into()), list)
-            }
-            FileFormat::Archive(ArchiveFormat::Rar) => {
-                let list = RarArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::RarArchive(path.into()), list)
-            }
-            FileFormat::Archive(ArchiveFormat::Zip) => {
-                let list = ZipArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
-            }
+    fn load_file(file_format: FileFormat, path: &Path) -> Content {
+        match file_format {
+            // FileFormat::Archive(ArchiveFormat::Mar) => {
+            //     let list = MarArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::MarArchive(path.into()), list)
+            // }
+            // FileFormat::Archive(ArchiveFormat::Rar) => {
+            //     let list = RarArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::RarArchive(path.into()), list)
+            // }
+            // FileFormat::Archive(ArchiveFormat::Zip) => {
+            //     let list = ZipArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
+            // }
             FileFormat::Image(ImageFormat::Svg) => match Self::read_svg(path) {
                 Ok(tree) => Content::new_svg(
                     tree,
@@ -145,16 +138,24 @@ impl ContentLoader {
                     }
                 }
             }
-            FileFormat::Video => draw_text(
-                "Video",
-                "Video file",
-                crate::classification::FileType::Unsupported.colors(),
-            ),
-            FileFormat::Unknown => draw_text(
-                "Unknown",
-                "Content not recognized",
-                crate::classification::FileType::Unsupported.colors(),
-            ),
+            // FileFormat::Video => draw_text(
+            //     "Video",
+            //     "Video file",
+            //     crate::classification::FileType::Unsupported.colors(),
+            // ),
+            // FileFormat::Unknown => draw_text(
+            //     "Unknown",
+            //     "Content not recognized",
+            //     crate::classification::FileType::Unsupported.colors(),
+            // ),
+            _ => {
+                match Preview::new(file_format, path).content() {
+                    Ok(content) => content,
+                    Err(error) => draw_error(path, error),
+                }
+                // draw_text("Document", "PDF/EPUB", Category::Document.colors())
+                // Content::new_preview(path, BackendRef::Pdfium(path.into()))
+            }
         }
     }
 

@@ -36,10 +36,7 @@ use std::{
 
 use crate::{
     backends::document::PageMode,
-    content::{
-        paginated::{PaginatedContent, PaginatedContentData},
-        preview::PreviewContent,
-    },
+    content::paginated::{PaginatedContent, PaginatedContentData},
     file_view::model::{BackendRef, Reference, Row},
     image::{
         animation::{Animation, AnimationImage},
@@ -120,7 +117,6 @@ pub enum ContentData {
     Svg(SvgContent),
     Doc(DocContent),
     Paginated(PaginatedContent),
-    Preview(PreviewContent),
 }
 
 impl From<Option<Pixbuf>> for ContentData {
@@ -297,18 +293,6 @@ impl Content {
         Self::new_paginated(paginated)
     }
 
-    pub fn new_preview(path: &Path, reference: BackendRef) -> Self {
-        let preview = PreviewContent::new(path, reference);
-        Content {
-            id: get_content_id(),
-            data: ContentData::Preview(preview),
-            exif: None,
-            zoom_mode: ZoomMode::NotSpecified,
-            transparency_mode: TransparencyMode::Black,
-            tag: None,
-        }
-    }
-
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -322,7 +306,6 @@ impl Content {
             ContentData::Dual(image) => image.size(),
             ContentData::Animation(image) => image.size(),
             ContentData::Paginated(image) => image.size(),
-            ContentData::Preview(image) => image.size(),
         }
     }
 
@@ -335,17 +318,13 @@ impl Content {
             ContentData::Svg(svg) => svg.has_alpha(),
             ContentData::Doc(doc) => doc.has_alpha(),
             ContentData::Paginated(paginated) => paginated.has_alpha(),
-            ContentData::Preview(preview) => preview.has_alpha(),
         }
     }
 
     pub fn needs_render(&self) -> bool {
         matches!(
             &self.data,
-            ContentData::Svg(_)
-                | ContentData::Doc(_)
-                | ContentData::Paginated(_)
-                | ContentData::Preview(_)
+            ContentData::Svg(_) | ContentData::Doc(_) | ContentData::Paginated(_)
         )
     }
 
@@ -359,10 +338,6 @@ impl Content {
             )),
             ContentData::Paginated(paginated) => paginated
                 .rendered
-                .as_ref()
-                .map(|tree| RenderCommand::RenderSvg(self.id(), zoom, viewport, tree.clone())),
-            ContentData::Preview(preview) => preview
-                .tree
                 .as_ref()
                 .map(|tree| RenderCommand::RenderSvg(self.id(), zoom, viewport, tree.clone())),
             ContentData::Doc(doc) => Some(RenderCommand::RenderDoc(
@@ -423,8 +398,8 @@ impl Content {
     pub fn double_click(&self, position: PointD) -> Reference {
         if let ContentData::Paginated(paginated) = &self.data {
             paginated.double_click(position)
-        } else if let ContentData::Preview(preview) = &self.data {
-            preview.double_click(position)
+        // } else if let ContentData::Preview(preview) = &self.data {
+        //     preview.double_click(position)
         } else {
             Reference::default()
         }
@@ -442,9 +417,9 @@ impl Content {
     }
 
     pub fn can_enter(&self) -> bool {
-        if matches!(self.data, ContentData::Preview(_)) {
-            return true;
-        }
+        // if matches!(self.data, ContentData::Preview(_)) {
+        //     return true;
+        // }
         if let ContentData::Paginated(paginated) = &self.data {
             if paginated.is_list() {
                 return true;

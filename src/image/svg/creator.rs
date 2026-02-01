@@ -219,6 +219,12 @@ enum SvgElement {
         spans: Vec<(String, MViewColor)>,
         style: TextStyle,
     },
+    Image {
+        position: PointD,
+        width: Option<f64>,
+        height: Option<f64>,
+        href: String,
+    },
 }
 
 /// Main SVG Canvas for programmatic SVG creation
@@ -310,6 +316,23 @@ impl SvgCanvas {
         self
     }
 
+    /// Add an image to the canvas
+    pub fn add_image(
+        &mut self,
+        position: PointD,
+        width: Option<f64>,
+        height: Option<f64>,
+        href: String,
+    ) -> &mut Self {
+        self.elements.push(SvgElement::Image {
+            position,
+            width,
+            height,
+            href,
+        });
+        self
+    }
+
     /// Add multi-colored text (like the MView6 watermark)
     pub fn add_multicolor_text(
         &mut self,
@@ -369,7 +392,7 @@ impl SvgCanvas {
     }
 
     /// Generate the final SVG string
-    pub fn render(&self) -> String {
+    pub fn to_svg_string(&self) -> String {
         let mut svg = format!(
             r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}"><rect x="0" y="0" width="{}" height="{}" fill="{}"/>"#,
             self.width,
@@ -456,6 +479,27 @@ impl SvgCanvas {
 
                     svg.push_str("</text>");
                 }
+                SvgElement::Image {
+                    position,
+                    width,
+                    height,
+                    href,
+                } => {
+                    let w = match width {
+                        Some(width) => &format!(r#"width="{width}""#),
+                        None => "",
+                    };
+                    let h = match height {
+                        Some(height) => &format!(r#"height="{height}""#),
+                        None => "",
+                    };
+                    svg.push_str(&format!(
+                        r#"<image href="{}" x="{}" y="{}" {w} {h} />"#,
+                        href,
+                        position.x(),
+                        position.y(),
+                    ));
+                }
             }
         }
 
@@ -474,7 +518,7 @@ impl SvgCanvas {
             .add_message(PointD::new(300.0, 320.0), message, msg_color)
             .add_watermark(PointD::new(580.0, 580.0));
 
-        canvas.render()
+        canvas.to_svg_string()
     }
 }
 
@@ -513,7 +557,7 @@ mod tests {
                 .anchor(TextAnchor::Middle),
         );
 
-        let svg = canvas.render();
+        let svg = canvas.to_svg_string();
         assert!(svg.contains("Hello\u{00A0}World"));
         assert!(svg.contains("width=\"400\""));
     }

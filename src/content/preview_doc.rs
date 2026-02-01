@@ -34,13 +34,13 @@ use crate::{
     rect::{PointD, SizeD},
 };
 
-pub struct PreviewContent {
+pub struct PreviewDoc {
     pub path: PathBuf,
     pub reference: BackendRef,
     pub tree: Option<Arc<Tree>>,
 }
 
-impl PreviewContent {
+impl PreviewDoc {
     pub fn size(&self) -> SizeD {
         SizeD::new(800.0, 800.0)
     }
@@ -59,9 +59,9 @@ impl PreviewContent {
 
         sheet.show_open_text();
 
-        let svg_content = sheet.finish().render();
+        let svg_content = sheet.finish().to_svg_string();
 
-        PreviewContent {
+        PreviewDoc {
             path: path.into(),
             reference,
             tree: Tree::from_str(&svg_content, &svg_options())

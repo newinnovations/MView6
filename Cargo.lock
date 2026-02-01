@@ -8,6 +8,7 @@ version = "6.0.0-dev"
 dependencies = [
  "arboard",
  "async-channel",
+ "base64",
  "cairo-rs",
  "chrono",
  "convert_case",
