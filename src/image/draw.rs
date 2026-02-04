@@ -26,13 +26,10 @@ use resvg::usvg::Tree;
 
 use crate::{
     backends::thumbnail::TMessage,
-    content::{
-        paginated::{FONT_SIZE, FONT_SIZE_TITLE},
-        Content,
-    },
+    content::Content,
     error::{MviewError, MviewResult},
     image::{
-        svg::text_sheet::{svg_options, TextSheet},
+        svg::text_canvas::{svg_options, TextCanvas},
         view::{data::TransparencyMode, ZoomMode},
     },
     mview6_error,
@@ -41,17 +38,14 @@ use crate::{
 use super::colors::{CairoColorExt, Color};
 
 pub fn draw_error(path: &Path, error: MviewError) -> Content {
-    let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-    sheet.header(path, FONT_SIZE_TITLE, 54);
+    let mut sheet = TextCanvas::new_auto(); // new(800, 800, FONT_SIZE);
+    sheet.header(path);
 
     sheet.delta_y(2.0);
 
     sheet.add_line(
         "ERROR",
-        sheet
-            .base_style()
-            .color(Color::ErrorTitle)
-            .font_size(FONT_SIZE_TITLE * 3 / 2),
+        sheet.base_style().color(Color::ErrorTitle).font_size(36),
     );
 
     sheet.delta_y(1.0);

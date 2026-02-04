@@ -44,10 +44,11 @@ use crate::{
         provider::surface::SurfaceData,
         view::{
             data::{zoom::ZOOM_MULTIPLIER, TransparencyMode},
+            imp::WINDOW_SIZE,
             measure::MeasurementState,
         },
     },
-    rect::{PointD, RectD, SizeD},
+    rect::{PointD, RectD, SizeD, SizeI},
     window::imp::MViewWidgets,
 };
 
@@ -173,7 +174,7 @@ impl ImageView {
 
     fn do_zoom(&self, is_zoom_in: bool) {
         let imp = self.imp();
-        let size = imp.window_size.get();
+        let size = WINDOW_SIZE.get();
         let anchor = PointD::new(size.width() as f64 / 2.0, size.height() as f64 / 2.0);
         let mut p = imp.data.borrow_mut();
         if p.content.is_movable() {
@@ -341,4 +342,8 @@ impl ImageView {
         let relative_y = relative_y.clamp(0.0, widget_bounds.height() as f64);
         Ok((relative_x, relative_y))
     }
+}
+
+pub fn window_size() -> SizeI {
+    WINDOW_SIZE.get()
 }

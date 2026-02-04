@@ -52,11 +52,13 @@ use gtk4::{
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
 };
 
+thread_local! {pub static WINDOW_SIZE: Cell<SizeI> = SizeI::new(800, 800).into()}
+
 #[derive(Default)]
 pub struct ImageViewImp {
     pub(super) data: RefCell<ImageViewData>,
     animation_timeout_id: RefCell<Option<SourceId>>,
-    pub(super) window_size: Cell<SizeI>,
+    // pub(super) window_size: Cell<SizeI>,
     pub(super) measure_tool: MeasureTool,
 }
 
@@ -409,9 +411,9 @@ impl WidgetImpl for ImageViewImp {
 impl DrawingAreaImpl for ImageViewImp {
     fn resize(&self, width: i32, height: i32) {
         let new_size = SizeI::new(width, height);
-        let current_size = self.window_size.get();
+        let current_size = WINDOW_SIZE.get();
         if current_size != new_size {
-            self.window_size.set(new_size);
+            WINDOW_SIZE.set(new_size);
 
             self.obj()
                 .emit_by_name::<()>(SIGNAL_CANVAS_RESIZED, &[&width, &height]);

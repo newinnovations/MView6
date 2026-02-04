@@ -37,15 +37,13 @@ use crate::{
     },
     image::{
         colors::{Color, MViewColor},
-        svg::text_sheet::{svg_options, TextSheet},
+        svg::text_canvas::{svg_options, TextCanvas},
     },
     profile::performance::Performance,
     rect::{PointD, SizeD},
     util::{ellipsis_middle, path_to_extension},
 };
 
-pub const FONT_SIZE_TITLE: u32 = 24;
-pub const FONT_SIZE: u32 = 14;
 pub const LINES_PER_PAGE: usize = 32;
 
 pub const BYTES_PER_LINE: usize = 16;
@@ -70,8 +68,8 @@ impl RawContent {
     }
 
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
-        let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-        sheet.header(&self.path, FONT_SIZE_TITLE, 54);
+        let mut sheet = TextCanvas::new_auto(); // new(800, 800, FONT_SIZE);
+        sheet.header(&self.path);
 
         let start_line = page * LINES_PER_PAGE;
         let total_lines = self.data.len().div_ceil(BYTES_PER_LINE);
@@ -84,7 +82,7 @@ impl RawContent {
         Ok(Tree::from_str(&svg_content, &svg_options())?)
     }
 
-    fn draw_line(&self, sheet: &mut TextSheet, offset: usize) {
+    fn draw_line(&self, sheet: &mut TextCanvas, offset: usize) {
         sheet.delta_y(1.5);
 
         let line_start = sheet.pos();
@@ -127,7 +125,7 @@ impl RawContent {
         sheet.set_pos(line_start);
     }
 
-    fn ascii(sheet: &mut TextSheet, data: &[u8]) {
+    fn ascii(sheet: &mut TextCanvas, data: &[u8]) {
         let ascii_string: String = data
             .iter()
             .map(|&b| {
@@ -181,8 +179,8 @@ impl TextContent {
             .unwrap();
         let theme = config().ts.themes.get("base16-mocha.dark").unwrap();
         let mut h = HighlightLines::new(syntax, theme);
-        let mut sheet = TextSheet::new(1200, 800, FONT_SIZE);
-        sheet.header(&self.path, FONT_SIZE_TITLE, 81);
+        let mut sheet = TextCanvas::new_auto(); // new(1200, 800, FONT_SIZE);
+        sheet.header(&self.path);
 
         let ps = &config().ps;
         for line in self
@@ -246,8 +244,8 @@ impl ListContent {
     }
 
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
-        let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-        sheet.header(&self.path, FONT_SIZE_TITLE, 54);
+        let mut sheet = TextCanvas::new_auto();
+        sheet.header(&self.path);
         for row in self
             .list
             .iter()

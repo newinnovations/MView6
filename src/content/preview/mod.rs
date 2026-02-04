@@ -24,14 +24,11 @@ use resvg::usvg::Tree;
 
 use crate::{
     classification::file_formats::FileFormat,
-    content::{
-        paginated::{FONT_SIZE, FONT_SIZE_TITLE},
-        Content,
-    },
+    content::Content,
     error::MviewResult,
     image::{
         colors::Color,
-        svg::text_sheet::{svg_options, TextSheet},
+        svg::text_canvas::{svg_options, TextCanvas},
         view::{data::TransparencyMode, ZoomMode},
     },
     rect::PointD,
@@ -71,16 +68,8 @@ impl Preview {
     }
 
     pub fn content(&self) -> MviewResult<Content> {
-        let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-        sheet.header(&self.path, FONT_SIZE_TITLE, 54);
-
-        sheet.canvas().add_message(
-            PointD::new(400.0, 460.0),
-            &self.file_format.to_string(),
-            Color::Glaucous,
-        );
-
-        sheet.show_open_text();
+        let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
+        sheet.header(&self.path);
 
         if let Some(icon) = match self.file_format {
             FileFormat::Image(_) => get_resource_xml("mv6-image.svg"),
@@ -90,10 +79,21 @@ impl Preview {
             FileFormat::Folder => get_resource_xml("mv6-folder.svg"),
             FileFormat::Unknown => get_resource_xml("mv6-unknown.svg"),
         } {
-            sheet
-                .canvas()
-                .add_image(PointD::new(300.0, 150.0), Some(200.0), None, icon);
+            let canvas = sheet.canvas();
+            canvas.add_image(
+                PointD::new(canvas.width() as f64 / 2.0 - 100.0, 150.0),
+                Some(200.0),
+                None,
+                icon,
+            );
+            canvas.add_message(
+                PointD::new(canvas.width() as f64 / 2.0, 460.0),
+                &self.file_format.to_string(),
+                Color::Glaucous,
+            );
         }
+
+        sheet.show_open_text();
 
         let svg_content = sheet.finish().to_svg_string();
 
