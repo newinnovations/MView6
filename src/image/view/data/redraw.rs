@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -26,11 +26,8 @@ use gtk4::prelude::WidgetExt;
 
 use crate::{
     image::{
-        provider::surface::SurfaceData,
-        view::{
-            data::{RenderedImage, QUALITY_LOW},
-            Zoom, QUALITY_HIGH, SIGNAL_SHOWN,
-        },
+        view::{data::QUALITY_LOW, Zoom, QUALITY_HIGH, SIGNAL_SHOWN},
+        RenderedImage, SurfaceData,
     },
     rect::RectD,
     util::remove_source_id,

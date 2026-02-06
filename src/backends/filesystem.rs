@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,16 +17,15 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType, Preference},
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     error::MviewResult,
     file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor, Direction,
+        Cursor, Direction, Target, {BackendRef, ItemRef, Reference, Row},
     },
-    image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
+    image::{InternalImageLoader, RsImageLoader},
     mview6_error,
     util::path_to_filename,
 };
@@ -39,8 +38,6 @@ use std::{
     process::{Command, Stdio},
     time::UNIX_EPOCH,
 };
-
-use super::{Backend, Target};
 
 pub struct FileSystem {
     directory: PathBuf,

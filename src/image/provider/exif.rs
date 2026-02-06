@@ -17,8 +17,22 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod model;
-mod redraw;
+use crate::profile::performance::Performance;
+use exif::Exif;
+use std::io::{BufRead, Seek};
 
-pub use model::{ImageViewData, TransparencyMode, QUALITY_HIGH, QUALITY_LOW};
-pub use redraw::RedrawReason;
+pub trait ExifReader {
+    fn exif(&mut self) -> Option<Exif>;
+}
+
+impl<T: BufRead + Seek> ExifReader for T {
+    fn exif(&mut self) -> Option<Exif> {
+        let duration = Performance::start();
+        self.rewind().ok()?;
+        let exifreader = exif::Reader::new();
+        let exif = exifreader.read_from_container(self);
+        self.rewind().ok()?;
+        duration.elapsed("exif");
+        exif.ok()
+    }
+}

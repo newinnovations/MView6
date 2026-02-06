@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -22,7 +22,7 @@ use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeVi
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{model::Reference, Column, Sort, Target},
+    file_view::{Column, Reference, Sort, Target},
     util::path_to_filename,
 };
 

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -27,10 +27,10 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use crate::file_view::Direction;
-use crate::image::view::ImageView;
+use crate::image::ImageView;
 use crate::rect::PointD;
 use crate::util::remove_source_id;
-use crate::window::imp::MViewWindowImp;
+use crate::window::MViewWindowImp;
 
 static PANEL_TIMEOUT: u32 = 5; // seconds
 static PANEL_TRANSITION: u32 = 200; // milliseconds

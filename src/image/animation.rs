@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -29,11 +29,11 @@ use image_webp::WebPDecoder;
 
 use crate::{
     error::MviewResult,
-    image::{provider::gdk::GdkImageLoader, view::Zoom},
+    image::{view::Zoom, GdkImageLoader},
     rect::SizeD,
 };
 
-use super::provider::webp::WebP;
+use super::WebP;
 
 pub enum Animation {
     Gdk(PixbufAnimationIter),

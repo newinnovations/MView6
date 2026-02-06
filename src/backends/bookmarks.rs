@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,14 +17,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use crate::{
+    backends::{Backend, ImageParams},
     classification::FileType,
     config::config,
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     file_view::{
-        model::{BackendRef, ItemRef, Row},
-        Cursor,
+        Cursor, Target, {BackendRef, ItemRef, Row},
     },
 };
 use std::{
@@ -33,8 +32,6 @@ use std::{
     path::{Path, PathBuf},
     time::UNIX_EPOCH,
 };
-
-use super::{Backend, Target};
 
 pub struct Bookmarks {
     store: Vec<Row>,

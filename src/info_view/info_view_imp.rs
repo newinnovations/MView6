@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -26,10 +26,31 @@ use gtk4::{
     pango::WrapMode,
     prelude::{CellRendererExt, CellRendererTextExt, TreeViewExt},
     subclass::{prelude::TreeViewImpl, widget::WidgetImpl},
-    CellRendererText, TreeView, TreeViewColumn, TreeViewColumnSizing,
+    CellRendererText, ListStore, TreeView, TreeViewColumn, TreeViewColumnSizing,
 };
 
-use super::{Columns, InfoView};
+use super::InfoView;
+
+#[derive(Debug)]
+#[repr(u32)]
+pub enum Columns {
+    Key = 0,
+    Value,
+}
+
+impl Columns {
+    pub fn store() -> ListStore {
+        let col_types: [glib::Type; 2] = [glib::Type::STRING, glib::Type::STRING];
+        ListStore::new(&col_types)
+    }
+
+    pub fn insert(store: &ListStore, key: &str, value: &str) {
+        store.insert_with_values(
+            None,
+            &[(Columns::Key as u32, &key), (Columns::Value as u32, &value)],
+        );
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct InfoViewImp {}

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -19,7 +19,7 @@
 
 use std::path::Path;
 
-use resvg::usvg::{fontdb, Options};
+use resvg::usvg::{self, fontdb, Options, Tree};
 
 use crate::{
     image::{
@@ -176,16 +176,21 @@ impl TextCanvas {
     pub fn add_grid(&mut self, grid: RectD, grid_size: VectorD, style: LineStyle) {
         self.canvas.add_grid(grid, grid_size, style);
     }
-}
 
-pub fn svg_options<'a>() -> Options<'a> {
-    let mut fontdb = fontdb::Database::new();
-    load_font_file(&mut fontdb, "LiberationSans-Regular.ttf");
-    load_font_file(&mut fontdb, "LiberationSans-Bold.ttf");
-    load_font_file(&mut fontdb, "CascadiaMono-Regular.ttf");
-    Options::<'_> {
-        fontdb: fontdb.into(),
-        ..Default::default()
+    pub fn into_svg_tree(self) -> Result<Tree, usvg::Error> {
+        let svg_content = self.finish().to_svg_string();
+        Tree::from_str(&svg_content, &Self::svg_options())
+    }
+
+    fn svg_options<'a>() -> Options<'a> {
+        let mut fontdb = fontdb::Database::new();
+        load_font_file(&mut fontdb, "LiberationSans-Regular.ttf");
+        load_font_file(&mut fontdb, "LiberationSans-Bold.ttf");
+        load_font_file(&mut fontdb, "CascadiaMono-Regular.ttf");
+        Options::<'_> {
+            fontdb: fontdb.into(),
+            ..Default::default()
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -26,12 +26,12 @@ use gtk4::{
 };
 
 use crate::{
-    backends::{document::PageMode, Backend, ImageParams},
+    backends::{Backend, ImageParams, PageMode},
     config::{contrast, contrast_delta},
     content::{Content, ContentData},
     file_view::{Column, Direction, Filter, Target},
-    image::view::ZoomMode,
-    window::imp::palette::CommandPalette,
+    image::ZoomMode,
+    window::CommandPalette,
 };
 
 impl MViewWindowImp {

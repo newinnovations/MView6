@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -27,13 +27,12 @@ use gtk4::{
 
 use crate::{
     backends::{
-        document::{pdf_engine, set_pdf_engine, PdfEngine},
         thumbnail::{model::TParent, Thumbnail},
-        Backend,
+        Backend, {pdf_engine, set_pdf_engine, PdfEngine},
     },
-    content::loader::ContentLoader,
+    content::ContentLoader,
     file_view::{Direction, Filter, Target},
-    image::view::ZoomMode,
+    image::ZoomMode,
 };
 
 use super::MViewWindowImp;

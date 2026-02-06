@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -32,27 +32,29 @@ mod resize;
 mod slideshow;
 mod sort;
 
+pub use commands::{Command, COMMANDS};
+pub use palette::CommandPalette;
+
 use crate::{
     backends::{
-        document::PageMode,
         thumbnail::{
             processing::{handle_thumbnail_result, start_thumbnail_task},
             Message, TCommand,
         },
-        Backend,
+        Backend, PageMode,
     },
-    file_view::{
-        model::{BackendRef, ItemRef, Reference},
-        FileView, Filter, Sort, Target,
-    },
-    image::view::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
+    file_view::{BackendRef, FileView, Filter, ItemRef, Reference, Sort, Target},
+    image::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
     info_view::InfoView,
     rect::PointD,
     render_thread::{
-        model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
-        RenderThread, RenderThreadSender,
+        RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage, RenderThread,
+        RenderThreadSender,
     },
-    window::imp::{dependencies::check_dependencies, panel::Panel},
+    window::{
+        window_imp::{dependencies::check_dependencies, panel::Panel},
+        MViewWindow,
+    },
 };
 use arboard::Clipboard;
 use async_channel::Sender;
@@ -171,7 +173,7 @@ pub struct MViewWindowImp {
 #[glib::object_subclass]
 impl ObjectSubclass for MViewWindowImp {
     const NAME: &'static str = "MViewWindow";
-    type Type = super::MViewWindow;
+    type Type = MViewWindow;
     type ParentType = gtk4::ApplicationWindow;
 }
 

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -24,8 +24,8 @@ use image::DynamicImage;
 
 use crate::{
     backends::Backend,
-    file_view::{model::Entry, Target},
-    image::colors::Color,
+    file_view::{Entry, Target},
+    image::Color,
     rect::PointD,
 };
 

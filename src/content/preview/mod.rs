@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,20 +17,18 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs::read,
+    path::{Path, PathBuf},
+};
 
 use base64::{engine::general_purpose, Engine};
-use resvg::usvg::Tree;
 
 use crate::{
-    classification::file_formats::FileFormat,
+    classification::FileFormat,
     content::Content,
     error::MviewResult,
-    image::{
-        colors::Color,
-        svg::text_canvas::{svg_options, TextCanvas},
-        view::{data::TransparencyMode, ZoomMode},
-    },
+    image::{Color, TextCanvas, TransparencyMode, ZoomMode},
     rect::PointD,
 };
 
@@ -67,6 +65,30 @@ impl Preview {
         }
     }
 
+    pub fn _content(&self) -> MviewResult<Content> {
+        let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
+        sheet.header(&self.path);
+
+        let img = read("/tmp/test.jpg")?;
+        let canvas = sheet.canvas();
+        canvas.add_image_bytes(
+            PointD::new(canvas.width() as f64 / 2.0 - 100.0, 150.0),
+            Some(200.0),
+            None,
+            "image/jpeg",
+            &img,
+        );
+
+        sheet.show_open_text();
+
+        Ok(Content::new_svg(
+            sheet.into_svg_tree()?,
+            None,
+            ZoomMode::NotSpecified,
+            TransparencyMode::Black,
+        ))
+    }
+
     pub fn content(&self) -> MviewResult<Content> {
         let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
         sheet.header(&self.path);
@@ -95,12 +117,8 @@ impl Preview {
 
         sheet.show_open_text();
 
-        let svg_content = sheet.finish().to_svg_string();
-
-        let tree = Tree::from_str(&svg_content, &svg_options())?;
-
         Ok(Content::new_svg(
-            tree,
+            sheet.into_svg_tree()?,
             None,
             ZoomMode::NotSpecified,
             TransparencyMode::Black,

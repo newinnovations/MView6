@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -22,15 +22,14 @@ use std::path::Path;
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use gdk_pixbuf::Pixbuf;
 use gtk4::gdk::pixbuf_get_from_surface;
-use resvg::usvg::Tree;
 
 use crate::{
     backends::thumbnail::TMessage,
     content::Content,
     error::{MviewError, MviewResult},
     image::{
-        svg::text_canvas::{svg_options, TextCanvas},
-        view::{data::TransparencyMode, ZoomMode},
+        view::{TransparencyMode, ZoomMode},
+        TextCanvas,
     },
     mview6_error,
 };
@@ -54,8 +53,7 @@ pub fn draw_error(path: &Path, error: MviewError) -> Content {
         sheet.add_line(line, sheet.base_style().color(Color::ErrorMsg));
     }
 
-    let svg_content = sheet.finish().to_svg_string();
-    match Tree::from_str(&svg_content, &svg_options()) {
+    match sheet.into_svg_tree() {
         Ok(tree) => Content::new_svg(tree, None, ZoomMode::NotSpecified, TransparencyMode::Black),
         Err(e) => {
             eprintln!("Error creating ErrorContent {e:#?}");

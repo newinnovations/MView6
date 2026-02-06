@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -28,7 +28,7 @@ use gtk4::{
 use crate::{
     classification::{FileType, Preference},
     file_view::Filter,
-    window::imp::MViewWindowImp,
+    window::MViewWindowImp,
 };
 
 const C_ITEMS: &[(&str, FileType, Key)] = &[

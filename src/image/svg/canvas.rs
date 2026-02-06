@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -18,6 +18,8 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #![allow(dead_code)]
+
+use base64::{engine::general_purpose, Engine};
 
 use crate::{
     image::colors::{Color, MViewColor},
@@ -329,6 +331,26 @@ impl SvgCanvas {
             width,
             height,
             href,
+        });
+        self
+    }
+
+    /// Add an image to the canvas
+    pub fn add_image_bytes(
+        &mut self,
+        position: PointD,
+        width: Option<f64>,
+        height: Option<f64>,
+        format: &str,
+        image: &[u8],
+    ) -> &mut Self {
+        let b64_svg = general_purpose::STANDARD.encode(image);
+        let data_uri = format!("data:{format};base64,{}", b64_svg);
+        self.elements.push(SvgElement::Image {
+            position,
+            width,
+            height,
+            href: data_uri,
         });
         self
     }

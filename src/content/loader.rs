@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -18,13 +18,11 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::{
-    classification::file_formats::{FileFormat, ImageFormat},
+    classification::{FileFormat, ImageFormat},
     content::{paginated::PaginatedContent, preview::Preview, Content},
     error::MviewResult,
     image::{
-        draw::draw_error,
-        provider::{gdk::GdkImageLoader, image_rs::RsImageLoader, internal::InternalImageLoader},
-        view::{data::TransparencyMode, ZoomMode},
+        draw_error, GdkImageLoader, InternalImageLoader, RsImageLoader, TransparencyMode, ZoomMode,
     },
     profile::performance::Performance,
     util::path_to_extension,

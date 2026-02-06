@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -31,14 +31,8 @@ use crate::{
     classification::FileType,
     config::config,
     error::MviewResult,
-    file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Direction,
-    },
-    image::{
-        colors::{Color, MViewColor},
-        svg::text_canvas::{svg_options, TextCanvas},
-    },
+    file_view::{BackendRef, Direction, ItemRef, Reference, Row},
+    image::{Color, MViewColor, TextCanvas},
     profile::performance::Performance,
     rect::{PointD, SizeD},
     util::{ellipsis_middle, path_to_extension},
@@ -78,8 +72,7 @@ impl RawContent {
         }
 
         sheet.show_page_no(page, self.num_pages());
-        let svg_content = sheet.finish().to_svg_string();
-        Ok(Tree::from_str(&svg_content, &svg_options())?)
+        Ok(sheet.into_svg_tree()?)
     }
 
     fn draw_line(&self, sheet: &mut TextCanvas, offset: usize) {
@@ -201,8 +194,7 @@ impl TextContent {
         }
 
         sheet.show_page_no(page, self.num_pages());
-        let svg_content = sheet.finish().to_svg_string();
-        Ok(Tree::from_str(&svg_content, &svg_options())?)
+        Ok(sheet.into_svg_tree()?)
     }
 }
 
@@ -293,8 +285,7 @@ impl ListContent {
         //     LineStyle::new().stroke(Color::Olive).stroke_width(0.3),
         // );
 
-        let svg_content = sheet.finish().to_svg_string();
-        Ok(Tree::from_str(&svg_content, &svg_options())?)
+        Ok(sheet.into_svg_tree()?)
     }
 
     pub fn double_click(&self, position: PointD, page: usize) -> Option<&Row> {

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -30,8 +30,8 @@ use async_channel::{Receiver, Sender};
 
 use crate::{
     backends::Backend,
-    file_view::model::BackendRef,
-    image::svg::render::render_svg,
+    file_view::BackendRef,
+    image::render_svg,
     render_thread::model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage},
 };
 

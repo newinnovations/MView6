@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,22 +17,18 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::rect::PointD;
+use crate::application::MviewApplication;
+use gtk4::glib;
 
-use super::MViewWindowImp;
+glib::wrapper! {
+    pub struct MViewWindow(ObjectSubclass<super::MViewWindowImp>)
+        @extends gtk4::Widget, gtk4::Window, gtk4::ApplicationWindow,
+        @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Native, gtk4::Root, gtk4::ShortcutManager, gio::ActionGroup, gio::ActionMap;
+}
 
-impl MViewWindowImp {
-    pub(super) fn on_mouse_press(&self, position: PointD) {
-        let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
-            let zoom = w.image_view.zoom();
-            let backend = self.backend.borrow();
-            if let Some((new_backend, goto)) =
-                backend.click(&backend.reference(&current).item, position - zoom.origin())
-            {
-                drop(backend);
-                self.set_backend(new_backend, &goto);
-            }
-        }
+impl MViewWindow {
+    pub fn new(app: &MviewApplication) -> Self {
+        // dbg!(app.application_id());
+        glib::Object::builder().property("application", app).build()
     }
 }

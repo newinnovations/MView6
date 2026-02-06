@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -31,11 +31,9 @@ use crate::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
         view::{
-            data::{
-                zoom::{ZOOM_MULTIPLIER, ZOOM_MULTIPLIER_FAST},
-                TransparencyMode,
-            },
+            data::TransparencyMode,
             measure::{MeasureTool, MeasurementState},
+            zoom::{ZOOM_MULTIPLIER, ZOOM_MULTIPLIER_FAST},
             RedrawReason, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN,
         },
     },

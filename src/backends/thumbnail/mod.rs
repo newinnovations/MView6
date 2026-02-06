@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -25,15 +25,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{Backend, Content, ImageParams, Target};
+use super::{Backend, ImageParams};
 use crate::{
     backends::thumbnail::model::TParent,
     classification::{FileClassification, FileType},
-    file_view::{
-        model::{BackendRef, Entry, ItemRef, Row},
-        Cursor,
-    },
-    image::draw::thumbnail_sheet,
+    content::Content,
+    file_view::{BackendRef, Cursor, Entry, ItemRef, Row, Target},
+    image::thumbnail_sheet,
     rect::PointD,
 };
 use gtk4::{prelude::TreeModelExt, Allocation, ListStore};

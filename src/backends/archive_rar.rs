@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,7 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use chrono::{Local, TimeZone};
 use human_bytes::human_bytes;
 use image::DynamicImage;
@@ -26,22 +25,18 @@ use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType},
-    content::loader::ContentLoader,
+    content::Content,
+    content::ContentLoader,
     error::MviewResult,
     file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor,
+        Cursor, {BackendRef, ItemRef, Reference, Row},
     },
-    image::{
-        draw::draw_error,
-        provider::{image_rs::RsImageLoader, ImageSaver},
-    },
+    image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
 };
-
-use super::Backend;
 
 pub struct RarArchive {
     path: PathBuf,

@@ -9,8 +9,8 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use crate::window::imp::commands::{Command, COMMANDS};
 use crate::window::MViewWindow;
+use crate::window::{Command, COMMANDS};
 
 const MAX_RECENT_ITEMS: usize = 4;
 

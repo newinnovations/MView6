@@ -8,7 +8,7 @@ repository = "https://github.com/newinnovations/mview6"
 license = "AGPL"
 
 [package.metadata.winresource]
-LegalCopyright = "Copyright © 2024-2025 Martin van der Werff"
+LegalCopyright = "Copyright © 2024-2026 Martin van der Werff"
 
 [dependencies]
 arboard = "3.4"
