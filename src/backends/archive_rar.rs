@@ -20,22 +20,19 @@
 use chrono::{Local, TimeZone};
 use human_bytes::human_bytes;
 use image::DynamicImage;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
     backends::{Backend, ImageParams},
     classification::{FileClassification, FileType},
-    content::Content,
-    content::ContentLoader,
+    content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{
-        Cursor, {BackendRef, ItemRef, Reference, Row},
-    },
+    file_view::{BackendRef, Cursor, ItemRef, Reference, Row},
     image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
+    util::mview_hash,
 };
 
 pub struct RarArchive {
@@ -53,25 +50,15 @@ impl RarArchive {
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
         if let (BackendRef::RarArchive(filename), ItemRef::String(selection)) = src.as_tuple() {
-            if let Some(directory) = filename.parent() {
-                let mut hasher = Sha256::new();
-                hasher.update(filename.to_string_lossy().to_string().as_bytes());
-                hasher.update(selection.as_bytes());
-                let sha256sum = format!("{:x}", hasher.finalize());
-                let thumb_filename = format!("{sha256sum}.mthumb");
-                let thumb_path = directory.join(".mview").join(thumb_filename);
-
-                if Path::new(&thumb_path).exists() {
-                    RsImageLoader::dynimg_from_file(&thumb_path)
-                } else {
-                    let bytes = extract_rar(filename, selection)?;
-                    let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-                    let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-                    ImageSaver::save_thumbnail(&thumb_path, &image);
-                    Ok(image)
-                }
+            let thumb_path = mview_hash(filename, Some(selection), "mthumb");
+            if Path::new(&thumb_path).exists() {
+                RsImageLoader::dynimg_from_file(&thumb_path)
             } else {
-                mview6_error!("Failed to find directory of rar file").into() // FIXME
+                let bytes = extract_rar(filename, selection)?;
+                let image = RsImageLoader::dynimg_from_memory(&bytes)?;
+                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                ImageSaver::save_thumbnail(&thumb_path, &image);
+                Ok(image)
             }
         } else {
             mview6_error!("invalid reference").into()

@@ -192,6 +192,15 @@ impl TextCanvas {
             ..Default::default()
         }
     }
+
+    pub fn content_area(&self) -> RectD {
+        RectD::new(
+            OFFSET_LEFT,
+            80.0,
+            self.canvas.width() as f64 - OFFSET_RIGHT,
+            self.canvas.height() as f64 - 60.0,
+        )
+    }
 }
 
 fn load_font_file(fontdb: &mut fontdb::Database, name: &str) {

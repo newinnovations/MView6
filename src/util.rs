@@ -17,9 +17,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use glib::{ffi::g_source_remove, result_from_gboolean, BoolError, SourceId};
+use sha2::{Digest, Sha256};
 
 /// Safer alternative to SourceId::remove()
 pub fn remove_source_id(id: &SourceId) -> Result<(), BoolError> {
@@ -69,6 +70,23 @@ pub fn ellipsis_middle(s: &str, max_len: usize) -> String {
     format!("{}...{}", start, end)
 }
 
+pub fn mview_hash(path: &Path, extra: Option<&str>, extension: &str) -> PathBuf {
+    let mut hasher = Sha256::new();
+    if let Some(filename) = path.file_name() {
+        hasher.update(filename.to_string_lossy().to_string().as_bytes());
+    }
+    if let Some(extra) = extra {
+        hasher.update(extra.as_bytes());
+    }
+    let sha256sum = format!("{:x}", hasher.finalize());
+    let thumb_filename = format!("{sha256sum}.{extension}");
+    if let Some(parent) = path.parent() {
+        parent.join(".mview").join(thumb_filename)
+    } else {
+        Path::new(".mview").join(thumb_filename)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +104,17 @@ mod tests {
         assert_eq!(ellipsis_middle("Hello, World!", 10), "Hell...ld!");
         assert_eq!(ellipsis_middle("Hello, World!", 11), "Hell...rld!");
         assert_eq!(ellipsis_middle("", 5), "");
+    }
+
+    #[test]
+    fn test_hash() {
+        assert_eq!(mview_hash(Path::new("/some/dir/foo.jpg"), None, "ext1"), Path::new("/some/dir/.mview/e29273cf02c3670bdf0e242cb77874b4083565430ac9c44fa0f10847638a69fd.ext1"));
+        assert_eq!(mview_hash(Path::new("/some/dir/foo.jpg"), Some("bar"), "ext2"), Path::new("/some/dir/.mview/77901352b49ea1483d8b4216a84517895e7b6fe263ca55da0d847525f34f4f94.ext2"));
+        assert_eq!(
+            mview_hash(Path::new("foo.jpg"), None, "ext3"),
+            Path::new(
+                ".mview/e29273cf02c3670bdf0e242cb77874b4083565430ac9c44fa0f10847638a69fd.ext3"
+            )
+        );
     }
 }

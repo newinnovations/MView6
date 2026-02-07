@@ -515,6 +515,11 @@ impl SvgCanvas {
                         Some(height) => &format!(r#"height="{height}""#),
                         None => "",
                     };
+                    // let par = if width.is_some() && height.is_some() {
+                    //     r#"preserveAspectRatio="none""#
+                    // } else {
+                    //     "" // preserveAspectRatio="xMidYMid meet"
+                    // };
                     svg.push_str(&format!(
                         r#"<image href="{}" x="{}" y="{}" {w} {h} />"#,
                         href,

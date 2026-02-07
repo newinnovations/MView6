@@ -30,11 +30,13 @@ use crate::{
     error::MviewResult,
     image::{Color, TextCanvas, TransparencyMode, ZoomMode},
     rect::PointD,
+    util::mview_hash,
 };
 
 pub struct Preview {
     file_format: FileFormat,
     path: PathBuf,
+    preview: PathBuf,
 }
 
 fn get_resource_xml(resource_path: &str) -> Option<String> {
@@ -62,22 +64,40 @@ impl Preview {
         Self {
             file_format,
             path: path.into(),
+            preview: mview_hash(path, None, "mprev"),
         }
     }
 
-    pub fn _content(&self) -> MviewResult<Content> {
+    pub fn content(&self) -> MviewResult<Content> {
+        dbg!(&self.preview);
+        if self.preview.exists() {
+            self.preview_content()
+        } else {
+            self.icon_content()
+        }
+    }
+
+    pub fn preview_content(&self) -> MviewResult<Content> {
         let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
         sheet.header(&self.path);
-
-        let img = read("/tmp/test.jpg")?;
+        let content_area = sheet.content_area();
+        let img = read(&self.preview)?;
         let canvas = sheet.canvas();
-        canvas.add_image_bytes(
-            PointD::new(canvas.width() as f64 / 2.0 - 100.0, 150.0),
-            Some(200.0),
-            None,
-            "image/jpeg",
-            &img,
-        );
+
+        let grid = 4;
+        let dx = content_area.width() / grid as f64;
+        let dy = content_area.height() / grid as f64;
+        for y in 0..grid {
+            for x in 0..grid {
+                canvas.add_image_bytes(
+                    content_area.point0() + PointD::new(x as f64 * dx, y as f64 * dy),
+                    Some(dx),
+                    Some(dy),
+                    "image/jpeg",
+                    &img,
+                );
+            }
+        }
 
         sheet.show_open_text();
 
@@ -89,7 +109,7 @@ impl Preview {
         ))
     }
 
-    pub fn content(&self) -> MviewResult<Content> {
+    pub fn icon_content(&self) -> MviewResult<Content> {
         let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
         sheet.header(&self.path);
 
