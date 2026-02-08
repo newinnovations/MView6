@@ -17,8 +17,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+mod preview_container;
+mod preview_image;
+mod video_preview;
+
+pub use preview_container::PreviewContainer;
+pub use preview_image::PreviewImage;
+pub use video_preview::VideoPreview;
+
 use std::{
-    fs::read,
+    fs::create_dir_all,
     path::{Path, PathBuf},
 };
 
@@ -29,6 +37,7 @@ use crate::{
     content::Content,
     error::MviewResult,
     image::{Color, TextCanvas, TransparencyMode, ZoomMode},
+    mview6_error,
     rect::PointD,
     util::mview_hash,
 };
@@ -69,7 +78,6 @@ impl Preview {
     }
 
     pub fn content(&self) -> MviewResult<Content> {
-        dbg!(&self.preview);
         if self.preview.exists() {
             self.preview_content()
         } else {
@@ -81,21 +89,24 @@ impl Preview {
         let mut sheet = TextCanvas::new_auto(); // (800, 800, FONT_SIZE);
         sheet.header(&self.path);
         let content_area = sheet.content_area();
-        let img = read(&self.preview)?;
         let canvas = sheet.canvas();
+
+        let containter = PreviewContainer::load(&self.preview)?;
 
         let grid = 4;
         let dx = content_area.width() / grid as f64;
         let dy = content_area.height() / grid as f64;
         for y in 0..grid {
             for x in 0..grid {
-                canvas.add_image_bytes(
-                    content_area.point0() + PointD::new(x as f64 * dx, y as f64 * dy),
-                    Some(dx),
-                    Some(dy),
-                    "image/jpeg",
-                    &img,
-                );
+                if let Some(img) = containter.image(y * grid + x) {
+                    canvas.add_image_bytes(
+                        content_area.point0() + PointD::new(x as f64 * dx, y as f64 * dy),
+                        Some(dx),
+                        Some(dy),
+                        "image/jpeg",
+                        img.jpeg_data(),
+                    );
+                }
             }
         }
 
@@ -143,5 +154,23 @@ impl Preview {
             ZoomMode::NotSpecified,
             TransparencyMode::Black,
         ))
+    }
+
+    pub fn create(&self) -> MviewResult<()> {
+        let preview_container = match self.file_format {
+            FileFormat::Video(_) => VideoPreview::create(&self.path)?,
+            _ => return Err(mview6_error!("No preview for this file format")),
+        };
+        if let Some(preview_dir) = self.preview.parent() {
+            if !preview_dir.exists() {
+                if let Err(error) = create_dir_all(preview_dir) {
+                    return Err(mview6_error!(format!(
+                        "Failed to create preview directory: {error:?}"
+                    )));
+                }
+            }
+        }
+        preview_container.save(&self.preview)?;
+        Ok(())
     }
 }

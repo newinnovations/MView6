@@ -56,6 +56,9 @@ impl MViewWindowImp {
                     self.set_backend(<dyn Backend>::bookmarks(backend, target), &Target::First);
                 }
             }
+            Key::c => {
+                self.create_preview();
+            }
             Key::t => {
                 self.toggle_thumbnail_view();
             }

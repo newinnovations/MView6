@@ -17,7 +17,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Display;
+use std::{fmt::Display, path::Path};
+
+use crate::util::path_to_extension;
 
 const VIDEO_EXT: &[&str] = &[
     "webm", "mkv", "flv", "vob", "ogv", "ogg", "rrc", "gifv", "mng", "mov", "avi", "qt", "wmv",
@@ -140,6 +142,11 @@ impl FileFormat {
         }
 
         Self::Unknown
+    }
+
+    pub fn from_path(path: &Path) -> Self {
+        let ext = path_to_extension(path);
+        Self::from_extension(&ext)
     }
 
     // TODO: jxl

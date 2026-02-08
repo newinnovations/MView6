@@ -25,3 +25,4 @@ mod preview;
 
 pub use loader::ContentLoader;
 pub use model::{Content, ContentData, DocContent};
+pub use preview::{Preview, PreviewContainer, PreviewImage};

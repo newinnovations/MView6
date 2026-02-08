@@ -25,7 +25,6 @@ use crate::{
         draw_error, GdkImageLoader, InternalImageLoader, RsImageLoader, TransparencyMode, ZoomMode,
     },
     profile::performance::Performance,
-    util::path_to_extension,
 };
 use resvg::usvg::{self, fontdb::Database, Options, Tree};
 use std::{
@@ -55,8 +54,7 @@ impl ContentLoader {
         let file_format = if path.is_dir() {
             FileFormat::Folder
         } else {
-            let ext = path_to_extension(path);
-            FileFormat::from_extension(&ext)
+            FileFormat::from_path(path)
         };
 
         if file_format != FileFormat::Unknown {

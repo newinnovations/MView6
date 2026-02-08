@@ -27,10 +27,12 @@ use gtk4::{
 
 use crate::{
     backends::{
+        pdf_engine, set_pdf_engine,
         thumbnail::{model::TParent, Thumbnail},
-        Backend, {pdf_engine, set_pdf_engine, PdfEngine},
+        Backend, PdfEngine,
     },
-    content::ContentLoader,
+    classification::FileFormat,
+    content::{ContentLoader, Preview},
     file_view::{Direction, Filter, Target},
     image::ZoomMode,
 };
@@ -314,5 +316,21 @@ impl MViewWindowImp {
     pub fn measure_move_endpoints(&self) {
         let w = self.widgets();
         w.image_view.measure_toggle_tracking();
+    }
+
+    pub fn create_preview(&self) {
+        let w = self.widgets();
+        if let Some(current) = w.file_view.current() {
+            let backend = self.backend.borrow();
+            if backend.is_filesystem() {
+                let fullpath = backend.path().join(current.name());
+                let preview = Preview::new(FileFormat::from_path(&fullpath), &fullpath);
+                if let Err(error) = preview.create() {
+                    eprintln!("Failed to create preview: {error:?}");
+                } else {
+                    self.on_cursor_changed();
+                }
+            }
+        }
     }
 }

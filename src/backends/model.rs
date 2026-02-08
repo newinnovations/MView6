@@ -219,6 +219,10 @@ impl dyn Backend {
         )
     }
 
+    pub fn is_filesystem(&self) -> bool {
+        matches!(self.backend_ref(), BackendRef::FileSystem(_))
+    }
+
     pub fn is_bookmarks(&self) -> bool {
         matches!(self.backend_ref(), BackendRef::Bookmarks)
     }
