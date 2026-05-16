@@ -36,8 +36,28 @@ use std::{
     io::{self},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::OnceLock,
     time::UNIX_EPOCH,
 };
+
+fn extension_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\.([^.]+)$").expect("valid regex"))
+}
+
+/// Remove a `.marker` segment from the stem of a filename, leaving the extension intact.
+/// E.g. `photo.lo.jpg` with marker `"lo"` → `photo.jpg`.
+fn remove_marker(filename: &str, marker: &str) -> String {
+    let marker_suffix = format!(".{marker}");
+    if let Some(dot_pos) = filename.rfind('.') {
+        let stem = &filename[..dot_pos];
+        let ext = &filename[dot_pos..];
+        if let Some(new_stem) = stem.strip_suffix(&marker_suffix) {
+            return format!("{new_stem}{ext}");
+        }
+    }
+    filename.to_string()
+}
 
 pub struct FileSystem {
     directory: PathBuf,
@@ -194,25 +214,24 @@ impl Backend for FileSystem {
         }
 
         let filename = cursor.name();
-        let re = Regex::new(r"\.([^\.]+)$").unwrap();
         let (new_filename, new_preference) = if matches!(direction, Direction::Up) {
             if filename.contains(".hi.") {
                 return true;
             } else if filename.contains(".lo.") {
-                (filename.replace(".lo", ""), Preference::Normal)
+                (remove_marker(&filename, "lo"), Preference::Normal)
             } else {
                 (
-                    re.replace(&filename, ".hi.$1").to_string(),
+                    extension_re().replace(&filename, ".hi.$1").to_string(),
                     Preference::Liked,
                 )
             }
         } else if filename.contains(".lo.") {
             return true;
         } else if filename.contains(".hi.") {
-            (filename.replace(".hi", ""), Preference::Normal)
+            (remove_marker(&filename, "hi"), Preference::Normal)
         } else {
             (
-                re.replace(&filename, ".lo.$1").to_string(),
+                extension_re().replace(&filename, ".lo.$1").to_string(),
                 Preference::Disliked,
             )
         };

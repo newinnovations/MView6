@@ -94,14 +94,22 @@ impl FileView {
                 window.skip_loading.set(false);
                 window.dir_enter();
             } else {
-                // this is the final goto: delay navigation so the file_view can render on screen
-                // before executing set_cursor
+                // This is the final goto: delay navigation so the file_view can render on screen
+                // before executing set_cursor.
+                // Capture store + iter (not the pre-computed TreePath) so that the path is
+                // re-derived inside the callback, correctly reflecting any sort that may have
+                // happened between enqueue and execution.
+                let store = store.clone();
+                let iter = *iter;
                 idle_add_local(clone!(
                     #[weak(rename_to = this)]
                     self,
                     #[upgrade_or]
                     ControlFlow::Break,
                     move || {
+                        // Re-derive path from iter to handle any sort that occurred
+                        // between enqueue and execution.
+                        let tp = store.path(&iter);
                         this.set_cursor(&tp, None::<&TreeViewColumn>, false);
                         ControlFlow::Break
                     }

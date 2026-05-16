@@ -78,6 +78,8 @@ impl MViewWindowImp {
         w.panel.enable_slideshow_mode(active);
         if active {
             self.slidshow_go_next();
+        } else {
+            self.cancel_next_slide();
         }
     }
 
@@ -85,7 +87,9 @@ impl MViewWindowImp {
         self.widgets()
             .set_action_string("slideshow.interval", &new_interval.to_string());
         if self.is_slideshow_active() {
-            self.slidshow_go_next();
+            // Reschedule with the new interval without immediately advancing.
+            self.cancel_next_slide();
+            self.schedule_next_slide();
         }
     }
 

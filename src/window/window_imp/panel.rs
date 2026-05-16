@@ -219,7 +219,7 @@ impl Panel {
                 let drag = mouse_on_click.borrow().distance(&PointD::new(x, y));
                 if drag < PANEL_DRAG_THRESHOLD {
                     let mut visible = panel_visible.borrow_mut();
-                    *visible = if image_view.measure_active() | (x > 150.0) | (y > 150.0) {
+                    *visible = if image_view.measure_active() || (x > 150.0) || (y > 150.0) {
                         false
                     } else {
                         !*visible

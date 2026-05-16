@@ -559,7 +559,7 @@ impl ObjectImpl for MViewWindowImp {
             Propagation::Proceed,
             move |_| {
                 println!("Closing");
-                let _ = this.save_navigation();
+                this.save_navigation();
                 Propagation::Proceed
             }
         ));

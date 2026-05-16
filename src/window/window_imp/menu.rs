@@ -86,13 +86,13 @@ impl MViewWindowImp {
         slideshow_interval_submenu.append(Some("30 seconds"), Some("win.slideshow.interval::30"));
         slideshow_interval_submenu.append(Some("1 minute"), Some("win.slideshow.interval::60"));
 
-        let slideshow_submentu = Menu::new();
-        slideshow_submentu.append(Some("Run slideshow"), Some("win.slideshow.active"));
-        slideshow_submentu.append_section(Some("Interval"), &slideshow_interval_submenu);
+        let slideshow_submenu = Menu::new();
+        slideshow_submenu.append(Some("Run slideshow"), Some("win.slideshow.active"));
+        slideshow_submenu.append_section(Some("Interval"), &slideshow_interval_submenu);
 
         let flag_section = Menu::new();
         flag_section.append(Some("Full screen"), Some("win.fullscreen"));
-        flag_section.append_submenu(Some("Slideshow"), &slideshow_submentu);
+        flag_section.append_submenu(Some("Slideshow"), &slideshow_submenu);
         flag_section.append_submenu(Some("Thumbnails"), &thumbnail_submenu);
         flag_section.append_submenu(Some("Rotate"), &rotate_submenu);
         flag_section.append_submenu(Some("Zoom"), &zoom_submenu);

@@ -186,6 +186,7 @@ impl Backend for Thumbnail {
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        // Moves the parent backend out (one-shot): subsequent calls will return NoneBackend.
         Some((
             self.parent_backend.replace(<dyn Backend>::none()),
             self.parent_target.clone(),
@@ -210,10 +211,11 @@ impl Backend for Thumbnail {
             }
         };
         let command = TCommand::new(image.id(), page, self.sheet(page), self.dim.clone());
-        let _ = params
-            .tn_sender
-            .unwrap()
-            .send_blocking(Message::Command(command.into()));
+        if let Some(sender) = params.tn_sender {
+            let _ = sender.send_blocking(Message::Command(command.into()));
+        } else {
+            eprintln!("Thumbnail content requested without a thumbnail sender");
+        }
         image
     }
 
@@ -224,6 +226,7 @@ impl Backend for Thumbnail {
                 let cursor = Cursor::new(self.parent_store.clone(), iter, idx);
                 let source = backend.reference(&cursor);
                 drop(backend);
+                // Moves the parent backend out (one-shot).
                 Some((
                     self.parent_backend.replace(<dyn Backend>::none()),
                     source.into(),
@@ -237,6 +240,7 @@ impl Backend for Thumbnail {
     }
 
     fn get_thumb_parent(&self) -> TParent {
+        // Moves the parent backend out (one-shot).
         TParent {
             backend: self.parent_backend.replace(<dyn Backend>::none()),
             target: self.parent_target.clone(),

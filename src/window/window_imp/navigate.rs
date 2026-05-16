@@ -138,7 +138,9 @@ impl MViewWindowImp {
     }
 
     fn navigation_cache_file(create_dir: bool) -> io::Result<PathBuf> {
-        let mut path = dirs::config_dir().unwrap_or_default();
+        let mut path = dirs::config_dir().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "config directory unavailable")
+        })?;
         path.push("mview6");
         if create_dir {
             create_dir_all(&path)?;
@@ -147,7 +149,7 @@ impl MViewWindowImp {
         Ok(path)
     }
 
-    pub fn save_navigation(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_navigation(&self) {
         let target_store = self.target_store.borrow();
 
         // Get all entries and sort by timestamp (most recent first)
@@ -169,11 +171,19 @@ impl MViewWindowImp {
             })
             .collect();
 
-        let file = File::create(Self::navigation_cache_file(true)?)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, &recent_entries)?;
-
-        Ok(())
+        // Serialise and write on a background thread to avoid blocking the UI.
+        std::thread::spawn(move || {
+            let write = || -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+                let path = Self::navigation_cache_file(true)?;
+                let file = File::create(path)?;
+                let writer = BufWriter::new(file);
+                serde_json::to_writer_pretty(writer, &recent_entries)?;
+                Ok(())
+            };
+            if let Err(e) = write() {
+                eprintln!("Failed to save navigation cache: {e}");
+            }
+        });
     }
 
     /// Load entries from a JSON file
