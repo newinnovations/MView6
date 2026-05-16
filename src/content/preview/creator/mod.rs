@@ -17,10 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod file_classification;
-mod file_formats;
-mod file_type;
+mod pdf;
+mod video;
 
-pub use file_classification::{FileClassification, Preference};
-pub use file_formats::{DocumentFormat, FileFormat, ImageFormat};
-pub use file_type::FileType;
+pub use pdf::PdfPreview;
+pub use video::VideoPreview;

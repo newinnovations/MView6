@@ -17,13 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod preview_container;
-mod preview_image;
-mod video_preview;
+mod container;
+mod creator;
+mod image;
 
-pub use preview_container::PreviewContainer;
-pub use preview_image::PreviewImage;
-pub use video_preview::VideoPreview;
+pub use container::PreviewContainer;
+pub use image::PreviewImage;
 
 use std::{
     fs::create_dir_all,
@@ -33,8 +32,11 @@ use std::{
 use base64::{engine::general_purpose, Engine};
 
 use crate::{
-    classification::FileFormat,
-    content::Content,
+    classification::{DocumentFormat, FileFormat},
+    content::{
+        preview::creator::{PdfPreview, VideoPreview},
+        Content,
+    },
     error::MviewResult,
     image::{Color, TextCanvas, TransparencyMode, ZoomMode},
     mview6_error,
@@ -159,6 +161,7 @@ impl Preview {
     pub fn create(&self) -> MviewResult<()> {
         let preview_container = match self.file_format {
             FileFormat::Video(_) => VideoPreview::create(&self.path)?,
+            FileFormat::Document(DocumentFormat::Pdf) => PdfPreview::create(&self.path)?,
             _ => return Err(mview6_error!("No preview for this file format")),
         };
         if let Some(preview_dir) = self.preview.parent() {
