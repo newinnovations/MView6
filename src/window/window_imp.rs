@@ -427,7 +427,7 @@ impl ObjectImpl for MViewWindowImp {
         let (to_rt_sender, to_rt_receiver) = async_channel::unbounded::<RenderCommandMessage>();
         let (from_rt_sender, from_rt_receiver) = async_channel::unbounded::<RenderReplyMessage>();
 
-        let render_thread = RenderThread::new(from_rt_sender, to_rt_receiver);
+        let render_thread = RenderThread::new(from_rt_sender, to_rt_receiver, to_rt_sender.clone());
         let rt_sender = render_thread.create_sender(to_rt_sender);
 
         match Clipboard::new() {

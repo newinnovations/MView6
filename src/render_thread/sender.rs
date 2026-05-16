@@ -18,7 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::sync::{
-    atomic::{AtomicU32, Ordering},
+    atomic::{AtomicU64, Ordering},
     Arc,
 };
 
@@ -29,17 +29,21 @@ use crate::render_thread::model::{RenderCommand, RenderCommandMessage};
 #[derive(Debug, Clone)]
 pub struct RenderThreadSender {
     sender: Sender<RenderCommandMessage>,
-    counter: Arc<AtomicU32>,
+    counter: Arc<AtomicU64>,
 }
 
 impl RenderThreadSender {
-    pub fn new(sender: Sender<RenderCommandMessage>, counter: Arc<AtomicU32>) -> Self {
+    pub fn new(sender: Sender<RenderCommandMessage>, counter: Arc<AtomicU64>) -> Self {
         Self { sender, counter }
     }
 
     pub fn send_blocking(&self, command: RenderCommand) {
-        let id = self.counter.fetch_add(1, Ordering::SeqCst);
+        // Use the post-increment value as the id so the counter always equals
+        // the id of the last-enqueued message, preventing stale-skip races.
+        let id = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
         let msg = RenderCommandMessage { id, cmd: command };
-        let _ = self.sender.send_blocking(msg);
+        if let Err(e) = self.sender.send_blocking(msg) {
+            eprintln!("RenderThreadSender: failed to enqueue command: {e}");
+        }
     }
 }

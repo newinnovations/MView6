@@ -17,32 +17,31 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::time::SystemTime;
+use std::time::Instant;
 
 use crate::profile::memory::memory_short;
 
 pub struct Performance {
-    start: SystemTime,
+    start: Instant,
 }
 
 impl Performance {
     pub fn start() -> Self {
         Performance {
-            start: SystemTime::now(),
+            start: Instant::now(),
         }
     }
 
     pub fn elapsed_suffix(&self, msg: &str, suffix: &str) {
-        if let Ok(d) = self.start.elapsed() {
-            let elapsed = d.as_secs() as f64 * 1e3 + d.subsec_nanos() as f64 * 1e-6;
-            println!(
-                "{:>20} {:6.1} ms {} {}",
-                msg,
-                elapsed,
-                suffix,
-                memory_short()
-            );
-        };
+        let d = self.start.elapsed();
+        let elapsed = d.as_secs() as f64 * 1e3 + d.subsec_nanos() as f64 * 1e-6;
+        println!(
+            "{:>20} {:6.1} ms {} {}",
+            msg,
+            elapsed,
+            suffix,
+            memory_short()
+        );
     }
 
     pub fn elapsed(&self, msg: &str) {

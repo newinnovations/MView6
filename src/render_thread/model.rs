@@ -34,11 +34,12 @@ pub enum RenderCommand {
     // RenderSvg(u32, Zoom, RectD, Box<Tree>),
     RenderDoc(u32, Zoom, RectD, DocContent),
     RenderSvg(u32, Zoom, RectD, Arc<Tree>),
+    Shutdown,
 }
 
 #[derive(Debug, Clone)]
 pub struct RenderCommandMessage {
-    pub id: u32,
+    pub id: u64,
     pub cmd: RenderCommand,
 }
 
@@ -50,7 +51,10 @@ pub enum RenderReply {
 
 #[derive(Debug, Clone)]
 pub struct RenderReplyMessage {
-    pub _id: u32,
+    /// ID of the command that produced this reply. Available for consumer-side
+    /// freshness validation if needed; the worker already checks before sending.
+    #[allow(dead_code)]
+    pub id: u64,
     pub reply: RenderReply,
 }
 
