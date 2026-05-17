@@ -45,11 +45,11 @@ pub struct ZipArchive {
 }
 
 impl ZipArchive {
-    pub fn new(filename: &Path) -> Self {
-        ZipArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(ZipArchive {
             path: filename.into(),
-            store: list_zip(filename).unwrap_or_default(),
-        }
+            store: list_zip(filename)?,
+        })
     }
 
     // pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
@@ -92,7 +92,7 @@ impl Backend for ZipArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 

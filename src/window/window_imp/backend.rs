@@ -120,18 +120,24 @@ impl MViewWindowImp {
 
     pub fn event_navigate(&self, reference: Reference) {
         // dbg!(&reference);
-        let new_backend = <dyn Backend>::new_from_ref(&reference.backend);
-        let goto: Target = if reference.item.is_none() {
-            self.target_store
-                .borrow()
-                .get(&new_backend.normalized_path())
-                .map(|tt| &tt.target)
-                .unwrap_or(&Target::First)
-                .clone()
-        } else {
-            reference.into()
-        };
-        // dbg!(&new_backend, &goto);
-        self.set_backend(new_backend, &goto);
+        match <dyn Backend>::new_from_ref(&reference.backend) {
+            Ok(new_backend) => {
+                let goto: Target = if reference.item.is_none() {
+                    self.target_store
+                        .borrow()
+                        .get(&new_backend.normalized_path())
+                        .map(|tt| &tt.target)
+                        .unwrap_or(&Target::First)
+                        .clone()
+                } else {
+                    reference.into()
+                };
+                // dbg!(&new_backend, &goto);
+                self.set_backend(new_backend, &goto);
+            }
+            Err(e) => {
+                eprintln!("Failed to navigate to backend: {e}");
+            }
+        }
     }
 }

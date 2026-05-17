@@ -67,11 +67,11 @@ pub struct MarArchive {
 }
 
 impl MarArchive {
-    pub fn new(filename: &Path) -> Self {
-        MarArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(MarArchive {
             path: filename.into(),
-            store: list_mar(filename).unwrap_or_default(),
-        }
+            store: list_mar(filename)?,
+        })
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
@@ -97,7 +97,7 @@ impl Backend for MarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 

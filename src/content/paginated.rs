@@ -33,6 +33,7 @@ use crate::{
     error::MviewResult,
     file_view::{BackendRef, Direction, ItemRef, Reference, Row},
     image::{Color, MViewColor, TextCanvas},
+    mview6_error,
     profile::performance::Performance,
     rect::{PointD, SizeD},
     util::{ellipsis_middle, path_to_extension},
@@ -166,10 +167,9 @@ impl TextContent {
     }
 
     pub fn prepare(&self, page: usize) -> MviewResult<Tree> {
-        let syntax = config()
-            .ps
-            .find_syntax_by_extension(&self.syntax_ext)
-            .unwrap();
+        let Some(syntax) = config().ps.find_syntax_by_extension(&self.syntax_ext) else {
+            return Err(mview6_error!("syntax not found"));
+        };
         let theme = config().ts.themes.get("base16-mocha.dark").unwrap();
         let mut h = HighlightLines::new(syntax, theme);
         let mut sheet = TextCanvas::new_auto(); // new(1200, 800, FONT_SIZE);

@@ -171,6 +171,10 @@ fn draw_arrow(cr: &gtk4::cairo::Context, m1: PointD, m2: PointD) {
     let length = d.length();
     let angle = d.angle();
 
+    if length < 0.1 {
+        return; // Too short to draw
+    }
+
     // Normalize direction vector
     let n = d.unscale(length);
 

@@ -89,12 +89,12 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        Some(<dyn Backend>::new_from_path(Path::new(&cursor.folder())))
+        <dyn Backend>::new_from_path(Path::new(&cursor.folder())).ok()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {

@@ -34,6 +34,7 @@ use crate::{
         Bookmarks, FileSystem, MarArchive, Message, NoneBackend, RarArchive, Thumbnail, ZipArchive,
     },
     content::Content,
+    error::MviewResult,
     file_view::{BackendRef, Column, Cursor, Direction, ItemRef, Reference, Row, Target},
     image::{SurfaceData, Zoom},
     rect::{PointD, RectD},
@@ -50,16 +51,22 @@ pub struct ImageParams<'a> {
 pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
-    fn list(&self) -> &Vec<Row>;
+    fn list(&self) -> &[Row];
     fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
     }
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.path().parent() {
-            Some((
-                Box::new(FileSystem::new(parent)),
-                Target::Name(path_to_filename(self.path())),
-            ))
+            match FileSystem::try_new(parent) {
+                Ok(new_backend) => Some((
+                    Box::new(new_backend),
+                    Target::Name(path_to_filename(self.path())),
+                )),
+                Err(e) => {
+                    eprintln!("Failed to leave directory: {e}");
+                    None
+                }
+            }
         } else {
             None
         }
@@ -134,56 +141,40 @@ impl Default for Box<dyn Backend> {
 }
 
 impl dyn Backend {
-    pub fn new_from_path(filename: &Path) -> Box<dyn Backend> {
+    pub fn new_from_path(filename: &Path) -> MviewResult<Box<dyn Backend>> {
         let ext = filename
             .extension()
-            .map(|ext| ext.to_str().unwrap_or_default());
+            .map(|ext| ext.to_string_lossy().to_ascii_lowercase());
 
-        match ext {
-            Some("zip") => Box::new(ZipArchive::new(filename)),
-            Some("rar") => Box::new(RarArchive::new(filename)),
-            Some("mar") => Box::new(MarArchive::new(filename)),
+        Ok(match ext.as_deref() {
+            Some("zip") => Box::new(ZipArchive::try_new(filename)?),
+            Some("rar") => Box::new(RarArchive::try_new(filename)?),
+            Some("mar") => Box::new(MarArchive::try_new(filename)?),
             Some("pdf") => match pdf_engine() {
                 #[cfg(feature = "mupdf")]
-                PdfEngine::MuPdf => Box::new(DocMuPdf::new(filename)),
-                _ => Box::new(DocPdfium::new(filename)),
+                PdfEngine::MuPdf => Box::new(DocMuPdf::try_new(filename)?),
+                _ => Box::new(DocPdfium::try_new(filename)?),
             },
             #[cfg(feature = "mupdf")]
-            Some("epub") => Box::new(DocMuPdf::new(filename)),
-            Some(_) | None => Box::new(FileSystem::new(filename)),
-        }
+            Some("epub") => Box::new(DocMuPdf::try_new(filename)?),
+            Some(_) | None => Box::new(FileSystem::try_new(filename)?),
+        })
     }
 
-    pub fn new_from_ref(reference: &BackendRef) -> Box<dyn Backend> {
-        match reference {
-            BackendRef::FileSystem(path_buf) => Box::new(FileSystem::new(path_buf)),
-            BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
-            BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
-            BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
+    pub fn new_from_ref(reference: &BackendRef) -> MviewResult<Box<dyn Backend>> {
+        Ok(match reference {
+            BackendRef::FileSystem(path_buf) => Box::new(FileSystem::try_new(path_buf)?),
+            BackendRef::MarArchive(path_buf) => Box::new(MarArchive::try_new(path_buf)?),
+            BackendRef::RarArchive(path_buf) => Box::new(RarArchive::try_new(path_buf)?),
+            BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::try_new(path_buf)?),
             #[cfg(feature = "mupdf")]
-            BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
-            BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
+            BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::try_new(path_buf)?),
+            BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::try_new(path_buf)?),
             // BackendRef::Thumbnail => Box::new(todo!()),
             // BackendRef::Bookmarks => Box::new(todo!()),
             // BackendRef::None => Box::new(todo!()),
             _ => Box::new(NoneBackend::new()),
-        }
-    }
-
-    pub fn new_reference(reference: &BackendRef) -> Box<dyn Backend> {
-        match reference {
-            BackendRef::FileSystem(path_buf) => Box::new(FileSystem::new(path_buf)),
-            BackendRef::MarArchive(path_buf) => Box::new(MarArchive::new(path_buf)),
-            BackendRef::RarArchive(path_buf) => Box::new(RarArchive::new(path_buf)),
-            BackendRef::ZipArchive(path_buf) => Box::new(ZipArchive::new(path_buf)),
-            #[cfg(feature = "mupdf")]
-            BackendRef::Mupdf(path_buf) => Box::new(DocMuPdf::new(path_buf)),
-            BackendRef::Pdfium(path_buf) => Box::new(DocPdfium::new(path_buf)),
-            // BackendRef::Thumbnail => todo!(),
-            // BackendRef::Bookmarks => todo!(),
-            // BackendRef::None => todo!(),
-            _ => Box::new(NoneBackend::new()),
-        }
+        })
     }
 
     pub fn bookmarks(parent_backend: Box<dyn Backend>, parent_target: Target) -> Box<dyn Backend> {
@@ -200,8 +191,17 @@ impl dyn Backend {
 
     pub fn current_dir() -> Box<dyn Backend> {
         match env::current_dir() {
-            Ok(cwd) => Box::new(FileSystem::new(&cwd)),
-            Err(_) => Box::new(FileSystem::new(&PathBuf::new())),
+            Ok(cwd) => match FileSystem::try_new(&cwd) {
+                Ok(new_backend) => Box::new(new_backend),
+                Err(e) => {
+                    eprintln!("Failed to initialize filesystem backend for cwd {cwd:?}: {e}");
+                    Box::new(NoneBackend::new())
+                }
+            },
+            Err(_) => {
+                eprintln!("Failed to get current directory");
+                Box::new(NoneBackend::new())
+            }
         }
     }
 

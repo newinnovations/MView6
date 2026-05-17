@@ -181,7 +181,7 @@ impl Backend for Thumbnail {
         Path::new("thumbnail").into()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 

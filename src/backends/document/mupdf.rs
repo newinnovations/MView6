@@ -29,9 +29,7 @@ use crate::{
     classification::FileType,
     content::Content,
     error::MviewResult,
-    file_view::{
-        Cursor, {BackendRef, ItemRef, Reference, Row},
-    },
+    file_view::{BackendRef, Cursor, ItemRef, Reference, Row},
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
     profile::performance::Performance,
@@ -42,20 +40,20 @@ const MIN_DOC_HEIGHT: f32 = 32.0;
 
 pub struct DocMuPdf {
     path: PathBuf,
-    document: MviewResult<mupdf::Document>,
+    document: mupdf::Document,
     store: Vec<Row>,
     last_page: i32,
 }
 
 impl DocMuPdf {
-    pub fn new(filename: &Path) -> Self {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
         let (document, store, last_page) = Self::create_store(filename);
-        DocMuPdf {
+        Ok(DocMuPdf {
             path: filename.into(),
-            document,
+            document: document?,
             store,
             last_page,
-        }
+        })
     }
 
     fn create_store(filename: &Path) -> (MviewResult<mupdf::Document>, Vec<Row>, i32) {
@@ -88,25 +86,22 @@ impl Backend for DocMuPdf {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
-        (|| {
-            let document = self.document.as_ref().map_err(|e| e.to_string())?;
-            page_size(
-                Reference {
-                    backend: BackendRef::Mupdf(self.path.clone()),
-                    item: item.clone(),
-                },
-                document,
-                item.idx() as i32,
-                self.last_page,
-                params.page_mode,
-            )
-            .map_err(|e| e.to_string())
-        })()
+        page_size(
+            Reference {
+                backend: BackendRef::Mupdf(self.path.clone()),
+                item: item.clone(),
+            },
+            &self.document,
+            item.idx() as i32,
+            self.last_page,
+            params.page_mode,
+        )
+        .map_err(|e| e.to_string())
         .unwrap_or_else(|e| draw_error(&self.path, mview6_error!(e)))
     }
 
@@ -125,9 +120,8 @@ impl Backend for DocMuPdf {
         zoom: &Zoom,
         viewport: &RectD,
     ) -> Option<SurfaceData> {
-        let document = self.document.as_ref().ok()?;
         render(
-            document,
+            &self.document,
             item.idx() as i32,
             self.last_page,
             page_mode,

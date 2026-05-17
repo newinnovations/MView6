@@ -188,7 +188,7 @@ impl Column {
         store
     }
 
-    pub fn store(index: &Vec<Row>) -> ListStore {
+    pub fn store(index: &[Row]) -> ListStore {
         let store = Self::empty_store();
         for row in index {
             row.push(&store);

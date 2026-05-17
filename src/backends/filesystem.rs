@@ -65,11 +65,11 @@ pub struct FileSystem {
 }
 
 impl FileSystem {
-    pub fn new(directory: &Path) -> Self {
-        FileSystem {
+    pub fn try_new(directory: &Path) -> MviewResult<Self> {
+        Ok(Self {
             directory: directory.into(),
-            store: Self::read_directory(directory).unwrap_or_default(),
-        }
+            store: Self::read_directory(directory)?,
+        })
     }
 
     fn read_directory(current_dir: &Path) -> io::Result<Vec<Row>> {
@@ -144,7 +144,7 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 
@@ -168,9 +168,7 @@ impl Backend for FileSystem {
             || content == FileType::Archive
             || content == FileType::Document
         {
-            Some(<dyn Backend>::new_from_path(
-                &self.directory.join(cursor.name()),
-            ))
+            <dyn Backend>::new_from_path(&self.directory.join(cursor.name())).ok()
         } else {
             None
         }
@@ -178,10 +176,16 @@ impl Backend for FileSystem {
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.directory.parent() {
-            Some((
-                Box::new(FileSystem::new(parent)),
-                Target::Name(path_to_filename(&self.directory)),
-            ))
+            match Self::try_new(parent) {
+                Ok(new_backend) => Some((
+                    Box::new(new_backend),
+                    Target::Name(path_to_filename(&self.directory)),
+                )),
+                Err(e) => {
+                    eprintln!("Failed to leave directory: {e}");
+                    None
+                }
+            }
         } else {
             None
         }

@@ -41,11 +41,11 @@ pub struct RarArchive {
 }
 
 impl RarArchive {
-    pub fn new(filename: &Path) -> Self {
-        RarArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(RarArchive {
             path: filename.into(),
-            store: list_rar(filename).unwrap_or_default(),
-        }
+            store: list_rar(filename)?,
+        })
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
@@ -75,7 +75,7 @@ impl Backend for RarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 

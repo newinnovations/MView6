@@ -77,7 +77,17 @@ impl RenderWorker {
 
                     if doc.reference.backend != backend_ref {
                         println!("Changing backend to {:?}", doc.reference.backend);
-                        backend = <dyn Backend>::new_reference(&doc.reference.backend);
+                        match <dyn Backend>::new_from_ref(&doc.reference.backend) {
+                            Ok(new_backend) => backend = new_backend,
+                            Err(e) => {
+                                eprintln!(
+                                    "Failed to create backend for {:?}: {e}",
+                                    doc.reference.backend
+                                );
+                                // backend = <dyn Backend>::none();
+                                continue;
+                            }
+                        }
                         backend_ref = doc.reference.backend;
                     }
                     // NOTE: mid-flight cancellation is not supported; the render call is

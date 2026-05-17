@@ -161,7 +161,11 @@ impl ContentLoader {
     pub fn content_from_memory(buf: Vec<u8>, path: &Path) -> Content {
         let duration = Performance::start();
 
-        if buf.starts_with(&[0x3c, 0x3f]) || buf.starts_with(&[0x1f, 0x8b]) {
+        // Check if it's an SVG (starts with "<?" or "<s") or a gzipped file (starts with 0x1f 0x8b)
+        if buf.starts_with(&[0x3c, 0x3f])
+            || buf.starts_with(&[0x3c, 0x73])
+            || buf.starts_with(&[0x1f, 0x8b])
+        {
             let svg_options = usvg::Options::default();
             if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");

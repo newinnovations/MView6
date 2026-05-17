@@ -167,7 +167,7 @@ impl InternalReader {
                 data
             }
         };
-        let mode = mode + contrast();
+        let mode = mode.wrapping_add(contrast());
         data.iter_mut().for_each(|data| *data ^= mode);
         Ok(data)
     }

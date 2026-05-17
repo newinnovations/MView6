@@ -119,9 +119,15 @@ impl MViewWindowImp {
         let directory = path.parent().unwrap_or_else(|| Path::new(""));
         let category = FileClassification::determine(path, path.is_dir());
         dbg!(&filename, directory, category);
-        let new_backend = <dyn Backend>::new_from_path(directory);
-        self.open_container.set(category.is_container());
-        self.set_backend(new_backend, &Target::Name(filename));
+        match <dyn Backend>::new_from_path(directory) {
+            Ok(backend) => {
+                self.open_container.set(category.is_container());
+                self.set_backend(backend, &Target::Name(filename));
+            }
+            Err(e) => {
+                eprintln!("Failed to navigate to {}: {e}", path.display());
+            }
+        }
     }
 
     pub fn hop(&self, direction: Direction) {

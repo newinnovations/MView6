@@ -40,20 +40,20 @@ use crate::{
 
 pub struct DocPdfium {
     path: PathBuf,
-    document: MviewResult<PdfiumDocument>,
+    document: PdfiumDocument,
     store: Vec<Row>,
     last_page: i32,
 }
 
 impl DocPdfium {
-    pub fn new(filename: &Path) -> Self {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
         let (document, store, last_page) = Self::create_store(filename);
-        DocPdfium {
+        Ok(DocPdfium {
             path: filename.into(),
-            document,
+            document: document?,
             store,
             last_page,
-        }
+        })
     }
 
     fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<Row>, i32) {
@@ -86,25 +86,22 @@ impl Backend for DocPdfium {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
+    fn list(&self) -> &[Row] {
         &self.store
     }
 
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
-        (|| {
-            let document = self.document.as_ref().map_err(|e| e.to_string())?;
-            page_size(
-                Reference {
-                    backend: BackendRef::Pdfium(self.path.clone()),
-                    item: item.clone(),
-                },
-                document,
-                item.idx() as i32,
-                self.last_page,
-                params.page_mode,
-            )
-            .map_err(|e| e.to_string())
-        })()
+        page_size(
+            Reference {
+                backend: BackendRef::Pdfium(self.path.clone()),
+                item: item.clone(),
+            },
+            &self.document,
+            item.idx() as i32,
+            self.last_page,
+            params.page_mode,
+        )
+        .map_err(|e| e.to_string())
         .unwrap_or_else(|e| draw_error(&self.path, mview6_error!(e)))
     }
 
@@ -123,9 +120,8 @@ impl Backend for DocPdfium {
         zoom: &Zoom,
         viewport: &RectD,
     ) -> Option<SurfaceData> {
-        let document = self.document.as_ref().ok()?;
         render(
-            document,
+            &self.document,
             item.idx() as i32,
             self.last_page,
             page_mode,
