@@ -31,8 +31,8 @@ pub fn render_svg(zoom: &Zoom, viewport: &RectD, tree: &Tree) -> Option<SurfaceD
         return None;
     }
 
-    let width = intersection.width().ceil() as u32;
-    let height = intersection.height().ceil() as u32;
+    let width = intersection.width().round() as u32;
+    let height = intersection.height().round() as u32;
 
     // Create a high-resolution pixmap based on zoom level
     if let Some(mut pixmap) = tiny_skia::Pixmap::new(width, height) {

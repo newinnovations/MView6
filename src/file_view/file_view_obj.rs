@@ -58,17 +58,11 @@ impl FileView {
         let (tree_path, _) = self.cursor();
         if let Some(store) = self.store() {
             if let Some(path) = tree_path {
-                store.iter(&path).map(|iter| Cursor {
-                    store,
-                    iter,
-                    position: *path.indices().first().unwrap_or(&0),
-                })
+                store
+                    .iter(&path)
+                    .map(|iter| Cursor::new(store, iter, *path.indices().first().unwrap_or(&0)))
             } else {
-                store.iter_first().map(|iter| Cursor {
-                    store,
-                    iter,
-                    position: 0,
-                })
+                store.iter_first().map(|iter| Cursor::new(store, iter, 0))
             }
         } else {
             None
@@ -181,10 +175,23 @@ impl FileView {
         }
     }
 
-    pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
+    // RUST_BUG: navigate_item_bool sometimes gets optimized out if the result is not used.
+    // We need to provide an alternative that does not have a return value, to prevent the
+    // function from being optimized out in those cases.
+    pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) {
         if let Some(current) = self.current() {
-            if let Some(tree_path) = current.navigate(direction, filter, count) {
-                self.set_cursor(&tree_path, None::<&TreeViewColumn>, false);
+            let treepath = current.navigate(direction, filter, count);
+            if let Some(tree_path) = &treepath {
+                self.set_cursor(tree_path, None::<&TreeViewColumn>, false);
+            }
+        }
+    }
+
+    pub fn navigate_item_bool(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
+        if let Some(current) = self.current() {
+            let treepath = current.navigate(direction, filter, count);
+            if let Some(tree_path) = &treepath {
+                self.set_cursor(tree_path, None::<&TreeViewColumn>, false);
                 return true;
             }
         }

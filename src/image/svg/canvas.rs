@@ -221,6 +221,10 @@ enum SvgElement {
         spans: Vec<(String, MViewColor)>,
         style: TextStyle,
     },
+    MultiStyleText {
+        position: PointD,
+        spans: Vec<(String, TextStyle)>,
+    },
     Image {
         position: PointD,
         width: Option<f64>,
@@ -355,6 +359,28 @@ impl SvgCanvas {
         self
     }
 
+    /// Add multi-styled text (different styles for different spans)
+    pub fn add_multistyle_text(
+        &mut self,
+        position: PointD,
+        spans: Vec<(impl Into<String>, TextStyle)>,
+    ) -> &mut Self {
+        if spans.is_empty() {
+            return self;
+        }
+
+        let escaped_spans: Vec<(String, TextStyle)> = spans
+            .into_iter()
+            .map(|(text, style)| (escape_xml(&text.into()), style))
+            .collect();
+
+        self.elements.push(SvgElement::MultiStyleText {
+            position,
+            spans: escaped_spans,
+        });
+        self
+    }
+
     /// Add multi-colored text (like the MView6 watermark)
     pub fn add_multicolor_text(
         &mut self,
@@ -362,6 +388,10 @@ impl SvgCanvas {
         spans: Vec<(&str, MViewColor)>,
         style: TextStyle,
     ) -> &mut Self {
+        if spans.is_empty() {
+            return self;
+        }
+
         let escaped_spans: Vec<(String, MViewColor)> = spans
             .into_iter()
             .map(|(text, color)| (escape_xml(text), color))
@@ -495,6 +525,29 @@ impl SvgCanvas {
                         svg.push_str(&format!(
                             r#"<tspan fill="{}">{}</tspan>"#,
                             color.to_hex(),
+                            text
+                        ));
+                    }
+
+                    svg.push_str("</text>");
+                }
+                SvgElement::MultiStyleText { position, spans } => {
+                    svg.push_str(&format!(
+                        r#"<text x="{}" y="{}">"#,
+                        position.x(),
+                        position.y()
+                    ));
+
+                    for (text, style) in spans {
+                        // dbg!(&style); RUST-BUG: this debug statement triggered rust to the optimize away invocations of the
+                        // navigate_item_bool function, which caused the cursor to not move when navigating the file view
+                        svg.push_str(&format!(
+                            r#"<tspan text-anchor="{}" font-family="{}" font-size="{}" font-weight="{}" fill="{}">{}</tspan>"#,
+                            style.anchor.to_svg(),
+                            style.font_family,
+                            style.font_size,
+                            style.font_weight.to_svg(),
+                            style.fill_hex,
                             text
                         ));
                     }

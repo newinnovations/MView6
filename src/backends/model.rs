@@ -248,4 +248,15 @@ impl dyn Backend {
             BackendRef::Pdfium(_) | BackendRef::Mupdf(_) | BackendRef::Thumbnail
         )
     }
+
+    pub fn supports_filter(&self) -> bool {
+        !matches!(
+            self.backend_ref(),
+            BackendRef::Pdfium(_)
+                | BackendRef::Mupdf(_)
+                | BackendRef::Thumbnail
+                | BackendRef::Bookmarks
+                | BackendRef::None
+        )
+    }
 }

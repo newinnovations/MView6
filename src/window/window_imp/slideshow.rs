@@ -103,7 +103,7 @@ impl MViewWindowImp {
         let filter = self.current_filter.borrow();
         let moved = w
             .file_view
-            .navigate_item(Direction::Down, &filter, self.step_size());
+            .navigate_item_bool(Direction::Down, &filter, self.step_size());
         if !moved {
             w.file_view.goto(&Target::First, &filter, &self.obj());
         }

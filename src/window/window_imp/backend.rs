@@ -22,14 +22,14 @@ use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeVi
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{Column, Reference, Sort, Target},
+    file_view::{Column, Filter, Reference, Sort, Target},
     util::path_to_filename,
 };
 
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: &Target) {
+    pub fn set_backend(&self, new_backend: Box<dyn Backend>, goto: &Target, ignore_filter: bool) {
         let skip_loading = self.skip_loading.get();
         self.skip_loading.set(true);
 
@@ -89,8 +89,12 @@ impl MViewWindowImp {
         w.file_view.set_sortable(can_be_sorted);
         self.skip_loading.set(skip_loading);
 
-        let filter = self.current_filter.borrow();
-        w.file_view.goto(goto, &filter, &self.obj());
+        if ignore_filter {
+            w.file_view.goto(goto, &Filter::None, &self.obj());
+        } else {
+            w.file_view
+                .goto(goto, &self.current_filter.borrow(), &self.obj());
+        }
     }
 
     pub fn update_thumbnail_backend(&self) {
@@ -102,19 +106,26 @@ impl MViewWindowImp {
             let thumbnail =
                 Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
             let focus_page = thumbnail.focus_page();
-            self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page);
+            self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page, false);
         }
     }
 
-    pub fn reload(&self, target: &Target) {
+    pub fn reload(&self, target: &Target, ignore_filter: bool) {
         let backend = self.backend.borrow();
         if let Some(new_backend) = backend.reload() {
             drop(backend);
-            self.set_backend(new_backend, target);
+            self.set_backend(new_backend, target, ignore_filter);
         } else {
             // nothing to reload, but go to requested target
-            let filter = self.current_filter.borrow();
-            self.widgets().file_view.goto(target, &filter, &self.obj());
+            if ignore_filter {
+                self.widgets()
+                    .file_view
+                    .goto(target, &Filter::None, &self.obj());
+            } else {
+                self.widgets()
+                    .file_view
+                    .goto(target, &self.current_filter.borrow(), &self.obj());
+            }
         }
     }
 
@@ -133,7 +144,7 @@ impl MViewWindowImp {
                     reference.into()
                 };
                 // dbg!(&new_backend, &goto);
-                self.set_backend(new_backend, &goto);
+                self.set_backend(new_backend, &goto, false);
             }
             Err(e) => {
                 eprintln!("Failed to navigate to backend: {e}");

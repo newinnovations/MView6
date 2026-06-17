@@ -119,10 +119,38 @@ impl TextCanvas {
             let style = self.base_style().font_family("Liberation Sans");
             let font_size = style.font_size * 10 / 14;
             let style = style.font_size(font_size);
-            self.canvas.add_text(
+
+            let mut segments = Vec::new();
+
+            segments.push((format!("Page {} of {total}  ", page + 1), style.clone()));
+
+            let style = self.base_style().font_family("Liberation Sans");
+            let style_bold = style
+                .clone()
+                .font_weight(FontWeight::Bold)
+                .color(Color::Yellow);
+
+            if page > 0 {
+                segments.push(("←".to_string(), style.clone().color(Color::Yellow)));
+                segments.push(("w".to_string(), style_bold.clone()));
+            } else {
+                segments.push(("←".to_string(), style.clone().color(Color::Charcoal)));
+                segments.push(("w".to_string(), style_bold.clone().color(Color::Charcoal)));
+            }
+
+            segments.push((" | ".to_string(), style.clone()));
+
+            if page + 1 < total {
+                segments.push(("e".to_string(), style_bold.clone()));
+                segments.push(("→".to_string(), style.clone().color(Color::Yellow)));
+            } else {
+                segments.push(("e".to_string(), style_bold.clone().color(Color::Charcoal)));
+                segments.push(("→".to_string(), style.clone().color(Color::Charcoal)));
+            }
+
+            self.canvas.add_multistyle_text(
                 PointD::new(OFFSET_LEFT, self.canvas.height() as f64 - 35.0),
-                &format!("Page {} of {total}", page + 1),
-                style,
+                segments,
             );
         }
     }

@@ -100,7 +100,7 @@ impl MViewWindowImp {
                     .get(&new_backend.normalized_path())
                     .map(|tt| &tt.target)
                     .unwrap_or(&Target::First);
-                self.set_backend(new_backend, target);
+                self.set_backend(new_backend, target, false);
             }
         }
     }
@@ -109,7 +109,7 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if let Some((new_backend, target)) = backend.leave() {
             drop(backend);
-            self.set_backend(new_backend, &target);
+            self.set_backend(new_backend, &target, true);
         }
     }
 
@@ -122,7 +122,7 @@ impl MViewWindowImp {
         match <dyn Backend>::new_from_path(directory) {
             Ok(backend) => {
                 self.open_container.set(category.is_container());
-                self.set_backend(backend, &Target::Name(filename));
+                self.set_backend(backend, &Target::Name(filename), true);
             }
             Err(e) => {
                 eprintln!("Failed to navigate to {}: {e}", path.display());

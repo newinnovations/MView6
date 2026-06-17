@@ -253,6 +253,7 @@ impl ImageView {
         self.imp().data.borrow().content.has_tag(tag)
     }
 
+    // Returns true if the content is page-based and supports page navigation
     pub fn navigate_page(&self, direction: Direction, count: u32) -> bool {
         let mut p = self.imp().data.borrow_mut();
         if let ContentData::Paginated(paginated) = &mut p.content.data {
@@ -260,7 +261,7 @@ impl ImageView {
             if page_changed {
                 p.redraw(RedrawReason::PageChanged);
             }
-            page_changed
+            true
         } else {
             false
         }

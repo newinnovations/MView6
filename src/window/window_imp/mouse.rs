@@ -31,7 +31,7 @@ impl MViewWindowImp {
                 backend.click(&backend.reference(&current).item, position - zoom.origin())
             {
                 drop(backend);
-                self.set_backend(new_backend, &goto);
+                self.set_backend(new_backend, &goto, true);
             }
         }
     }

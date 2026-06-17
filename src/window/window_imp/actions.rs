@@ -33,7 +33,7 @@ use crate::{
     },
     classification::FileFormat,
     content::{ContentLoader, Preview},
-    file_view::{Direction, Filter, Target},
+    file_view::{Direction, Target},
     image::ZoomMode,
 };
 
@@ -275,7 +275,7 @@ impl MViewWindowImp {
                 let focus_page = thumbnail.focus_page();
                 let thumbnail = <dyn Backend>::thumbnail(thumbnail);
                 // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
-                self.set_backend(thumbnail, &focus_page);
+                self.set_backend(thumbnail, &focus_page, false);
                 self.show_info_widget(false);
             }
         } else if backend.is_thumbnail() {
@@ -299,13 +299,6 @@ impl MViewWindowImp {
         let w = self.widgets();
         w.file_view
             .navigate_item(direction, &self.current_filter.borrow(), count);
-    }
-
-    pub fn navigate_page(&self, direction: Direction, count: u32) {
-        let w = self.widgets();
-        if !w.image_view.navigate_page(direction, count) {
-            w.file_view.navigate_item(direction, &Filter::None, count);
-        }
     }
 
     pub fn measure_toggle(&self) {

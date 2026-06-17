@@ -37,6 +37,129 @@ use crate::{
 impl MViewWindowImp {
     pub(super) fn on_key_press(&self, key: Key, modifiers: ModifierType) {
         let w = self.widgets();
+
+        // PREV = Up, Left, z, KP_8, KP_4, KP_Up, KP_Left
+        let prev = matches!(
+            key,
+            Key::Up
+                | Key::Left
+                | Key::z
+                | Key::Z
+                | Key::KP_Up
+                | Key::KP_8
+                | Key::KP_Left
+                | Key::KP_4
+        );
+
+        // NEXT = Down, Right, x, KP_2, KP_6, KP_Down, KP_Right
+        let next = matches!(
+            key,
+            Key::Down
+                | Key::Right
+                | Key::x
+                | Key::X
+                | Key::KP_Down
+                | Key::KP_2
+                | Key::KP_Right
+                | Key::KP_6
+        );
+
+        // dbg!(key, modifiers, prev, next);
+
+        if prev || next {
+            let direction = if prev { Direction::Up } else { Direction::Down };
+
+            if modifiers.contains(ModifierType::ALT_MASK) {
+                self.hop(direction);
+                return;
+            }
+
+            let count = if modifiers.contains(ModifierType::CONTROL_MASK) {
+                self.step_size() * 5
+            } else {
+                self.step_size()
+            };
+
+            let ignore_filter = modifiers.contains(ModifierType::SHIFT_MASK)
+                || !self.backend.borrow().supports_filter();
+
+            if ignore_filter {
+                w.file_view.navigate_item(direction, &Filter::None, count);
+            } else {
+                w.file_view
+                    .navigate_item(direction, &self.current_filter.borrow(), count);
+            }
+
+            return;
+        }
+
+        if matches!(key, Key::w | Key::e) {
+            let direction = if key == Key::w {
+                Direction::Up
+            } else {
+                Direction::Down
+            };
+
+            let count = if modifiers.contains(ModifierType::CONTROL_MASK) {
+                5
+            } else {
+                1
+            };
+
+            w.image_view.navigate_page(direction, count);
+
+            return;
+        }
+
+        if key == Key::Page_Up || key == Key::Page_Down {
+            let direction = if key == Key::Page_Up {
+                Direction::Up
+            } else {
+                Direction::Down
+            };
+
+            if modifiers.contains(ModifierType::ALT_MASK) {
+                self.hop(direction);
+                return;
+            }
+
+            let (count, ignore_filter) = if self.backend.borrow().supports_filter() {
+                // filesystem or archive backend, large step sizes
+                let ignore_filter = modifiers.contains(ModifierType::SHIFT_MASK);
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    (50, ignore_filter)
+                } else {
+                    (20, ignore_filter)
+                }
+            } else {
+                // document backend, small step size, ignore filter
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    (self.step_size() * 10, true)
+                } else {
+                    (self.step_size(), true)
+                }
+            };
+
+            if ignore_filter {
+                w.file_view.navigate_item(direction, &Filter::None, count);
+            } else {
+                w.file_view
+                    .navigate_item(direction, &self.current_filter.borrow(), count);
+            }
+
+            return;
+        }
+
+        if key == Key::KP_7 || key == Key::KP_Home {
+            self.hop(Direction::Up);
+            return;
+        }
+
+        if key == Key::KP_9 || key == Key::KP_Page_Up {
+            self.hop(Direction::Down);
+            return;
+        }
+
         match key {
             Key::q => {
                 self.quit();
@@ -53,7 +176,11 @@ impl MViewWindowImp {
                     } else {
                         Target::First
                     };
-                    self.set_backend(<dyn Backend>::bookmarks(backend, target), &Target::First);
+                    self.set_backend(
+                        <dyn Backend>::bookmarks(backend, target),
+                        &Target::First,
+                        true,
+                    );
                 }
             }
             Key::c => {
@@ -141,47 +268,47 @@ impl MViewWindowImp {
                 w.file_view
                     .navigate_item(Direction::Down, &Filter::Liked, 1);
             }
-            Key::Up | Key::z => {
-                w.file_view.navigate_item(
-                    Direction::Up,
-                    &self.current_filter.borrow(),
-                    self.step_size(),
-                );
-            }
-            Key::Down | Key::x => {
-                w.file_view.navigate_item(
-                    Direction::Down,
-                    &self.current_filter.borrow(),
-                    self.step_size(),
-                );
-            }
-            Key::Z | Key::Left | Key::KP_4 | Key::KP_Left => {
-                self.navigate_page(Direction::Up, self.step_size());
-            }
-            Key::X | Key::Right | Key::KP_6 | Key::KP_Right => {
-                self.navigate_page(Direction::Down, self.step_size());
-            }
-            Key::KP_8 | Key::KP_Up => {
-                w.file_view
-                    .navigate_item(Direction::Up, &self.current_filter.borrow(), 5);
-            }
-            Key::KP_2 | Key::KP_Down => {
-                w.file_view
-                    .navigate_item(Direction::Down, &self.current_filter.borrow(), 5);
-            }
-            Key::Page_Up => {
-                w.file_view
-                    .navigate_item(Direction::Up, &self.current_filter.borrow(), 25);
-            }
-            Key::Page_Down => {
-                w.file_view
-                    .navigate_item(Direction::Down, &self.current_filter.borrow(), 25);
-            }
+            // Key::Up | Key::z => {
+            //     w.file_view.navigate_item(
+            //         Direction::Up,
+            //         &self.current_filter.borrow(),
+            //         self.step_size(),
+            //     );
+            // }
+            // Key::Down | Key::x => {
+            //     w.file_view.navigate_item(
+            //         Direction::Down,
+            //         &self.current_filter.borrow(),
+            //         self.step_size(),
+            //     );
+            // }
+            // Key::Z | Key::Left | Key::KP_4 | Key::KP_Left => {
+            //     self.navigate_page(Direction::Up, self.step_size());
+            // }
+            // Key::X | Key::Right | Key::KP_6 | Key::KP_Right => {
+            //     self.navigate_page(Direction::Down, self.step_size());
+            // }
+            // Key::KP_8 | Key::KP_Up => {
+            //     w.file_view
+            //         .navigate_item(Direction::Up, &self.current_filter.borrow(), 5);
+            // }
+            // Key::KP_2 | Key::KP_Down => {
+            //     w.file_view
+            //         .navigate_item(Direction::Down, &self.current_filter.borrow(), 5);
+            // }
+            // Key::Page_Up => {
+            //     w.file_view
+            //         .navigate_item(Direction::Up, &self.current_filter.borrow(), 25);
+            // }
+            // Key::Page_Down => {
+            //     w.file_view
+            //         .navigate_item(Direction::Down, &self.current_filter.borrow(), 25);
+            // }
             Key::Home => {
-                self.reload(&Target::First);
+                self.reload(&Target::First, modifiers.contains(ModifierType::SHIFT_MASK));
             }
             Key::End => {
-                self.reload(&Target::Last);
+                self.reload(&Target::Last, modifiers.contains(ModifierType::SHIFT_MASK));
             }
             Key::F2 => {
                 self.measure_toggle();

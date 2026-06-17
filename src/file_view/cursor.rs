@@ -28,9 +28,9 @@ use crate::classification::{FileClassification, FileType, Preference};
 use super::model::{Column, Direction, Filter};
 
 pub struct Cursor {
-    pub store: ListStore,
-    pub iter: TreeIter,
-    pub position: i32,
+    store: ListStore,
+    iter: TreeIter,
+    position: i32,
 }
 
 impl Cursor {
@@ -89,20 +89,47 @@ impl Cursor {
     }
 
     pub fn navigate(&self, direction: Direction, filter: &Filter, count: u32) -> Option<TreePath> {
+        if count == 0 {
+            return None;
+        }
+
         let mut cnt = count;
+
+        // If we are at a position that does not match the filter, we need to find the first matching
+        // item before we can start counting. Getting to the first matching item counts as one step.
+        while !filter.matches(self.store.category(&self.iter)) {
+            let has_next = match direction {
+                Direction::Up => self.store.iter_previous(&self.iter),
+                Direction::Down => self.store.iter_next(&self.iter),
+            };
+            if !has_next {
+                return None;
+            }
+            cnt = count - 1;
+        }
+
+        if cnt == 0 {
+            return Some(self.store.path(&self.iter));
+        }
+
+        // We keep track of the last position that matches the filter, so if we reach the end of
+        // the list before we have counted enough, we can return the last matching position.
+        let mut last = self.iter;
+
         loop {
-            let last = self.iter;
             let item_available = match direction {
                 Direction::Up => self.store.iter_previous(&self.iter),
                 Direction::Down => self.store.iter_next(&self.iter),
             };
             if !item_available {
                 if count != cnt {
-                    return Some(self.store.path(&last));
+                    break;
                 }
                 return None;
             }
-            if !filter.matches(self.store.category(&self.iter)) {
+            if filter.matches(self.store.category(&self.iter)) {
+                last = self.iter;
+            } else {
                 continue;
             }
             cnt -= 1;
@@ -110,7 +137,7 @@ impl Cursor {
                 break;
             }
         }
-        Some(self.store.path(&self.iter))
+        Some(self.store.path(&last))
     }
 
     pub fn next(&self) -> bool {
