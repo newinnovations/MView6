@@ -273,6 +273,11 @@ fn render_dual(
         ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
+                eprintln!(
+                    "Height mismatch in dual page render: left {}px, right {}px",
+                    pixmap_left.height(),
+                    pixmap_right.height()
+                );
                 return mview6_error!("height mismatch").into();
             }
             SurfaceData::from_dual_rgb(

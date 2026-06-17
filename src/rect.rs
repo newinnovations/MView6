@@ -381,14 +381,15 @@ where
 impl Rect<f32> {
     /// Rounds the rectangle coordinates to the nearest integers.
     /// Returns (x0, y0, x1, y1) as i32 values.
-    /// Uses floor for top-left corner and ceil for bottom-right to ensure coverage.
     pub fn round(&self) -> (i32, i32, i32, i32) {
-        (
-            self.x0.floor() as i32,
-            self.y0.floor() as i32,
-            self.x1.ceil() as i32,
-            self.y1.ceil() as i32,
-        )
+        let (x0, y0) = (self.x0.round() as i32, self.y0.round() as i32);
+
+        let (x1, y1) = (
+            x0 + (self.x1 - self.x0).round() as i32,
+            y0 + (self.y1 - self.y0).round() as i32,
+        );
+
+        (x0, y0, x1, y1)
     }
 
     /// Converts this f32 rectangle to an i32 rectangle using rounding
@@ -411,14 +412,15 @@ impl Rect<f32> {
 impl Rect<f64> {
     /// Rounds the rectangle coordinates to the nearest integers.
     /// Returns (x0, y0, x1, y1) as i32 values.
-    /// Uses floor for top-left corner and ceil for bottom-right to ensure coverage.
     pub fn round(&self) -> (i32, i32, i32, i32) {
-        (
-            self.x0.floor() as i32,
-            self.y0.floor() as i32,
-            self.x1.ceil() as i32,
-            self.y1.ceil() as i32,
-        )
+        let (x0, y0) = (self.x0.round() as i32, self.y0.round() as i32);
+
+        let (x1, y1) = (
+            x0 + (self.x1 - self.x0).round() as i32,
+            y0 + (self.y1 - self.y0).round() as i32,
+        );
+
+        (x0, y0, x1, y1)
     }
 
     /// Converts this f64 rectangle to an i32 rectangle using rounding
@@ -541,7 +543,7 @@ mod tests {
         assert_eq!(rect.size(), SizeF::new(10.5, 11.0));
 
         let (x0, y0, x1, y1) = rect.round();
-        assert_eq!((x0, y0, x1, y1), (0, 0, 11, 12));
+        assert_eq!((x0, y0, x1, y1), (0, 1, 11, 12));
     }
 
     #[test]
@@ -556,7 +558,7 @@ mod tests {
         assert_eq!(rect.size(), SizeD::new(10.7, 10.3));
 
         let (x0, y0, x1, y1) = rect.round();
-        assert_eq!((x0, y0, x1, y1), (0, 0, 11, 11));
+        assert_eq!((x0, y0, x1, y1), (0, 0, 11, 10));
     }
 
     #[test]
@@ -619,7 +621,7 @@ mod tests {
         // Test rounding conversion
         let rect_f32_fractional = RectF::new(1.2, 2.7, 5.1, 6.9);
         let rect_i32_rounded = rect_f32_fractional.to_i32_rect();
-        assert_eq!(rect_i32_rounded, RectI::new(1, 2, 6, 7));
+        assert_eq!(rect_i32_rounded, RectI::new(1, 3, 5, 7));
     }
 
     #[test]
@@ -658,12 +660,12 @@ mod tests {
         // Test f32 rounding
         let rect_f32 = RectF::new(1.2, 2.7, 5.1, 6.9);
         let (x0, y0, x1, y1) = rect_f32.round();
-        assert_eq!((x0, y0, x1, y1), (1, 2, 6, 7));
+        assert_eq!((x0, y0, x1, y1), (1, 3, 5, 7));
 
         // Test f64 rounding
         let rect_f64 = RectD::new(1.2, 2.7, 5.1, 6.9);
         let (x0, y0, x1, y1) = rect_f64.round();
-        assert_eq!((x0, y0, x1, y1), (1, 2, 6, 7));
+        assert_eq!((x0, y0, x1, y1), (1, 3, 5, 7));
 
         // Test exact values
         let exact_f32 = RectF::new(2.0, 3.0, 4.0, 5.0);

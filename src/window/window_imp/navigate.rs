@@ -160,7 +160,7 @@ impl MViewWindowImp {
 
         // Get all entries and sort by timestamp (most recent first)
         let mut entries: Vec<_> = target_store.iter().collect();
-        entries.sort_by(|a, b| b.1.timestamp.cmp(&a.1.timestamp));
+        entries.sort_by_key(|b| std::cmp::Reverse(b.1.timestamp));
 
         // Take only the N most recent entries
         let recent_entries: HashMap<PathBuf, TargetTime> = entries

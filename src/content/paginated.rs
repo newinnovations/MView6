@@ -314,10 +314,10 @@ impl ListContent {
             "0d" => list.sort_by(|a, b| b.file_type.cmp(&a.file_type).then(b.name.cmp(&a.name))), // Descending
             "1a" => list.sort_by(|a, b| a.name.cmp(&b.name)), // Ascending
             "1d" => list.sort_by(|a, b| b.name.cmp(&a.name)), // Descending
-            "2a" => list.sort_by(|a, b| a.size.cmp(&b.size)), // Ascending
-            "2d" => list.sort_by(|a, b| b.size.cmp(&a.size)), // Descending
-            "3a" => list.sort_by(|a, b| a.modified.cmp(&b.modified)), // Ascending
-            "3d" => list.sort_by(|a, b| b.modified.cmp(&a.modified)), // Descending
+            "2a" => list.sort_by_key(|a| a.size),             // Ascending
+            "2d" => list.sort_by_key(|b| std::cmp::Reverse(b.size)), // Descending
+            "3a" => list.sort_by_key(|a| a.modified),         // Ascending
+            "3d" => list.sort_by_key(|b| std::cmp::Reverse(b.modified)), // Descending
             _ => (),
         };
         self.list = list.into();
@@ -409,15 +409,15 @@ impl PaginatedContent {
     pub fn navigate_page(&mut self, direction: Direction, count: usize) -> bool {
         match direction {
             Direction::Up => {
-                if self.page >= count {
-                    self.page -= count;
+                if self.page > 0 {
+                    self.page = self.page.saturating_sub(count);
                     self.prepare();
                     return true;
                 }
             }
             Direction::Down => {
-                if self.page + count < self.num_pages() {
-                    self.page += count;
+                if self.page < self.num_pages() - 1 {
+                    self.page = (self.page + count).min(self.num_pages() - 1);
                     self.prepare();
                     return true;
                 }

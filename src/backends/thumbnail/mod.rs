@@ -106,15 +106,15 @@ impl Thumbnail {
 
     fn create_store(capacity: u32, num_items: u32) -> Vec<Row> {
         let mut result = Vec::new();
-        let pages = if capacity > 0 {
-            if num_items > 0 {
-                1 + ((num_items - 1) / capacity)
-            } else {
-                1
-            }
+        // capacity = 10  num_items =  0..10 => pages = 1
+        // capacity = 10  num_items = 11..20 => pages = 2
+        // capacity = 10  num_items = 21..30 => pages = 3 ...
+        let pages = if let Some(pages) = num_items.saturating_sub(1).checked_div(capacity) {
+            pages + 1
         } else {
             1
         };
+
         let classification = FileType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);

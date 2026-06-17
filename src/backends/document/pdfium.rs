@@ -266,6 +266,11 @@ fn render_dual(
         ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
+                eprintln!(
+                    "Height mismatch in dual page render: left {}px, right {}px",
+                    pixmap_left.height(),
+                    pixmap_right.height()
+                );
                 return mview6_error!("height mismatch").into();
             }
             SurfaceData::from_dual_bgra8(
@@ -292,8 +297,8 @@ fn page_render(
     if intersection.is_empty() {
         Ok(None) // clip intersection is empty
     } else {
-        let width = intersection.width().ceil() as i32;
-        let height = intersection.height().ceil() as i32;
+        let width = intersection.width().round() as i32;
+        let height = intersection.height().round() as i32;
         let config = PdfiumRenderConfig::new()
             .with_size(width, height)
             .with_scale(zoom.scale() as f32)
