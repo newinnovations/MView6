@@ -22,7 +22,7 @@ use std::path::Path;
 use pdfium::{PdfiumDocument, PdfiumRenderConfig};
 
 use crate::{
-    content::{PreviewContainer, PreviewImage},
+    content::{PreviewCaption, PreviewContainer, PreviewImage},
     error::MviewResult,
     profile::performance::Performance,
 };
@@ -48,7 +48,13 @@ impl PdfPreview {
                 PdfiumRenderConfig::new().with_height(1024)
             };
             let bitmap = page.render(&config)?;
-            let image = PreviewImage::new(bitmap.as_rgb8_image()?, format!("{}", page_no + 1))?;
+            let image = PreviewImage::new(
+                bitmap.as_rgb8_image()?,
+                PreviewCaption::Page {
+                    num_pages: total_pages as u32,
+                    page: (page_no + 1) as u32,
+                },
+            )?;
             images.push(image);
             duration.elapsed(&format!("preview {} of {TOTAL_PAGES}", page_no + 1));
         }

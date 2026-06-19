@@ -23,7 +23,7 @@ use std::{
 };
 
 use crate::{
-    content::{PreviewContainer, PreviewImage},
+    content::{PreviewCaption, PreviewContainer, PreviewImage},
     error::MviewResult,
     profile::performance::Performance,
 };
@@ -37,10 +37,11 @@ impl VideoPreview {
         let video_path = path.to_string_lossy().to_string();
 
         // Get video duration
-        let duration = Self::get_video_duration(&video_path)?;
-        println!("Video duration: {:.2} seconds", duration);
+        let total_duration = Self::get_video_duration(&video_path)?;
+        println!("Video duration: {:.2} seconds", total_duration);
 
-        let interval = duration / (TOTAL_FRAMES + 1) as f64;
+        let video_len_cs = (total_duration * 100.0).round() as u32;
+        let interval = total_duration / (TOTAL_FRAMES + 1) as f64;
 
         // Generate thumbnail images
         let mut images = Vec::new();
@@ -52,7 +53,10 @@ impl VideoPreview {
             // Load image from memory
             let image = PreviewImage::new(
                 image::load_from_memory(&img_data)?,
-                Self::caption(timestamp),
+                PreviewCaption::Video {
+                    video_length: video_len_cs,
+                    captured_at: (timestamp * 100.0).round() as u32,
+                },
             )?;
             images.push(image);
             duration.elapsed(&format!("preview {i} of {TOTAL_FRAMES}"));
@@ -100,14 +104,5 @@ impl VideoPreview {
             .output()?;
 
         Ok(output.stdout)
-    }
-
-    fn caption(timestamp: f64) -> String {
-        let hours = (timestamp / 3600.0) as u32;
-        let minutes = ((timestamp % 3600.0) / 60.0) as u32;
-        let seconds = (timestamp % 60.0) as u32;
-        let millis = ((timestamp % 1.0) * 100.0) as u32;
-
-        format!("{:02}:{:02}:{:02}.{:02}", hours, minutes, seconds, millis)
     }
 }

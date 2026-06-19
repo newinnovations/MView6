@@ -26,12 +26,13 @@ use std::{
 use crate::{content::PreviewImage, error::MviewResult};
 
 pub struct PreviewContainer {
+    version: u32,
     images: Vec<PreviewImage>,
 }
 
 impl PreviewContainer {
     pub fn new(images: Vec<PreviewImage>) -> Self {
-        Self { images }
+        Self { version: 2, images }
     }
 
     // 4 MPRE
@@ -40,7 +41,7 @@ impl PreviewContainer {
 
     pub fn write<W: Write>(&self, writer: &mut W) -> Result<()> {
         writer.write_all(b"MPRE")?;
-        writer.write_all(&(1_u32).to_le_bytes())?; // 4
+        writer.write_all(&self.version.to_le_bytes())?; // 4 - Version 2 (supports PreviewCaption)
         writer.write_all(&(self.images.len() as u32).to_le_bytes())?; // 4
         for image in &self.images {
             image.write(writer)?;
@@ -55,7 +56,7 @@ impl PreviewContainer {
         let version = u32::from_le_bytes(buf[4..8].try_into().unwrap());
         let number_of_images = u32::from_le_bytes(buf[8..12].try_into().unwrap());
 
-        if &buf[0..4] != b"MPRE" || version != 1 {
+        if &buf[0..4] != b"MPRE" || (version != 1 && version != 2) {
             return Err(ErrorKind::InvalidData.into());
         }
 
@@ -67,10 +68,10 @@ impl PreviewContainer {
         let mut images = Vec::new();
 
         for _ in 0..number_of_images {
-            images.push(PreviewImage::read(reader)?);
+            images.push(PreviewImage::read(reader, version)?);
         }
 
-        Ok(Self { images })
+        Ok(Self { version, images })
     }
 
     pub fn load(path: &Path) -> MviewResult<Self> {
@@ -86,7 +87,22 @@ impl PreviewContainer {
         Ok(())
     }
 
+    #[allow(dead_code)]
+    pub fn num_images(&self) -> usize {
+        self.images.len()
+    }
+
+    #[allow(dead_code)]
+    pub fn images(&self) -> &[PreviewImage] {
+        &self.images
+    }
+
     pub fn image(&self, index: usize) -> Option<&PreviewImage> {
         self.images.get(index)
+    }
+
+    #[allow(dead_code)]
+    pub fn version(&self) -> u32 {
+        self.version
     }
 }

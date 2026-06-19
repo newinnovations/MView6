@@ -22,7 +22,7 @@ mod creator;
 mod image;
 
 pub use container::PreviewContainer;
-pub use image::PreviewImage;
+pub use image::{PreviewCaption, PreviewImage};
 
 use std::{
     fs::create_dir_all,
@@ -93,14 +93,16 @@ impl Preview {
         let content_area = sheet.content_area();
         let canvas = sheet.canvas();
 
-        let containter = PreviewContainer::load(&self.preview)?;
+        let container = PreviewContainer::load(&self.preview)?;
+
+        // dbg!(container.version());
 
         let grid = 4;
         let dx = content_area.width() / grid as f64;
         let dy = content_area.height() / grid as f64;
         for y in 0..grid {
             for x in 0..grid {
-                if let Some(img) = containter.image(y * grid + x) {
+                if let Some(img) = container.image(y * grid + x) {
                     canvas.add_image_bytes(
                         content_area.point0() + PointD::new(x as f64 * dx, y as f64 * dy),
                         Some(dx),
@@ -108,6 +110,7 @@ impl Preview {
                         "image/jpeg",
                         img.jpeg_data(),
                     );
+                    // dbg!(img.caption());
                 }
             }
         }
