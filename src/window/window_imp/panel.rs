@@ -302,7 +302,7 @@ impl Panel {
         });
 
         connect_panel_button!(filter_button, mview_window, hide_timer, w => {
-            w.filter_dialog();
+            w.filter_dialog(None);
         });
 
         connect_panel_button!(start_button, mview_window, hide_timer, w => {

@@ -55,7 +55,7 @@ pub const COMMANDS: &[Command] = &[
     Command {
         name: "Navigation: edit filter",
         shortcut: Some("Shift+F"),
-        action: |w| w.filter_dialog(),
+        action: |w| w.filter_dialog(None),
     },
     Command {
         name: "Open file",

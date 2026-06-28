@@ -205,7 +205,10 @@ impl MViewWindowImp {
                 self.toggle_fullscreen();
             }
             Key::F => {
-                self.filter_dialog();
+                self.filter_dialog(None);
+            }
+            Key::I | Key::V | Key::D | Key::A | Key::E => {
+                self.filter_dialog(Some(key));
             }
             Key::Escape => {
                 self.obj().unfullscreen();

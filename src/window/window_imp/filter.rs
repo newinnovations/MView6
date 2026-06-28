@@ -54,7 +54,7 @@ const A_ITEMS: &[(FileType, Key)] = &[
 ];
 
 impl MViewWindowImp {
-    pub fn filter_dialog(&self) {
+    pub fn filter_dialog(&self, initial_shortcut: Option<Key>) {
         let dialog = Dialog::builder()
             .title("Navigation filter")
             .modal(true)
@@ -103,6 +103,27 @@ impl MViewWindowImp {
                 }
                 vbox_checks.append(&checkbox);
                 f_checks.push((checkbox, *pref_type));
+            }
+
+            if let Some(keyval) = initial_shortcut {
+                for (content_type, key) in A_ITEMS {
+                    if *key == keyval {
+                        for (cb, ct) in &c_checks {
+                            cb.set_active(*ct == *content_type);
+                        }
+                        for (cb, preference) in &f_checks {
+                            cb.set_active(*preference != Preference::Disliked);
+                        }
+                    }
+                }
+                if keyval == Key::E {
+                    for (cb, _) in &c_checks {
+                        cb.set_active(true);
+                    }
+                    for (cb, _) in &f_checks {
+                        cb.set_active(true);
+                    }
+                }
             }
         }
 
@@ -279,6 +300,24 @@ impl MViewWindowImp {
                 dialog.close();
             }
         ));
+
+        if initial_shortcut.is_some() {
+            glib::timeout_add_seconds_local(
+                3,
+                clone!(
+                    #[weak]
+                    dialog,
+                    #[upgrade_or]
+                    glib::ControlFlow::Break,
+                    move || {
+                        if dialog.is_visible() {
+                            dialog.response(ResponseType::Ok);
+                        }
+                        glib::ControlFlow::Break
+                    }
+                ),
+            );
+        }
 
         dialog.present();
     }
