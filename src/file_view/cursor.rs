@@ -88,7 +88,12 @@ impl Cursor {
         );
     }
 
-    pub fn navigate(&self, direction: Direction, filter: &Filter, count: u32) -> Option<TreePath> {
+    pub fn navigate(
+        &mut self,
+        direction: Direction,
+        filter: &Filter,
+        count: u32,
+    ) -> Option<TreePath> {
         if count == 0 {
             return None;
         }
@@ -99,8 +104,8 @@ impl Cursor {
         // item before we can start counting. Getting to the first matching item counts as one step.
         while !filter.matches(self.store.category(&self.iter)) {
             let has_next = match direction {
-                Direction::Up => self.store.iter_previous(&self.iter),
-                Direction::Down => self.store.iter_next(&self.iter),
+                Direction::Up => self.store.iter_previous(&mut self.iter),
+                Direction::Down => self.store.iter_next(&mut self.iter),
             };
             if !has_next {
                 return None;
@@ -118,8 +123,8 @@ impl Cursor {
 
         loop {
             let item_available = match direction {
-                Direction::Up => self.store.iter_previous(&self.iter),
-                Direction::Down => self.store.iter_next(&self.iter),
+                Direction::Up => self.store.iter_previous(&mut self.iter),
+                Direction::Down => self.store.iter_next(&mut self.iter),
             };
             if !item_available {
                 if count != cnt {
@@ -140,8 +145,8 @@ impl Cursor {
         Some(self.store.path(&last))
     }
 
-    pub fn next(&self) -> bool {
-        self.store.iter_next(&self.iter)
+    pub fn next(&mut self) -> bool {
+        self.store.iter_next(&mut self.iter)
     }
 }
 

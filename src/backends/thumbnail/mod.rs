@@ -143,7 +143,7 @@ impl Thumbnail {
 
         let start = page * self.capacity();
         if let Some(iter) = self.parent_store.iter_nth_child(None, start) {
-            let cursor = Cursor::new(self.parent_store.clone(), iter, start);
+            let mut cursor = Cursor::new(self.parent_store.clone(), iter, start);
             for row in 0..self.dim.capacity_y {
                 for col in 0..self.dim.capacity_x {
                     let source = Entry {

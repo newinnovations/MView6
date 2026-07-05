@@ -22,7 +22,7 @@ use glib::{
 };
 use gtk4::{
     glib,
-    prelude::{TreeModelExt, TreeSortableExtManual, TreeViewExt},
+    prelude::{TreeModelExt, TreeModelExtManual, TreeSortableExtManual, TreeViewExt},
     ListStore, SortColumn, SortType, TreeIter, TreeViewColumn,
 };
 
@@ -142,7 +142,7 @@ impl FileView {
             } else {
                 store.iter_first()
             };
-            if let Some(iter) = starting_point {
+            if let Some(mut iter) = starting_point {
                 loop {
                     if match target {
                         Target::Name(filename) => *filename == store.name(&iter),
@@ -154,9 +154,9 @@ impl FileView {
                         return;
                     }
                     let has_next = if *target == Target::Last {
-                        store.iter_previous(&iter)
+                        store.iter_previous(&mut iter)
                     } else {
-                        store.iter_next(&iter)
+                        store.iter_next(&mut iter)
                     };
                     if !has_next {
                         break;
@@ -179,7 +179,7 @@ impl FileView {
     // We need to provide an alternative that does not have a return value, to prevent the
     // function from being optimized out in those cases.
     pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) {
-        if let Some(current) = self.current() {
+        if let Some(mut current) = self.current() {
             let treepath = current.navigate(direction, filter, count);
             if let Some(tree_path) = &treepath {
                 self.set_cursor(tree_path, None::<&TreeViewColumn>, false);
@@ -188,7 +188,7 @@ impl FileView {
     }
 
     pub fn navigate_item_bool(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
-        if let Some(current) = self.current() {
+        if let Some(mut current) = self.current() {
             let treepath = current.navigate(direction, filter, count);
             if let Some(tree_path) = &treepath {
                 self.set_cursor(tree_path, None::<&TreeViewColumn>, false);

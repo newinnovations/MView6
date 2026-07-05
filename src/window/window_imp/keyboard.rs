@@ -391,7 +391,7 @@ impl MViewWindowImp {
                         page_mode: &self.page_mode.get(),
                         allocation_height: self.obj().height(),
                     };
-                    if let Some(current) = w.file_view.current() {
+                    if let Some(mut current) = w.file_view.current() {
                         let b = self.backend.borrow();
                         let image1 = b.content(&b.reference(&current).item, &params);
                         if current.next() {
