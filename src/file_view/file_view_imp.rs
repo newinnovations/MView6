@@ -46,16 +46,25 @@ pub(super) struct FileViewColumns {
     pub(super) date: ColumnViewColumn,
 }
 
+#[derive(Debug)]
+pub(super) struct FileViewSorters {
+    pub(super) category: gtk4::CustomSorter,
+    pub(super) category_desc: gtk4::CustomSorter,
+    pub(super) name: gtk4::CustomSorter,
+    pub(super) name_desc: gtk4::CustomSorter,
+    pub(super) size: gtk4::CustomSorter,
+    pub(super) size_desc: gtk4::CustomSorter,
+    pub(super) date: gtk4::CustomSorter,
+    pub(super) date_desc: gtk4::CustomSorter,
+    pub(super) index: gtk4::CustomSorter,
+}
+
 #[derive(Default)]
 pub struct FileViewImp {
     pub(super) columns: OnceCell<FileViewColumns>,
     pub(super) selection_changed_callback: RefCell<Option<Box<dyn Fn() + 'static>>>,
-    pub(super) sorters: OnceCell<(
-        gtk4::CustomSorter,
-        gtk4::CustomSorter,
-        gtk4::CustomSorter,
-        gtk4::CustomSorter,
-    )>,
+    pub(super) sorters: OnceCell<FileViewSorters>,
+    pub(super) sort_model_sorter: OnceCell<gtk4::MultiSorter>,
     pub(super) column_view: OnceCell<ColumnView>,
 }
 
@@ -96,17 +105,12 @@ impl ObjectImpl for FileViewImp {
             let b_row = b.row();
             let a_val = a_row.as_ref().unwrap();
             let b_val = b_row.as_ref().unwrap();
-            let res = a_val.file_type.cmp(&b_val.file_type);
-            if res.is_eq() {
-                a_val
-                    .name
-                    .to_lowercase()
-                    .cmp(&b_val.name.to_lowercase())
-                    .into()
-            } else {
-                res.into()
-            }
+            a_val.file_type.cmp(&b_val.file_type).into()
         });
+        let sorter_type_desc = {
+            let sorter_type = sorter_type.clone();
+            gtk4::CustomSorter::new(move |a, b| sorter_type.compare(b, a))
+        };
 
         let sorter_name = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
@@ -121,6 +125,10 @@ impl ObjectImpl for FileViewImp {
                 .cmp(&b_val.name.to_lowercase())
                 .into()
         });
+        let sorter_name_desc = {
+            let sorter_name = sorter_name.clone();
+            gtk4::CustomSorter::new(move |a, b| sorter_name.compare(b, a))
+        };
 
         let sorter_size = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
@@ -131,6 +139,10 @@ impl ObjectImpl for FileViewImp {
             let b_val = b_row.as_ref().unwrap();
             a_val.size.cmp(&b_val.size).into()
         });
+        let sorter_size_desc = {
+            let sorter_size = sorter_size.clone();
+            gtk4::CustomSorter::new(move |a, b| sorter_size.compare(b, a))
+        };
 
         let sorter_modified = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
@@ -141,15 +153,36 @@ impl ObjectImpl for FileViewImp {
             let b_val = b_row.as_ref().unwrap();
             a_val.modified.cmp(&b_val.modified).into()
         });
+        let sorter_modified_desc = {
+            let sorter_modified = sorter_modified.clone();
+            gtk4::CustomSorter::new(move |a, b| sorter_modified.compare(b, a))
+        };
+        let sorter_index = gtk4::CustomSorter::new(|a, b| {
+            let a = a.downcast_ref::<FileRow>().unwrap();
+            let b = b.downcast_ref::<FileRow>().unwrap();
+            let a_row = a.row();
+            let b_row = b.row();
+            let a_val = a_row.as_ref().unwrap();
+            let b_val = b_row.as_ref().unwrap();
+            a_val.index().cmp(&b_val.index()).into()
+        });
 
         self.sorters
-            .set((
-                sorter_type.clone(),
-                sorter_name.clone(),
-                sorter_size.clone(),
-                sorter_modified.clone(),
-            ))
+            .set(FileViewSorters {
+                category: sorter_type.clone(),
+                category_desc: sorter_type_desc,
+                name: sorter_name.clone(),
+                name_desc: sorter_name_desc,
+                size: sorter_size.clone(),
+                size_desc: sorter_size_desc,
+                date: sorter_modified.clone(),
+                date_desc: sorter_modified_desc,
+                index: sorter_index,
+            })
             .unwrap();
+        self.sort_model_sorter
+            .set(gtk4::MultiSorter::new())
+            .expect("Failed to create file list multi sorter");
 
         // Column for category (FileType)
         let factory_category = gtk4::SignalListItemFactory::new();
@@ -311,6 +344,13 @@ impl ObjectImpl for FileViewImp {
 
         instance.append(&column_view);
         self.column_view.set(column_view.clone()).unwrap();
+
+        let instance_weak = instance.downgrade();
+        column_view.sorter().unwrap().connect_changed(move |_, _| {
+            if let Some(this) = instance_weak.upgrade() {
+                this.sync_sort_model_sorter();
+            }
+        });
 
         // Listen for model changes to hook up selected change notification
         let instance_weak = instance.downgrade();

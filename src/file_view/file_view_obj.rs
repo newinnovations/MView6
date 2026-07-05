@@ -56,6 +56,10 @@ impl FileView {
         self.column_view().sorter()
     }
 
+    pub fn model_sorter(&self) -> Option<gtk4::Sorter> {
+        Some(self.imp().sort_model_sorter.get()?.clone().upcast())
+    }
+
     pub fn sort_by_column(&self, col: Option<&gtk4::ColumnViewColumn>, order: SortType) {
         self.column_view().sort_by_column(col, order);
     }
@@ -82,6 +86,41 @@ impl Default for FileView {
 }
 
 impl FileView {
+    fn apply_sort_model_sorter(&self, sort: Option<(Column, SortType)>) {
+        let imp = self.imp();
+        let sort_model_sorter = imp.sort_model_sorter.get().unwrap();
+        while sort_model_sorter.n_items() > 0 {
+            sort_model_sorter.remove(0);
+        }
+
+        let Some((sort_col, order)) = sort else {
+            return;
+        };
+
+        let sorters = imp.sorters.get().unwrap();
+        let primary = match (sort_col, order) {
+            (Column::FileType, SortType::Ascending) => &sorters.category,
+            (Column::FileType, SortType::Descending) => &sorters.category_desc,
+            (Column::Name, SortType::Ascending) => &sorters.name,
+            (Column::Name, SortType::Descending) => &sorters.name_desc,
+            (Column::Size, SortType::Ascending) => &sorters.size,
+            (Column::Size, SortType::Descending) => &sorters.size_desc,
+            (Column::Modified, SortType::Ascending) => &sorters.date,
+            (Column::Modified, SortType::Descending) => &sorters.date_desc,
+            _ => return,
+        };
+
+        sort_model_sorter.append(primary.clone());
+        if sort_col != Column::Name {
+            sort_model_sorter.append(sorters.name.clone());
+        }
+        sort_model_sorter.append(sorters.index.clone());
+    }
+
+    pub(super) fn sync_sort_model_sorter(&self) {
+        self.apply_sort_model_sorter(self.current_sort());
+    }
+
     fn scroll_index_into_view(&self, index: u32) {
         let scroll = gtk4::ScrollInfo::new();
         scroll.set_enable_horizontal(false);
@@ -254,17 +293,18 @@ impl FileView {
 
     pub fn set_unsorted(&self) {
         self.sort_by_column(None::<&gtk4::ColumnViewColumn>, SortType::Ascending);
+        self.apply_sort_model_sorter(None);
     }
 
     pub fn set_sortable(&self, sortable: bool) {
         let imp = self.imp();
         if let Some(columns) = imp.columns.get() {
             if sortable {
-                if let Some((s_type, s_name, s_size, s_mod)) = imp.sorters.get() {
-                    columns.category.set_sorter(Some(s_type));
-                    columns.name.set_sorter(Some(s_name));
-                    columns.size.set_sorter(Some(s_size));
-                    columns.date.set_sorter(Some(s_mod));
+                if let Some(sorters) = imp.sorters.get() {
+                    columns.category.set_sorter(Some(&sorters.category));
+                    columns.name.set_sorter(Some(&sorters.name));
+                    columns.size.set_sorter(Some(&sorters.size));
+                    columns.date.set_sorter(Some(&sorters.date));
                 }
             } else {
                 columns.category.set_sorter(None::<&gtk4::Sorter>);
@@ -282,11 +322,8 @@ impl FileView {
     pub fn current_sort(&self) -> Option<(Column, SortType)> {
         let sorter = self.sorter()?;
         let cv_sorter = sorter.downcast::<gtk4::ColumnViewSorter>().ok()?;
-        if cv_sorter.n_sort_columns() == 0 {
-            return None;
-        }
-        let (col, order) = cv_sorter.nth_sort_column(0);
-        let col = col?;
+        let col = cv_sorter.primary_sort_column()?;
+        let order = cv_sorter.primary_sort_order();
         let cols = self.imp().columns.get()?;
         let sort_col = if col == cols.category {
             Column::FileType
@@ -312,7 +349,9 @@ impl FileView {
                 Column::Modified => &cols.date,
                 _ => return,
             };
+            self.sort_by_column(None::<&gtk4::ColumnViewColumn>, SortType::Ascending);
             self.sort_by_column(Some(col), order);
+            self.apply_sort_model_sorter(Some((sort_col, order)));
         }
     }
 

@@ -27,7 +27,15 @@ impl MViewWindowImp {
     pub fn change_sort(&self, sort_col: Column, file_view: &FileView) {
         let backend = self.backend.borrow();
         if backend.can_be_sorted() {
-            file_view.change_sort(sort_col);
+            let new_order = match self.current_sort.get() {
+                Sort::Sorted((current_col, SortType::Ascending)) if current_col == sort_col => {
+                    SortType::Descending
+                }
+                Sort::Sorted((current_col, _)) if current_col == sort_col => SortType::Ascending,
+                _ if sort_col == Column::Modified => SortType::Descending,
+                _ => SortType::Ascending,
+            };
+            file_view.set_sort(sort_col, new_order);
         }
     }
 

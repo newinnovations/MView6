@@ -54,7 +54,7 @@ impl MViewWindowImp {
         };
 
         let new_store = Column::store(new_backend.list());
-        let sorter = w.file_view.sorter().unwrap();
+        let sorter = w.file_view.model_sorter().unwrap();
         let sort_model = gtk4::SortListModel::new(Some(new_store.clone()), Some(sorter));
         let selection_model = gtk4::SingleSelection::new(Some(sort_model));
 
