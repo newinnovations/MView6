@@ -21,8 +21,8 @@ use chrono::Datelike;
 use gio::prelude::FileExt;
 use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::{
-    prelude::{DialogExt, FileChooserExt, GtkWindowExt, WidgetExt},
-    AboutDialog, FileChooserAction, FileChooserDialog, FileFilter, License, ResponseType,
+    prelude::{GtkWindowExt, WidgetExt},
+    AboutDialog, FileDialog, FileFilter, License,
 };
 
 use crate::{
@@ -41,18 +41,12 @@ use super::MViewWindowImp;
 
 impl MViewWindowImp {
     pub fn open_file(&self) {
-        // Create the file open dialog
-        let dialog = FileChooserDialog::new(
-            Some("Choose a file"),
-            Some(&self.obj().clone()),
-            FileChooserAction::Open,
-            &[
-                ("Cancel", ResponseType::Cancel),
-                ("Open", ResponseType::Accept),
-            ],
-        );
+        let dialog = FileDialog::builder()
+            .title("Choose a file")
+            .accept_label("Open")
+            .modal(true)
+            .build();
 
-        // Create file filters
         let all_files = FileFilter::new();
         all_files.set_name(Some("All Files"));
         all_files.add_pattern("*");
@@ -77,29 +71,26 @@ impl MViewWindowImp {
         text_files.add_pattern("*.epub");
         text_files.add_pattern("*.xps");
 
-        // Add filters to the dialog
-        dialog.add_filter(&text_files);
-        dialog.add_filter(&all_files);
+        let filters = gio::ListStore::new::<FileFilter>();
+        filters.append(&text_files);
+        filters.append(&all_files);
+        dialog.set_filters(Some(&filters));
+        dialog.set_default_filter(Some(&text_files));
 
-        // Set default folder (optional)
-        // _ = dialog.set_current_folder(Some(&gio::File::for_path("/home")));
-
-        // Show the dialog and handle the response
-        dialog.connect_response(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |dialog, response| {
-                if response == ResponseType::Accept {
-                    if let Some(file) = dialog.file() {
+        dialog.open(
+            Some(&self.obj().clone()),
+            None::<&gio::Cancellable>,
+            clone!(
+                #[weak(rename_to = this)]
+                self,
+                move |result| {
+                    if let Ok(file) = result {
                         let path = file.path().unwrap_or_default();
                         this.navigate_to(&path);
                     }
                 }
-                dialog.destroy();
-            }
-        ));
-
-        dialog.show();
+            ),
+        );
     }
 
     pub fn show_about_dialog(&self) {
@@ -270,8 +261,12 @@ impl MViewWindowImp {
                     focus_pos: position.1,
                     store,
                 };
-                let thumbnail =
-                    Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
+                let thumbnail = Thumbnail::new(
+                    parent,
+                    w.image_view.width(),
+                    w.image_view.height(),
+                    self.thumbnail_size.get(),
+                );
                 let focus_page = thumbnail.focus_page();
                 let thumbnail = <dyn Backend>::thumbnail(thumbnail);
                 // thumbnail.set_sort(&Sort::sort_on_category()); FIXME

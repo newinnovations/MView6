@@ -17,12 +17,12 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::HashSet;
+use std::{collections::HashSet, rc::Rc};
 
 use glib::{clone, subclass::types::ObjectSubclassExt, Propagation};
 use gtk4::{
-    gdk::Key, prelude::*, Box, Button, CheckButton, Dialog, EventControllerKey, Orientation,
-    ResponseType, Separator,
+    gdk::Key, prelude::*, Box, Button, CheckButton, EventControllerKey, Orientation, Separator,
+    Window,
 };
 
 use crate::{
@@ -55,21 +55,26 @@ const A_ITEMS: &[(FileType, Key)] = &[
 
 impl MViewWindowImp {
     pub fn filter_dialog(&self, initial_shortcut: Option<Key>) {
-        let dialog = Dialog::builder()
+        let root = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .margin_start(12)
+            .margin_end(12)
+            .margin_top(12)
+            .margin_bottom(12)
+            .build();
+
+        let dialog = Window::builder()
             .title("Navigation filter")
             .modal(true)
             .transient_for(&self.obj().clone())
+            .resizable(false)
+            .child(&root)
             .build();
-
-        let content_area = dialog.content_area();
 
         let hbox = Box::builder()
             .orientation(Orientation::Horizontal)
             .spacing(8) // vertical spacing between rows
-            .margin_start(12)
-            .margin_end(12)
-            .margin_top(12)
-            .margin_bottom(18)
             .build();
 
         let vbox_checks = Box::builder()
@@ -205,21 +210,66 @@ impl MViewWindowImp {
         hbox.append(&vbox_buttons);
         hbox.append(&separator);
         hbox.append(&vbox_checks);
-        content_area.append(&hbox);
+        root.append(&hbox);
 
-        let cancel_btn = dialog.add_button("Cancel", ResponseType::Cancel);
+        let button_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(8)
+            .halign(gtk4::Align::End)
+            .build();
+
+        let cancel_btn = Button::with_label("Cancel");
         cancel_btn.set_margin_end(8); // space to the right of Cancel
         cancel_btn.set_margin_bottom(8);
+        button_box.append(&cancel_btn);
 
-        let ok_btn = dialog.add_button("OK", ResponseType::Ok);
+        let ok_btn = Button::with_label("OK");
         ok_btn.set_margin_start(8);
         ok_btn.set_margin_end(8);
         ok_btn.set_margin_bottom(8);
+        button_box.append(&ok_btn);
+        root.append(&button_box);
 
         // Prevent focus outline on the first checkbox by focusing OK when shown
         let ok_btn_clone = ok_btn.clone();
-        dialog.connect_show(move |_| {
+        dialog.connect_map(move |_| {
             ok_btn_clone.grab_focus();
+        });
+
+        let apply_c_checks = c_checks.clone();
+        let apply_f_checks = f_checks.clone();
+        let apply_filter: Rc<dyn Fn()> = Rc::new(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            dialog,
+            move || {
+                let c_selected: HashSet<FileType> = apply_c_checks
+                    .iter()
+                    .filter(|&(cb, _)| cb.is_active())
+                    .map(|(_, content_type)| *content_type)
+                    .collect();
+                let f_selected: HashSet<Preference> = apply_f_checks
+                    .iter()
+                    .filter(|&(cb, _)| cb.is_active())
+                    .map(|(_, preference_type)| *preference_type)
+                    .collect();
+                this.current_filter
+                    .replace(Filter::Set((c_selected, f_selected)));
+                dialog.close();
+            }
+        ));
+
+        cancel_btn.connect_clicked(clone!(
+            #[weak]
+            dialog,
+            move |_| {
+                dialog.close();
+            }
+        ));
+        ok_btn.connect_clicked({
+            let apply_filter = apply_filter.clone();
+            move |_| apply_filter()
         });
 
         let cb_clone = c_checks.clone();
@@ -227,6 +277,7 @@ impl MViewWindowImp {
         let key_controller = EventControllerKey::new();
         {
             let dialog_clone = dialog.clone();
+            let apply_filter = apply_filter.clone();
             key_controller.connect_key_pressed(move |_, keyval, _, _| {
                 for (_, content_type, key) in C_ITEMS {
                     if *key == keyval {
@@ -269,7 +320,11 @@ impl MViewWindowImp {
                         Propagation::Stop
                     }
                     Key::Escape | Key::q | Key::Q => {
-                        dialog_clone.response(ResponseType::Cancel);
+                        dialog_clone.close();
+                        Propagation::Stop
+                    }
+                    Key::Return | Key::KP_Enter => {
+                        apply_filter();
                         Propagation::Stop
                     }
                     _ => Propagation::Proceed,
@@ -279,30 +334,9 @@ impl MViewWindowImp {
 
         dialog.add_controller(key_controller);
 
-        dialog.connect_response(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |dialog, response| {
-                if response == ResponseType::Ok {
-                    let c_selected: HashSet<FileType> = c_checks
-                        .iter()
-                        .filter(|&(cb, _)| cb.is_active())
-                        .map(|(_, content_type)| *content_type)
-                        .collect();
-                    let f_selected: HashSet<Preference> = f_checks
-                        .iter()
-                        .filter(|&(cb, _)| cb.is_active())
-                        .map(|(_, preference_type)| *preference_type)
-                        .collect();
-                    this.current_filter
-                        .replace(Filter::Set((c_selected, f_selected)));
-                }
-                dialog.close();
-            }
-        ));
-
         if initial_shortcut.is_some() {
             let mut remaining_tenths = 30u32;
+            let apply_filter = apply_filter.clone();
             glib::timeout_add_local(
                 std::time::Duration::from_millis(100),
                 clone!(
@@ -326,7 +360,7 @@ impl MViewWindowImp {
                         }
 
                         if remaining_tenths == 0 {
-                            dialog.response(ResponseType::Ok);
+                            apply_filter();
                             glib::ControlFlow::Break
                         } else {
                             glib::ControlFlow::Continue

@@ -19,13 +19,13 @@
 
 use std::fmt::Display;
 
-use gtk4::{SortColumn, SortType};
+use gtk4::SortType;
 
 use super::model::Column;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Sort {
-    Sorted((SortColumn, SortType)),
+    Sorted((Column, SortType)),
     #[default]
     Unsorted,
 }
@@ -37,25 +37,19 @@ impl Display for Sort {
 }
 
 impl Sort {
-    pub fn new(column: SortColumn, order: SortType) -> Self {
+    pub fn new(column: Column, order: SortType) -> Self {
         Sort::Sorted((column, order))
     }
 
     pub fn sort_on_category() -> Self {
-        Sort::new(
-            SortColumn::Index(Column::FileType as u32),
-            SortType::Ascending,
-        )
+        Sort::new(Column::FileType, SortType::Ascending)
     }
 
     pub fn str_repr(&self) -> String {
         match self {
             Sort::Sorted((col, order)) => format!(
                 "{}{}",
-                match col {
-                    SortColumn::Default => "d".to_string(),
-                    SortColumn::Index(i) => format!("{i}"),
-                },
+                *col as u32,
                 match order {
                     SortType::Ascending => "a",
                     SortType::Descending => "d",

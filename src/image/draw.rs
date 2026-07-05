@@ -21,7 +21,7 @@ use std::path::Path;
 
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use gdk_pixbuf::Pixbuf;
-use gtk4::gdk::pixbuf_get_from_surface;
+use glib::Bytes;
 
 use crate::{
     backends::thumbnail::TMessage,
@@ -31,7 +31,6 @@ use crate::{
         view::{TransparencyMode, ZoomMode},
         TextCanvas,
     },
-    mview6_error,
 };
 
 use super::colors::{CairoColorExt, Color};
@@ -187,10 +186,34 @@ pub fn text_thumb(message: TMessage) -> MviewResult<Pixbuf> {
         context.show_text(message.message())?;
     }
 
-    match pixbuf_get_from_surface(&surface, 0, 0, 175, 175) {
-        Some(pixbuf) => Ok(pixbuf),
-        None => mview6_error!("Failed to get pixbuf from surface").into(),
-    }
+    let width = surface.width();
+    let height = surface.height();
+    let stride = surface.stride() as usize;
+    let mut rgba = vec![0u8; width as usize * height as usize * 4];
+    surface
+        .with_data(|data| {
+            for y in 0..height as usize {
+                let row = &data[y * stride..y * stride + width as usize * 4];
+                let out_row = &mut rgba[y * width as usize * 4..(y + 1) * width as usize * 4];
+                for (src, dst) in row.chunks_exact(4).zip(out_row.chunks_exact_mut(4)) {
+                    dst[0] = src[2];
+                    dst[1] = src[1];
+                    dst[2] = src[0];
+                    dst[3] = src[3];
+                }
+            }
+        })
+        .map_err(|e| MviewError::App(crate::AppError::new(e.to_string(), file!(), line!())))?;
+
+    Ok(Pixbuf::from_bytes(
+        &Bytes::from_owned(rgba),
+        gdk_pixbuf::Colorspace::Rgb,
+        true,
+        8,
+        width,
+        height,
+        width * 4,
+    ))
 }
 
 pub fn transparency_background() -> MviewResult<ImageSurface> {

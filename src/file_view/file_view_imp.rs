@@ -83,6 +83,7 @@ impl ObjectImpl for FileViewImp {
         instance.set_halign(gtk4::Align::Start);
 
         let column_view = ColumnView::new(None::<gtk4::SingleSelection>);
+        column_view.add_css_class("file-view");
         column_view.set_vexpand(true);
         column_view.set_hexpand(false);
         column_view.set_halign(gtk4::Align::Start);

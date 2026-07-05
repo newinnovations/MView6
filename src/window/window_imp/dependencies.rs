@@ -17,8 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use gtk4::prelude::*;
-use gtk4::{ButtonsType, DialogFlags, MessageDialog, MessageType};
 use std::env;
 use std::path::Path;
 
@@ -85,23 +83,15 @@ fn get_install_path() -> std::path::PathBuf {
 }
 
 fn show_success_dialog(parent_window: &MViewWindow) {
-    let dialog = MessageDialog::new(
-        Some(parent_window),
-        DialogFlags::MODAL,
-        MessageType::Info,
-        ButtonsType::Ok,
-        "All Required Files Found!",
-    );
-
-    dialog.set_secondary_text(Some(
-        "All MView6 dependencies are properly installed and ready to use.",
-    ));
-
-    dialog.connect_response(|dialog, _| {
-        dialog.close();
-    });
-
-    dialog.show();
+    let dialog = gtk4::AlertDialog::builder()
+        .modal(true)
+        .message("All Required Files Found!")
+        .detail("All MView6 dependencies are properly installed and ready to use.")
+        .buttons(["OK"])
+        .default_button(0)
+        .cancel_button(0)
+        .build();
+    dialog.show(Some(parent_window));
 }
 
 fn show_missing_files_dialog(
@@ -109,58 +99,48 @@ fn show_missing_files_dialog(
     missing_files: &[String],
     install_path: &Path,
 ) {
-    let dialog = MessageDialog::new(
-        Some(parent_window),
-        DialogFlags::MODAL,
-        MessageType::Error,
-        ButtonsType::Ok,
-        "Missing MView6 Dependencies",
-    );
-
-    // Set a wider dialog
-    dialog.set_default_size(600, 400);
-
     let os_specific_instructions = if cfg!(target_os = "windows") {
         format!(
-            "<b>Missing files:</b>\n - <tt>{}</tt>\n\n\
-            <b>To fix this issue:</b>\n\n\
-            <b>1.</b> Download the font files from:\n   \
-            <span color='lightgreen'><u>https://github.com/newinnovations/mview6/tree/main/resources/fonts</u></span>\n\n\
-            <b>2.</b> Download PDFium library from:\n   \
-            <span color='lightgreen'><u>https://github.com/bblanchon/pdfium-binaries/releases</u></span>\n   \
-            <i>(Download the Windows version: <tt>pdfium.dll</tt>)</i>\n\n\
-            <b>3.</b> Copy all files to the same directory as the MView6 executable:\n   \
-            <tt><span color='green'>{}</span></tt>\n\n\
-            <b>Important:</b> The missing files should be placed directly in this folder.",
-            missing_files.join("</tt>,\n - <tt>"),
+            "Missing files:\n- {}\n\n\
+            To fix this issue:\n\n\
+            1. Download the font files from:\n\
+               https://github.com/newinnovations/mview6/tree/main/resources/fonts\n\n\
+            2. Download PDFium from:\n\
+               https://github.com/bblanchon/pdfium-binaries/releases\n\
+               (Windows file: pdfium.dll)\n\n\
+            3. Copy all files to the same directory as the MView6 executable:\n\
+               {}\n\n\
+            Important: The missing files should be placed directly in this folder.",
+            missing_files.join("\n- "),
             install_path.display()
         )
     } else {
         format!(
-            "<b>Missing files:</b>\n - <tt>{}</tt>\n\n\
-            <b>To fix this issue:</b>\n\n\
-            <b>1.</b> Create the installation directory (if it doesn't exist):\n   \
-            <tt>sudo mkdir -p /usr/lib/mview6</tt>\n\n\
-            <b>2.</b> Download the font files from:\n   \
-            <span color='lightgreen'><u>https://github.com/newinnovations/mview6/tree/main/resources/fonts</u></span>\n\n\
-            <b>3.</b> Download PDFium library from:\n   \
-            <span color='lightgreen'><u>https://github.com/bblanchon/pdfium-binaries/releases</u></span>\n   \
-            <i>(Download the Linux version: <tt>libpdfium.so</tt>)</i>\n\n\
-            <b>4.</b> Copy all files to /usr/lib/mview6:\n   \
-            <tt>sudo cp &lt;downloaded-files&gt; /usr/lib/mview6/</tt>\n\n\
-            <b>5.</b> Ensure proper permissions:\n   \
-            <tt>sudo chmod 644 /usr/lib/mview6/*</tt>\n\n\
-            <b>Note:</b> You may need administrator privileges for these operations.",
-            missing_files.join("</tt>,\n - <tt>")
+            "Missing files:\n- {}\n\n\
+            To fix this issue:\n\n\
+            1. Create the installation directory if needed:\n\
+               sudo mkdir -p /usr/lib/mview6\n\n\
+            2. Download the font files from:\n\
+               https://github.com/newinnovations/mview6/tree/main/resources/fonts\n\n\
+            3. Download PDFium from:\n\
+               https://github.com/bblanchon/pdfium-binaries/releases\n\
+               (Linux file: libpdfium.so)\n\n\
+            4. Copy all files to /usr/lib/mview6:\n\
+               sudo cp <downloaded-files> /usr/lib/mview6/\n\n\
+            5. Ensure proper permissions:\n\
+               sudo chmod 644 /usr/lib/mview6/*\n\n\
+            Note: You may need administrator privileges for these operations.",
+            missing_files.join("\n- ")
         )
     };
 
-    dialog.set_secondary_text(Some(&os_specific_instructions));
-    dialog.set_secondary_use_markup(true);
-
-    dialog.connect_response(|dialog, _| {
-        dialog.close();
-    });
-
-    dialog.show();
+    let dialog = gtk4::AlertDialog::builder()
+        .modal(true)
+        .message("Missing MView6 Dependencies")
+        .detail(os_specific_instructions)
+        .buttons(["OK"])
+        .default_button(0)
+        .cancel_button(0)
+        .build();
+    dialog.show(Some(parent_window));
 }

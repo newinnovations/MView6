@@ -22,7 +22,6 @@ use super::MViewWindowImp;
 use gio::prelude::FileExt;
 use glib::clone;
 use glib::subclass::types::ObjectSubclassExt;
-use gtk4::prelude::{DialogExt, GtkWindowExt, WidgetExt};
 
 use crate::{
     backends::Backend,
@@ -59,70 +58,71 @@ impl MViewWindowImp {
         let old_file_path = dir_path.join(&old_name);
 
         if permanent {
-            // Ask for confirmation
-            let dialog = gtk4::MessageDialog::new(
+            let dialog = gtk4::AlertDialog::builder()
+                .modal(true)
+                .message("Permanently Delete?")
+                .detail(format!(
+                    "Are you sure you want to permanently delete '{}'?",
+                    old_name
+                ))
+                .buttons(["No", "Yes"])
+                .cancel_button(0)
+                .default_button(0)
+                .build();
+            dialog.choose(
                 Some(&*self.obj()),
-                gtk4::DialogFlags::MODAL,
-                gtk4::MessageType::Question,
-                gtk4::ButtonsType::YesNo,
-                "Permanently Delete?",
-            );
-            dialog.set_secondary_text(Some(&format!(
-                "Are you sure you want to permanently delete '{}'?",
-                old_name
-            )));
-            dialog.connect_response(clone!(
-                #[weak(rename_to = this)]
-                self,
-                move |dialog, response| {
-                    if response == gtk4::ResponseType::Yes {
-                        let w = this.widgets();
-                        let next_target = if w.file_view.navigate_item_bool(
-                            Direction::Down,
-                            &this.current_filter.borrow(),
-                            1,
-                        ) {
-                            w.file_view.current().map(|c| Target::Name(c.name()))
-                        } else if w.file_view.navigate_item_bool(
-                            Direction::Up,
-                            &this.current_filter.borrow(),
-                            1,
-                        ) {
-                            w.file_view.current().map(|c| Target::Name(c.name()))
-                        } else {
-                            None
-                        };
+                None::<&gio::Cancellable>,
+                clone!(
+                    #[weak(rename_to = this)]
+                    self,
+                    move |response| {
+                        if response == Ok(1) {
+                            let w = this.widgets();
+                            let next_target = if w.file_view.navigate_item_bool(
+                                Direction::Down,
+                                &this.current_filter.borrow(),
+                                1,
+                            ) {
+                                w.file_view.current().map(|c| Target::Name(c.name()))
+                            } else if w.file_view.navigate_item_bool(
+                                Direction::Up,
+                                &this.current_filter.borrow(),
+                                1,
+                            ) {
+                                w.file_view.current().map(|c| Target::Name(c.name()))
+                            } else {
+                                None
+                            };
 
-                        if next_target.is_none() {
-                            this.set_backend(<dyn Backend>::none(), &Target::First, true);
-                        }
-
-                        let result = if old_file_path.is_dir() {
-                            std::fs::remove_dir_all(&old_file_path)
-                        } else {
-                            std::fs::remove_file(&old_file_path)
-                        };
-
-                        match result {
-                            Ok(()) => {
-                                if let Some(target) = next_target {
-                                    this.reload(&target, false);
-                                }
+                            if next_target.is_none() {
+                                this.set_backend(<dyn Backend>::none(), &Target::First, true);
                             }
-                            Err(e) => {
-                                show_error_dialog(
-                                    &*this.obj(),
-                                    "Error Deleting File",
-                                    &format!("Failed to permanently delete file: {}", e),
-                                );
-                                this.reload(&Target::Name(old_name.clone()), false);
+
+                            let result = if old_file_path.is_dir() {
+                                std::fs::remove_dir_all(&old_file_path)
+                            } else {
+                                std::fs::remove_file(&old_file_path)
+                            };
+
+                            match result {
+                                Ok(()) => {
+                                    if let Some(target) = next_target {
+                                        this.reload(&target, false);
+                                    }
+                                }
+                                Err(e) => {
+                                    show_error_dialog(
+                                        &*this.obj(),
+                                        "Error Deleting File",
+                                        &format!("Failed to permanently delete file: {}", e),
+                                    );
+                                    this.reload(&Target::Name(old_name.clone()), false);
+                                }
                             }
                         }
                     }
-                    dialog.close();
-                }
-            ));
-            dialog.show();
+                ),
+            );
         } else {
             // Move to trash without confirmation
             let next_target =

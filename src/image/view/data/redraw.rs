@@ -108,8 +108,7 @@ impl ImageViewData {
                 && reason != RedrawReason::RenderDone
                 && self.content.needs_render()
             {
-                let a = view.allocation();
-                let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
+                let viewport = RectD::new(0.0, 0.0, view.width() as f64, view.height() as f64);
                 if let Some(command) = self.content.render(self.zoom.clone(), viewport) {
                     self.rb_send(command);
                     if reason == RedrawReason::ContentPost

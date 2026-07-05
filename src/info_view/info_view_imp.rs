@@ -100,6 +100,7 @@ impl ObjectImpl for InfoViewImp {
         instance.set_halign(gtk4::Align::Start);
 
         let column_view = ColumnView::new(None::<gtk4::SingleSelection>);
+        column_view.add_css_class("info-view");
         column_view.set_vexpand(true);
         column_view.set_hexpand(false);
         column_view.set_halign(gtk4::Align::Start);
@@ -113,6 +114,7 @@ impl ObjectImpl for InfoViewImp {
                 .wrap(true)
                 .wrap_mode(gtk4::pango::WrapMode::WordChar)
                 .width_request(WIDTH_KEY)
+                .xalign(0.0)
                 .build();
             label.set_margin_start(PADDING_X);
             label.set_margin_end(PADDING_X);
@@ -134,7 +136,7 @@ impl ObjectImpl for InfoViewImp {
         });
 
         let col_key = ColumnViewColumn::new(Some("Key"), Some(factory_key.clone()));
-        col_key.set_fixed_width(WIDTH_KEY);
+        col_key.set_fixed_width(WIDTH_KEY + 4 * PADDING_X);
         column_view.append_column(&col_key);
 
         let factory_value = gtk4::SignalListItemFactory::new();
@@ -146,6 +148,7 @@ impl ObjectImpl for InfoViewImp {
                 .wrap(true)
                 .wrap_mode(gtk4::pango::WrapMode::WordChar)
                 .width_request(WIDTH_VALUE)
+                .xalign(0.0)
                 .build();
             label.set_margin_start(PADDING_X);
             label.set_margin_end(PADDING_X);
@@ -167,7 +170,7 @@ impl ObjectImpl for InfoViewImp {
         });
 
         let col_value = ColumnViewColumn::new(Some("Value"), Some(factory_value.clone()));
-        col_value.set_fixed_width(WIDTH_VALUE);
+        col_value.set_fixed_width(WIDTH_VALUE + 4 * PADDING_X);
         column_view.append_column(&col_value);
 
         instance.append(&column_view);

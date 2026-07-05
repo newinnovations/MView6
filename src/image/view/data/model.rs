@@ -109,17 +109,11 @@ impl Default for ImageViewData {
 impl ImageViewData {
     pub fn apply_zoom(&mut self) {
         if let Some(view) = &self.view {
-            let allocation = view.allocation();
             // * allocation is relative to the parent window, allocation.x() and
             //   allocation.y() might not be 0 depending on the presence of other
             //   widgets in the parent window (fileview, borders, etc)
             // * viewport is relatieve to the view, so origin is (0.0, 0.0)
-            let viewport = RectD::new(
-                0.0,
-                0.0,
-                allocation.width() as f64,
-                allocation.height() as f64,
-            );
+            let viewport = RectD::new(0.0, 0.0, view.width() as f64, view.height() as f64);
             let size = self.content.size();
             let zoom_mode = if size.width() < 0.1 || size.height() < 0.1 {
                 ZoomMode::NoZoom

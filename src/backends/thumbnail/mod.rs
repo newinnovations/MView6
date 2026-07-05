@@ -37,7 +37,6 @@ use crate::{
 use gtk4::{
     gio,
     prelude::{Cast, ListModelExt},
-    Allocation,
 };
 use model::{Annotation, SheetDimensions, TRect};
 pub use model::{Message, TCommand, TMessage, TResult, TResultOption, TTask};
@@ -57,10 +56,7 @@ pub struct Thumbnail {
 }
 
 impl Thumbnail {
-    pub fn new(parent: TParent, sheet_size: Allocation, size: i32) -> Self {
-        let width = sheet_size.width();
-        let height = sheet_size.height();
-
+    pub fn new(parent: TParent, width: i32, height: i32, size: i32) -> Self {
         let usable_width = (width - 2 * MARGIN).clamp(0, i32::MAX);
         let usable_height = (height - MARGIN - FOOTER).clamp(0, i32::MAX);
 

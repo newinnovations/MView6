@@ -21,7 +21,7 @@ use super::MViewWindowImp;
 
 use crate::file_view::{Column, FileView, Sort};
 use glib::{clone, idle_add_local, ControlFlow};
-use gtk4::{prelude::Cast, SortColumn, SortType};
+use gtk4::{prelude::Cast, SortType};
 
 impl MViewWindowImp {
     pub fn change_sort(&self, sort_col: Column, file_view: &FileView) {
@@ -36,12 +36,11 @@ impl MViewWindowImp {
         let w = self.widgets();
         let previous_sort = self.current_sort.get();
         if let Some((sort_col, new_order)) = w.file_view.current_sort() {
-            let new_column = SortColumn::Index(sort_col as u32);
-            let new_sort = Sort::new(new_column, new_order);
+            let new_sort = Sort::new(sort_col, new_order);
             self.current_sort.set(new_sort);
             if let Sort::Sorted((previous_column, _)) = previous_sort {
-                if !previous_column.eq(&new_column)
-                    && new_column == SortColumn::Index(Column::Modified as u32)
+                if previous_column != sort_col
+                    && sort_col == Column::Modified
                     && new_order != SortType::Descending
                 {
                     w.file_view.set_sort(Column::Modified, SortType::Descending);

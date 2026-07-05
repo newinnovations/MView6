@@ -81,16 +81,7 @@ impl MViewWindowImp {
 
         match new_sort {
             Sort::Sorted((column, order)) => {
-                if let gtk4::SortColumn::Index(i) = column {
-                    let sort_col = match i {
-                        0 => Column::FileType,
-                        1 => Column::Name,
-                        2 => Column::Size,
-                        3 => Column::Modified,
-                        _ => Column::FileType,
-                    };
-                    w.file_view.set_sort(sort_col, order);
-                }
+                w.file_view.set_sort(column, order);
             }
             Sort::Unsorted => {
                 w.file_view.set_unsorted();
@@ -113,8 +104,12 @@ impl MViewWindowImp {
         if backend.is_thumbnail() {
             let parent = backend.get_thumb_parent();
             drop(backend);
-            let thumbnail =
-                Thumbnail::new(parent, w.image_view.allocation(), self.thumbnail_size.get());
+            let thumbnail = Thumbnail::new(
+                parent,
+                w.image_view.width(),
+                w.image_view.height(),
+                self.thumbnail_size.get(),
+            );
             let focus_page = thumbnail.focus_page();
             self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page, false);
         }
