@@ -180,7 +180,13 @@ impl FileView {
             .model()
             .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
         {
+            let selection_unchanged = selection_model.selected() == index;
             selection_model.set_selected(index);
+            if selection_unchanged {
+                if let Some(cb) = &*self.imp().selection_changed_callback.borrow() {
+                    cb();
+                }
+            }
             idle_add_local(clone!(
                 #[weak(rename_to = this)]
                 self,
