@@ -216,6 +216,9 @@ impl MViewWindowImp {
                 self.widgets().set_action_bool("fullscreen", false);
                 w.image_view.measure_enable(false);
             }
+            Key::Delete => {
+                self.delete_current_file(modifiers.contains(ModifierType::SHIFT_MASK));
+            }
             Key::r => {
                 self.rotate_image(270);
             }

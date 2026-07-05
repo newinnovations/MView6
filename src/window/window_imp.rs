@@ -20,6 +20,7 @@
 mod actions;
 mod backend;
 mod commands;
+mod delete;
 mod dependencies;
 mod filter;
 mod keyboard;

@@ -302,18 +302,35 @@ impl MViewWindowImp {
         ));
 
         if initial_shortcut.is_some() {
-            glib::timeout_add_seconds_local(
-                3,
+            let mut remaining_tenths = 30u32;
+            glib::timeout_add_local(
+                std::time::Duration::from_millis(100),
                 clone!(
                     #[weak]
                     dialog,
                     #[upgrade_or]
                     glib::ControlFlow::Break,
                     move || {
-                        if dialog.is_visible() {
-                            dialog.response(ResponseType::Ok);
+                        if !dialog.is_visible() {
+                            return glib::ControlFlow::Break;
                         }
-                        glib::ControlFlow::Break
+
+                        if remaining_tenths > 0 {
+                            remaining_tenths -= 1;
+                            let seconds = remaining_tenths / 10;
+                            let tenths = remaining_tenths % 10;
+                            dialog.set_title(Some(&format!(
+                                "Navigation filter (closes in {}.{}s)",
+                                seconds, tenths
+                            )));
+                        }
+
+                        if remaining_tenths == 0 {
+                            dialog.response(ResponseType::Ok);
+                            glib::ControlFlow::Break
+                        } else {
+                            glib::ControlFlow::Continue
+                        }
                     }
                 ),
             );

@@ -19,7 +19,8 @@
 
 use std::path::{Path, PathBuf};
 
-use glib::{ffi::g_source_remove, result_from_gboolean, BoolError, SourceId};
+use glib::{ffi::g_source_remove, object::IsA, result_from_gboolean, BoolError, SourceId};
+use gtk4::prelude::{DialogExt, GtkWindowExt, WidgetExt};
 use sha2::{Digest, Sha256};
 
 /// Safer alternative to SourceId::remove()
@@ -85,6 +86,21 @@ pub fn mview_hash(path: &Path, extra: Option<&str>, extension: &str) -> PathBuf 
     } else {
         Path::new(".mview").join(thumb_filename)
     }
+}
+
+pub fn show_error_dialog(window: &impl IsA<gtk4::Window>, title: &str, message: &str) {
+    let dialog = gtk4::MessageDialog::new(
+        Some(window),
+        gtk4::DialogFlags::MODAL,
+        gtk4::MessageType::Error,
+        gtk4::ButtonsType::Ok,
+        title,
+    );
+    dialog.set_secondary_text(Some(message));
+    dialog.connect_response(|dialog, _| {
+        dialog.close();
+    });
+    dialog.show();
 }
 
 #[cfg(test)]
