@@ -30,11 +30,15 @@ use crate::{
     backends::thumbnail::model::TParent,
     classification::{FileClassification, FileType},
     content::Content,
-    file_view::{BackendRef, Cursor, Entry, ItemRef, Row, Target},
+    file_view::{BackendRef, Cursor, Entry, FileRow, ItemRef, Row, Target},
     image::thumbnail_sheet,
     rect::PointD,
 };
-use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
+use gtk4::{
+    gio,
+    prelude::{Cast, ListModelExt},
+    Allocation,
+};
 use model::{Annotation, SheetDimensions, TRect};
 pub use model::{Message, TCommand, TMessage, TResult, TResultOption, TTask};
 
@@ -48,7 +52,7 @@ pub struct Thumbnail {
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
     parent_focus_pos: Cell<i32>,
-    parent_store: ListStore,
+    parent_store: gio::ListModel,
     store: Vec<Row>,
 }
 
@@ -142,27 +146,33 @@ impl Thumbnail {
         let mut res = Vec::<TTask>::new();
 
         let start = page * self.capacity();
-        if let Some(iter) = self.parent_store.iter_nth_child(None, start) {
-            let mut cursor = Cursor::new(self.parent_store.clone(), iter, start);
-            for row in 0..self.dim.capacity_y {
-                for col in 0..self.dim.capacity_x {
-                    let source = Entry {
-                        category: FileClassification::new(cursor.content(), cursor.preference()),
-                        name: cursor.name(),
-                        reference: backend.reference(&cursor),
-                    };
-                    let x = self.dim.offset_x + col * (self.dim.size + self.dim.separator_x);
-                    let y = self.dim.offset_y + row * (self.dim.size + self.dim.separator_y);
-                    let id = row * self.dim.capacity_x + col;
-                    let annotation = Annotation {
-                        id,
-                        position: TRect::new_i32(x, y, self.dim.size, self.dim.size),
-                        entry: source.clone(),
-                    };
-                    let task = TTask::new(id, self.dim.size as u32, x, y, source, annotation);
-                    res.push(task);
-                    if !cursor.next() {
-                        return res;
+        if let Some(obj) = self.parent_store.item(start as u32) {
+            if let Ok(file_row) = obj.downcast::<FileRow>() {
+                let mut cursor =
+                    Cursor::new(self.parent_store.clone(), None, file_row, start as u32);
+                for row in 0..self.dim.capacity_y {
+                    for col in 0..self.dim.capacity_x {
+                        let source = Entry {
+                            category: FileClassification::new(
+                                cursor.content(),
+                                cursor.preference(),
+                            ),
+                            name: cursor.name(),
+                            reference: backend.reference(&cursor),
+                        };
+                        let x = self.dim.offset_x + col * (self.dim.size + self.dim.separator_x);
+                        let y = self.dim.offset_y + row * (self.dim.size + self.dim.separator_y);
+                        let id = row * self.dim.capacity_x + col;
+                        let annotation = Annotation {
+                            id,
+                            position: TRect::new_i32(x, y, self.dim.size, self.dim.size),
+                            entry: source.clone(),
+                        };
+                        let task = TTask::new(id, self.dim.size as u32, x, y, source, annotation);
+                        res.push(task);
+                        if !cursor.next() {
+                            return res;
+                        }
                     }
                 }
             }
@@ -222,15 +232,19 @@ impl Backend for Thumbnail {
     fn click(&self, item: &ItemRef, mouse_pos: PointD) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(idx) = self.dim.abs_position(item.idx() as i32, mouse_pos) {
             let backend = self.parent_backend.borrow();
-            if let Some(iter) = self.parent_store.iter_nth_child(None, idx) {
-                let cursor = Cursor::new(self.parent_store.clone(), iter, idx);
-                let source = backend.reference(&cursor);
-                drop(backend);
-                // Moves the parent backend out (one-shot).
-                Some((
-                    self.parent_backend.replace(<dyn Backend>::none()),
-                    source.into(),
-                ))
+            if let Some(obj) = self.parent_store.item(idx as u32) {
+                if let Ok(file_row) = obj.downcast::<FileRow>() {
+                    let cursor = Cursor::new(self.parent_store.clone(), None, file_row, idx as u32);
+                    let source = backend.reference(&cursor);
+                    drop(backend);
+                    // Moves the parent backend out (one-shot).
+                    Some((
+                        self.parent_backend.replace(<dyn Backend>::none()),
+                        source.into(),
+                    ))
+                } else {
+                    None
+                }
             } else {
                 None
             }

@@ -21,10 +21,7 @@ use super::MViewWindowImp;
 
 use crate::file_view::{Column, FileView, Sort};
 use glib::{clone, idle_add_local, ControlFlow};
-use gtk4::{
-    prelude::{TreeSortableExtManual, TreeViewExt},
-    ListStore, SortColumn, SortType, TreeViewColumn,
-};
+use gtk4::{prelude::Cast, SortColumn, SortType};
 
 impl MViewWindowImp {
     pub fn change_sort(&self, sort_col: Column, file_view: &FileView) {
@@ -34,22 +31,21 @@ impl MViewWindowImp {
         }
     }
 
-    /// Called as a consequence of change_sort or by clicking the TreeView headers
-    pub fn on_sort_column_changed(&self, model: &ListStore) {
+    /// Called as a consequence of change_sort or by clicking the ColumnView headers
+    pub fn on_sort_column_changed(&self) {
+        let w = self.widgets();
         let previous_sort = self.current_sort.get();
-        if let Some((new_column, new_order)) = model.sort_column_id() {
+        if let Some((sort_col, new_order)) = w.file_view.current_sort() {
+            let new_column = SortColumn::Index(sort_col as u32);
             let new_sort = Sort::new(new_column, new_order);
             self.current_sort.set(new_sort);
             if let Sort::Sorted((previous_column, _)) = previous_sort {
                 if !previous_column.eq(&new_column)
                     && new_column == SortColumn::Index(Column::Modified as u32)
+                    && new_order != SortType::Descending
                 {
-                    model.set_sort_column_id(
-                        SortColumn::Index(Column::Modified as u32),
-                        SortType::Descending,
-                    );
-                    // We will get back in `on_sort_column_changed` because the
-                    // order change
+                    w.file_view.set_sort(Column::Modified, SortType::Descending);
+                    // We will get back in `on_sort_column_changed` because the order change
                     return;
                 }
             }
@@ -58,7 +54,6 @@ impl MViewWindowImp {
                 .borrow_mut()
                 .insert(path, self.current_sort.get());
             self.bring_entry_into_view();
-            let w = self.widgets();
             w.image_view.on_sort_changed(&new_sort.str_repr());
         }
     }
@@ -71,12 +66,17 @@ impl MViewWindowImp {
             ControlFlow::Break,
             move || {
                 let w = this.widgets();
-                let (tree_path, _) = w.file_view.cursor();
-                if let Some(tree_path) = tree_path {
-                    let old = this.skip_loading.replace(true);
-                    w.file_view
-                        .set_cursor(&tree_path, None::<&TreeViewColumn>, false);
-                    this.skip_loading.set(old);
+                if let Some(selection_model) = w
+                    .file_view
+                    .model()
+                    .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
+                {
+                    let selected = selection_model.selected();
+                    if selected != gtk4::INVALID_LIST_POSITION {
+                        let old = this.skip_loading.replace(true);
+                        w.file_view.select_index(selected);
+                        this.skip_loading.set(old);
+                    }
                 }
                 ControlFlow::Break
             }

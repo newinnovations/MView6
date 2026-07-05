@@ -20,5 +20,5 @@
 mod info_view_imp;
 mod info_view_obj;
 
-pub use info_view_imp::{Columns, InfoViewImp};
+pub use info_view_imp::InfoViewImp;
 pub use info_view_obj::InfoView;

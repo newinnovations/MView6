@@ -17,196 +17,163 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use glib::object::IsA;
 use gtk4::{
-    prelude::{TreeModelExt, TreeModelExtManual},
-    ListStore, TreeIter, TreeModel, TreePath,
+    gio,
+    prelude::{Cast, ListModelExt},
 };
 
 use crate::classification::{FileClassification, FileType, Preference};
 
-use super::model::{Column, Direction, Filter};
+use super::model::file_row::FileRow;
+use super::model::{Direction, Filter};
 
 pub struct Cursor {
-    store: ListStore,
-    iter: TreeIter,
-    position: i32,
+    model: gio::ListModel,
+    store: Option<gio::ListStore>,
+    file_row: FileRow,
+    position: u32,
 }
 
 impl Cursor {
-    pub fn new(store: ListStore, iter: TreeIter, position: i32) -> Self {
+    pub fn new(
+        model: gio::ListModel,
+        store: Option<gio::ListStore>,
+        file_row: FileRow,
+        position: u32,
+    ) -> Self {
         Cursor {
+            model,
             store,
-            iter,
+            file_row,
             position,
         }
     }
 
-    /// Postion in the list (depends on the sorting order)
+    fn category(&self) -> FileClassification {
+        let row = self.file_row.row();
+        let row_ref = row.as_ref().unwrap();
+        FileClassification::new(
+            FileType::from(row_ref.file_type),
+            Preference::from_icon(row_ref.preference_icon()),
+        )
+    }
+
+    fn set_position(&mut self, position: u32) -> Option<()> {
+        self.position = position;
+        self.file_row = self.model.item(position)?.downcast::<FileRow>().ok()?;
+        Some(())
+    }
+
+    /// Position in the list (depends on the sorting order)
     pub fn position(&self) -> i32 {
-        self.position
+        self.position as i32
     }
 
     /// Value of the index field of the row
     pub fn index(&self) -> u64 {
-        self.store.index(&self.iter)
+        self.file_row.row().as_ref().unwrap().index()
     }
 
     /// Value of the name field of the row
     pub fn name(&self) -> String {
-        self.store.name(&self.iter)
+        self.file_row.row().as_ref().unwrap().name.clone()
     }
 
     /// Value of the folder field of the row
     pub fn folder(&self) -> String {
-        self.store.folder(&self.iter)
+        self.file_row.row().as_ref().unwrap().folder().to_string()
     }
 
     /// Value of the category field of the row (as u32)
     pub fn content_id(&self) -> u32 {
-        self.store.content_id(&self.iter)
+        self.file_row.row().as_ref().unwrap().file_type
     }
 
     /// Value of the content field of the row (as ContentType)
     pub fn content(&self) -> FileType {
-        self.store.content(&self.iter)
+        FileType::from(self.content_id())
     }
 
-    /// Value of the preference field of the row (as Preference})
+    /// Value of the preference field of the row (as Preference)
     pub fn preference(&self) -> Preference {
-        self.store.preference(&self.iter)
+        Preference::from_icon(self.file_row.row().as_ref().unwrap().preference_icon())
     }
 
     pub fn update(&self, new_preference: Preference, new_filename: &str) {
-        self.store.set(
-            &self.iter,
-            &[
-                (Column::PrefIcon as u32, &new_preference.icon()),
-                (Column::ShowPrefIcon as u32, &new_preference.show_icon()),
-                (Column::Name as u32, &new_filename),
-            ],
-        );
+        if let Some(ref mut row) = *self.file_row.row_mut() {
+            row.set_preference(new_preference);
+            row.name = new_filename.to_string();
+        }
+        if let Some(store) = &self.store {
+            if let Some(position) = store.find(&self.file_row) {
+                store.items_changed(position, 1, 1);
+            }
+        }
     }
 
-    pub fn navigate(
-        &mut self,
-        direction: Direction,
-        filter: &Filter,
-        count: u32,
-    ) -> Option<TreePath> {
+    pub fn navigate(&mut self, direction: Direction, filter: &Filter, count: u32) -> Option<u32> {
         if count == 0 {
             return None;
         }
 
         let mut cnt = count;
+        let n_items = self.model.n_items();
 
-        // If we are at a position that does not match the filter, we need to find the first matching
-        // item before we can start counting. Getting to the first matching item counts as one step.
-        while !filter.matches(self.store.category(&self.iter)) {
-            let has_next = match direction {
-                Direction::Up => self.store.iter_previous(&mut self.iter),
-                Direction::Down => self.store.iter_next(&mut self.iter),
-            };
-            if !has_next {
-                return None;
+        while !filter.matches(self.category()) {
+            let next_pos = match direction {
+                Direction::Up => self.position.checked_sub(1),
+                Direction::Down => (self.position + 1 < n_items).then_some(self.position + 1),
+            }?;
+            self.set_position(next_pos)?;
+            if filter.matches(self.category()) {
+                cnt = count - 1;
+                break;
             }
-            cnt = count - 1;
         }
 
         if cnt == 0 {
-            return Some(self.store.path(&self.iter));
+            return Some(self.position);
         }
 
-        // We keep track of the last position that matches the filter, so if we reach the end of
-        // the list before we have counted enough, we can return the last matching position.
-        let mut last = self.iter;
+        let mut last_matching_pos = self.position;
 
         loop {
-            let item_available = match direction {
-                Direction::Up => self.store.iter_previous(&mut self.iter),
-                Direction::Down => self.store.iter_next(&mut self.iter),
+            let next_pos = match direction {
+                Direction::Up => self.position.checked_sub(1),
+                Direction::Down => (self.position + 1 < n_items).then_some(self.position + 1),
             };
-            if !item_available {
-                if count != cnt {
-                    break;
+            let pos = match next_pos {
+                Some(p) => p,
+                None => {
+                    if count != cnt {
+                        break;
+                    }
+                    return None;
                 }
-                return None;
-            }
-            if filter.matches(self.store.category(&self.iter)) {
-                last = self.iter;
+            };
+
+            self.set_position(pos)?;
+
+            if filter.matches(self.category()) {
+                last_matching_pos = self.position;
+                cnt -= 1;
             } else {
                 continue;
             }
-            cnt -= 1;
+
             if cnt == 0 {
                 break;
             }
         }
-        Some(self.store.path(&last))
+        Some(last_matching_pos)
     }
 
     pub fn next(&mut self) -> bool {
-        self.store.iter_next(&mut self.iter)
-    }
-}
-
-pub trait TreeModelMviewExt: IsA<TreeModel> {
-    fn name(&self, iter: &TreeIter) -> String;
-    fn folder(&self, iter: &TreeIter) -> String;
-    fn content_id(&self, iter: &TreeIter) -> u32;
-    fn category(&self, iter: &TreeIter) -> FileClassification;
-    fn content(&self, iter: &TreeIter) -> FileType;
-    fn preference(&self, iter: &TreeIter) -> Preference;
-    fn index(&self, iter: &TreeIter) -> u64;
-    fn modified(&self, iter: &TreeIter) -> u64;
-    fn size(&self, iter: &TreeIter) -> u64;
-}
-
-impl<O: IsA<TreeModel>> TreeModelMviewExt for O {
-    fn name(&self, iter: &TreeIter) -> String {
-        self.get_value(iter, Column::Name as i32)
-            .get::<String>()
-            .unwrap_or_default()
-    }
-    fn folder(&self, iter: &TreeIter) -> String {
-        self.get_value(iter, Column::Folder as i32)
-            .get::<String>()
-            .unwrap_or_default()
-    }
-    fn content_id(&self, iter: &TreeIter) -> u32 {
-        self.get_value(iter, Column::FileType as i32)
-            .get::<u32>()
-            .unwrap_or(FileType::Unsupported.id())
-    }
-    fn category(&self, iter: &TreeIter) -> FileClassification {
-        FileClassification::new(self.content(iter), self.preference(iter))
-    }
-    fn content(&self, iter: &TreeIter) -> FileType {
-        match self.get_value(iter, Column::FileType as i32).get::<u32>() {
-            Ok(id) => FileType::from(id),
-            Err(_) => FileType::Unsupported,
+        if self.position + 1 < self.model.n_items()
+            && self.set_position(self.position + 1).is_some()
+        {
+            return true;
         }
-    }
-    fn preference(&self, iter: &TreeIter) -> Preference {
-        let pref_icon = self
-            .get_value(iter, Column::PrefIcon as i32)
-            .get::<String>()
-            .unwrap_or_default();
-        Preference::from_icon(&pref_icon)
-    }
-    fn index(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Column::Index as i32)
-            .get::<u64>()
-            .unwrap_or(0)
-    }
-    fn modified(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Column::Modified as i32)
-            .get::<u64>()
-            .unwrap_or(0)
-    }
-    fn size(&self, iter: &TreeIter) -> u64 {
-        self.get_value(iter, Column::Size as i32)
-            .get::<u64>()
-            .unwrap_or(0)
+        false
     }
 }

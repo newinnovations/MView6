@@ -17,49 +17,75 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::cell::OnceCell;
+
 use glib::subclass::{
     object::{ObjectImpl, ObjectImplExt},
     types::{ObjectSubclass, ObjectSubclassExt},
 };
 use gtk4::{
     glib,
-    pango::WrapMode,
-    prelude::{CellRendererExt, CellRendererTextExt, TreeViewExt},
-    subclass::{prelude::TreeViewImpl, widget::WidgetImpl},
-    CellRendererText, ListStore, TreeView, TreeViewColumn, TreeViewColumnSizing,
+    prelude::*,
+    subclass::{prelude::BoxImpl, widget::WidgetImpl},
+    Box as GtkBox, ColumnView, ColumnViewColumn,
 };
+
+pub mod info_row {
+    use gtk4::glib;
+
+    glib::wrapper! {
+        pub struct InfoRow(ObjectSubclass<imp::InfoRow>);
+    }
+
+    impl InfoRow {
+        pub fn new(key: &str, value: &str) -> Self {
+            glib::Object::builder()
+                .property("key", key)
+                .property("value", value)
+                .build()
+        }
+    }
+
+    mod imp {
+        use gtk4::glib;
+        use gtk4::prelude::ObjectExt;
+        use gtk4::subclass::prelude::*;
+        use std::cell::RefCell;
+
+        #[derive(Default, glib::Properties)]
+        #[properties(wrapper_type = super::InfoRow)]
+        pub struct InfoRow {
+            #[property(get, set)]
+            pub key: RefCell<String>,
+            #[property(get, set)]
+            pub value: RefCell<String>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for InfoRow {
+            const NAME: &'static str = "InfoRow";
+            type Type = super::InfoRow;
+            type ParentType = glib::Object;
+        }
+
+        #[glib::derived_properties]
+        impl ObjectImpl for InfoRow {}
+    }
+}
+pub use info_row::InfoRow;
 
 use super::InfoView;
 
-#[derive(Debug)]
-#[repr(u32)]
-pub enum Columns {
-    Key = 0,
-    Value,
-}
-
-impl Columns {
-    pub fn store() -> ListStore {
-        let col_types: [glib::Type; 2] = [glib::Type::STRING, glib::Type::STRING];
-        ListStore::new(&col_types)
-    }
-
-    pub fn insert(store: &ListStore, key: &str, value: &str) {
-        store.insert_with_values(
-            None,
-            &[(Columns::Key as u32, &key), (Columns::Value as u32, &value)],
-        );
-    }
-}
-
 #[derive(Debug, Default)]
-pub struct InfoViewImp {}
+pub struct InfoViewImp {
+    pub(super) column_view: OnceCell<ColumnView>,
+}
 
 #[glib::object_subclass]
 impl ObjectSubclass for InfoViewImp {
     const NAME: &'static str = "InfoView";
     type Type = InfoView;
-    type ParentType = TreeView;
+    type ParentType = GtkBox;
 }
 
 const WIDTH_KEY: i32 = 110;
@@ -71,39 +97,86 @@ impl ObjectImpl for InfoViewImp {
     fn constructed(&self) {
         self.parent_constructed();
         let instance = self.obj();
+        instance.set_halign(gtk4::Align::Start);
 
-        let renderer_txt = CellRendererText::new();
-        renderer_txt.set_padding(PADDING_X, PADDING_Y);
-        renderer_txt.set_wrap_mode(WrapMode::WordChar);
-        renderer_txt.set_wrap_width(WIDTH_KEY);
-        renderer_txt.set_yalign(0.0f32);
-        let col_key = TreeViewColumn::new();
-        col_key.pack_start(&renderer_txt, true);
-        col_key.set_title("Key");
-        col_key.add_attribute(&renderer_txt, "text", Columns::Key as i32);
-        col_key.set_sizing(TreeViewColumnSizing::Fixed);
+        let column_view = ColumnView::new(None::<gtk4::SingleSelection>);
+        column_view.set_vexpand(true);
+        column_view.set_hexpand(false);
+        column_view.set_halign(gtk4::Align::Start);
+
+        let factory_key = gtk4::SignalListItemFactory::new();
+        factory_key.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = gtk4::Label::builder()
+                .halign(gtk4::Align::Start)
+                .valign(gtk4::Align::Start)
+                .wrap(true)
+                .wrap_mode(gtk4::pango::WrapMode::WordChar)
+                .width_request(WIDTH_KEY)
+                .build();
+            label.set_margin_start(PADDING_X);
+            label.set_margin_end(PADDING_X);
+            label.set_margin_top(PADDING_Y);
+            label.set_margin_bottom(PADDING_Y);
+            list_item.set_child(Some(&label));
+        });
+        factory_key.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Label>().ok())
+                .unwrap();
+            let row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<InfoRow>().ok())
+                .unwrap();
+            label.set_text(&row.key());
+        });
+
+        let col_key = ColumnViewColumn::new(Some("Key"), Some(factory_key.clone()));
         col_key.set_fixed_width(WIDTH_KEY);
-        col_key.set_sort_column_id(Columns::Key as i32);
-        instance.append_column(&col_key);
+        column_view.append_column(&col_key);
 
-        let renderer_txt = CellRendererText::new();
-        renderer_txt.set_wrap_mode(WrapMode::WordChar);
-        renderer_txt.set_wrap_width(WIDTH_VALUE);
-        renderer_txt.set_yalign(0.0f32);
-        renderer_txt.set_padding(PADDING_X, PADDING_Y);
-        let col_value = TreeViewColumn::new();
-        col_value.pack_start(&renderer_txt, true);
-        col_value.set_title("Value");
-        col_value.add_attribute(&renderer_txt, "text", Columns::Value as i32);
-        col_value.set_sizing(TreeViewColumnSizing::Fixed);
+        let factory_value = gtk4::SignalListItemFactory::new();
+        factory_value.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = gtk4::Label::builder()
+                .halign(gtk4::Align::Start)
+                .valign(gtk4::Align::Start)
+                .wrap(true)
+                .wrap_mode(gtk4::pango::WrapMode::WordChar)
+                .width_request(WIDTH_VALUE)
+                .build();
+            label.set_margin_start(PADDING_X);
+            label.set_margin_end(PADDING_X);
+            label.set_margin_top(PADDING_Y);
+            label.set_margin_bottom(PADDING_Y);
+            list_item.set_child(Some(&label));
+        });
+        factory_value.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Label>().ok())
+                .unwrap();
+            let row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<InfoRow>().ok())
+                .unwrap();
+            label.set_text(&row.value());
+        });
+
+        let col_value = ColumnViewColumn::new(Some("Value"), Some(factory_value.clone()));
         col_value.set_fixed_width(WIDTH_VALUE);
-        col_value.set_sort_column_id(Columns::Value as i32);
-        instance.append_column(&col_value);
+        column_view.append_column(&col_value);
+
+        instance.append(&column_view);
+        self.column_view.set(column_view).unwrap();
     }
 }
 
 impl WidgetImpl for InfoViewImp {}
 
-impl TreeViewImpl for InfoViewImp {}
+impl BoxImpl for InfoViewImp {}
 
 impl InfoViewImp {}

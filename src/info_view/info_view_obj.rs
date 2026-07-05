@@ -17,36 +17,40 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::Columns;
+use super::info_view_imp::InfoRow;
 use crate::content::Content;
 use convert_case::{Case, Casing};
 use exif::In;
-use gtk4::{glib, prelude::TreeViewExt};
+use glib::subclass::types::ObjectSubclassIsExt;
+use gtk4::{gio, glib};
 
 glib::wrapper! {
 pub struct InfoView(ObjectSubclass<super::InfoViewImp>)
-    @extends gtk4::Widget, gtk4::TreeView,
-    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
+    @extends gtk4::Box, gtk4::Widget,
+    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
 }
 
 impl InfoView {
     pub fn new() -> Self {
         glib::Object::builder().build()
     }
+
+    pub fn column_view(&self) -> &gtk4::ColumnView {
+        self.imp().column_view.get().unwrap()
+    }
 }
 
 impl InfoView {
     pub fn update(&self, image: &Content) {
-        let store = Columns::store();
+        let store = gio::ListStore::new::<InfoRow>();
 
         let size = image.size();
-        Columns::insert(&store, "width", &format!("{:.0} px", size.width()));
-        Columns::insert(&store, "height", &format!("{:.0} px", size.height()));
-        Columns::insert(
-            &store,
+        store.append(&InfoRow::new("width", &format!("{:.0} px", size.width())));
+        store.append(&InfoRow::new("height", &format!("{:.0} px", size.height())));
+        store.append(&InfoRow::new(
             "alpha channel",
             if image.has_alpha() { "yes" } else { "no" },
-        );
+        ));
 
         match &image.exif {
             Some(exif) => {
@@ -56,11 +60,10 @@ impl InfoView {
                         let key = key.from_case(Case::Pascal).to_case(Case::Lower);
                         // println!("{}", key);
                         if key != "maker note" && !key.starts_with("tag(") {
-                            Columns::insert(
-                                &store,
+                            store.append(&InfoRow::new(
                                 &key,
                                 &f.display_value().with_unit(exif).to_string(),
-                            )
+                            ));
                         }
                     }
                 }
@@ -69,6 +72,7 @@ impl InfoView {
                 // println!("No exif data");
             }
         }
-        self.set_model(Some(&store));
+        let selection_model = gtk4::SingleSelection::new(Some(store));
+        self.column_view().set_model(Some(&selection_model));
     }
 }

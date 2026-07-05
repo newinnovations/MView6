@@ -23,8 +23,10 @@ mod file_view_obj;
 mod model;
 mod sort;
 
-pub use cursor::{Cursor, TreeModelMviewExt};
+pub use cursor::Cursor;
 pub use file_view_imp::FileViewImp;
 pub use file_view_obj::FileView;
-pub use model::{BackendRef, Column, Direction, Entry, Filter, ItemRef, Reference, Row, Target};
+pub use model::{
+    BackendRef, Column, Direction, Entry, FileRow, Filter, ItemRef, Reference, Row, Target,
+};
 pub use sort::Sort;

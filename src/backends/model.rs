@@ -100,7 +100,7 @@ pub trait Backend {
             backend: <dyn Backend>::none(),
             target: Target::First,
             focus_pos: 0,
-            store: Column::empty_store(),
+            store: Column::empty_store().into(),
         }
     }
     // Only implemented by filesystem backend, dummy here

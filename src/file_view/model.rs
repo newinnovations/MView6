@@ -19,10 +19,8 @@
 
 use std::{collections::HashSet, fmt, path::PathBuf, str::FromStr};
 
-use gtk4::{prelude::TreeSortableExtManual, ListStore};
 use serde::{Deserialize, Serialize};
 
-use super::cursor::TreeModelMviewExt;
 use crate::classification::{FileClassification, FileType, Preference};
 
 #[derive(Debug, Clone, Copy)]
@@ -66,7 +64,7 @@ impl Filter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum Column {
     // First 4 need to be in the order on screen
@@ -137,61 +135,91 @@ impl Row {
         }
     }
 
-    pub fn push(&self, store: &ListStore) {
-        store.insert_with_values(
-            None,
-            &[
-                (Column::FileType as u32, &self.file_type),
-                (Column::Name as u32, &self.name),
-                (Column::Size as u32, &self.size),
-                (Column::Modified as u32, &self.modified),
-                (Column::Index as u32, &self.index),
-                (Column::ContentIcon as u32, &self.content_icon),
-                (Column::PrefIcon as u32, &self.preference_icon),
-                (Column::ShowPrefIcon as u32, &self.show_preference_icon),
-                (Column::Folder as u32, &self.folder),
-            ],
-        );
+    pub fn index(&self) -> u64 {
+        self.index
+    }
+
+    pub fn content_icon(&self) -> &str {
+        &self.content_icon
+    }
+
+    pub fn preference_icon(&self) -> &str {
+        &self.preference_icon
+    }
+
+    pub fn show_preference_icon(&self) -> bool {
+        self.show_preference_icon
+    }
+
+    pub fn folder(&self) -> &str {
+        &self.folder
+    }
+
+    pub fn set_preference(&mut self, preference: Preference) {
+        self.preference_icon = preference.icon().to_string();
+        self.show_preference_icon = preference.show_icon();
     }
 }
 
-impl Column {
-    pub fn empty_store() -> ListStore {
-        let col_types: [glib::Type; 9] = [
-            glib::Type::U32,
-            glib::Type::STRING,
-            glib::Type::U64,
-            glib::Type::U64,
-            glib::Type::U64,
-            glib::Type::STRING,
-            glib::Type::STRING,
-            glib::Type::BOOL,
-            glib::Type::STRING,
-        ];
-        let store = ListStore::new(&col_types);
-        store.set_sort_func(
-            gtk4::SortColumn::Index(Column::FileType as u32),
-            |model, iter1, iter2| {
-                let content1 = model.content_id(iter1);
-                let content2 = model.content_id(iter2);
-                let result = content1.cmp(&content2);
-                if result.is_eq() {
-                    let filename1 = model.name(iter1).to_lowercase();
-                    let filename2 = model.name(iter2).to_lowercase();
-                    filename1.cmp(&filename2)
-                } else {
-                    result
-                }
-                .into()
-            },
-        );
-        store
+pub mod file_row {
+    use super::Row;
+    use glib::subclass::types::ObjectSubclassIsExt;
+    use gtk4::glib;
+
+    glib::wrapper! {
+        pub struct FileRow(ObjectSubclass<imp::FileRow>);
     }
 
-    pub fn store(index: &[Row]) -> ListStore {
+    impl FileRow {
+        pub fn new(row: Row) -> Self {
+            let obj: Self = glib::Object::builder().build();
+            *obj.imp().row.borrow_mut() = Some(row);
+            obj
+        }
+
+        pub fn row(&self) -> std::cell::Ref<'_, Option<Row>> {
+            self.imp().row.borrow()
+        }
+
+        pub fn row_mut(&self) -> std::cell::RefMut<'_, Option<Row>> {
+            self.imp().row.borrow_mut()
+        }
+    }
+
+    mod imp {
+        use super::Row;
+        use gtk4::glib;
+        use gtk4::subclass::prelude::*;
+        use std::cell::RefCell;
+
+        #[derive(Default)]
+        pub struct FileRow {
+            pub row: RefCell<Option<Row>>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for FileRow {
+            const NAME: &'static str = "FileRow";
+            type Type = super::FileRow;
+            type ParentType = glib::Object;
+        }
+
+        impl ObjectImpl for FileRow {}
+    }
+}
+pub use file_row::FileRow;
+
+use gtk4::gio;
+
+impl Column {
+    pub fn empty_store() -> gio::ListStore {
+        gio::ListStore::new::<FileRow>()
+    }
+
+    pub fn store(index: &[Row]) -> gio::ListStore {
         let store = Self::empty_store();
         for row in index {
-            row.push(&store);
+            store.append(&FileRow::new(row.clone()));
         }
         store
     }

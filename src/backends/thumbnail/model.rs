@@ -19,7 +19,7 @@
 
 use std::time::SystemTime;
 
-use gtk4::ListStore;
+use gtk4::gio;
 use image::DynamicImage;
 
 use crate::{
@@ -33,7 +33,7 @@ pub struct TParent {
     pub backend: Box<dyn Backend>,
     pub target: Target,
     pub focus_pos: i32,
-    pub store: ListStore,
+    pub store: gio::ListModel,
 }
 
 #[derive(Debug, Clone)]

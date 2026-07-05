@@ -34,7 +34,7 @@ use crate::{
     window::TargetTime,
 };
 use glib::subclass::types::ObjectSubclassExt;
-use gtk4::{prelude::WidgetExt, TreePath, TreeViewColumn};
+use gtk4::prelude::WidgetExt;
 
 impl MViewWindowImp {
     pub(super) fn on_cursor_changed(&self) {
@@ -83,7 +83,7 @@ impl MViewWindowImp {
         }
     }
 
-    pub(super) fn on_row_activated(&self, _path: &TreePath, _column: Option<&TreeViewColumn>) {
+    pub(super) fn on_row_activated(&self) {
         println!("on_row_activated");
         self.dir_enter();
     }

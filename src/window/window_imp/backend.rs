@@ -17,8 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use glib::{clone, subclass::types::ObjectSubclassExt};
-use gtk4::prelude::{GtkWindowExt, TreeSortableExt, TreeSortableExtManual, TreeViewExt, WidgetExt};
+use glib::subclass::types::ObjectSubclassExt;
+use gtk4::prelude::{GtkWindowExt, WidgetExt};
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
@@ -42,32 +42,23 @@ impl MViewWindowImp {
 
         let new_sort = if can_be_sorted {
             let path = new_backend.normalized_path();
-            if let Some(sort) = sorting_store.get(&path) {
+            if let Some(sort) = sorting_store.get(&path).copied() {
                 sort
             } else {
-                sorting_store.insert(path, self.current_sort.get());
-                &self.current_sort.get()
+                let sort = self.current_sort.get();
+                sorting_store.insert(path, sort);
+                sort
             }
         } else {
-            &Sort::sort_on_category()
+            Sort::sort_on_category()
         };
 
-        // let new_store = new_backend.store();
         let new_store = Column::store(new_backend.list());
-        match new_sort {
-            Sort::Sorted((column, order)) => new_store.set_sort_column_id(*column, *order),
-            Sort::Unsorted => (),
-        };
+        let sorter = w.file_view.sorter().unwrap();
+        let sort_model = gtk4::SortListModel::new(Some(new_store.clone()), Some(sorter));
+        let selection_model = gtk4::SingleSelection::new(Some(sort_model));
 
         drop(sorting_store); // set_backend may call set_backend again via file_view.goto when auto opening containers
-
-        new_store.connect_sort_column_changed(clone!(
-            #[weak(rename_to = this)]
-            self,
-            move |model| {
-                this.on_sort_column_changed(model);
-            }
-        ));
 
         // TODO: think about title management
         let filename = path_to_filename(new_backend.path());
@@ -85,8 +76,27 @@ impl MViewWindowImp {
         drop(new_backend);
 
         self.update_layout();
-        w.file_view.set_model(Some(&new_store));
+        w.file_view.set_model(Some(&selection_model));
         w.file_view.set_sortable(can_be_sorted);
+
+        match new_sort {
+            Sort::Sorted((column, order)) => {
+                if let gtk4::SortColumn::Index(i) = column {
+                    let sort_col = match i {
+                        0 => Column::FileType,
+                        1 => Column::Name,
+                        2 => Column::Size,
+                        3 => Column::Modified,
+                        _ => Column::FileType,
+                    };
+                    w.file_view.set_sort(sort_col, order);
+                }
+            }
+            Sort::Unsorted => {
+                w.file_view.set_unsorted();
+            }
+        };
+
         self.skip_loading.set(skip_loading);
 
         if ignore_filter {

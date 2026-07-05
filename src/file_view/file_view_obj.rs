@@ -17,28 +17,61 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use glib::{
-    clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
+use gtk4::glib::{
+    self, clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
 };
-use gtk4::{
-    glib,
-    prelude::{TreeModelExt, TreeModelExtManual, TreeSortableExtManual, TreeViewExt},
-    ListStore, SortColumn, SortType, TreeIter, TreeViewColumn,
-};
+use gtk4::{gio, prelude::ListModelExt, SortType};
 
+use super::model::file_row::FileRow;
 use crate::{
-    file_view::{Column, Cursor, Direction, Filter, Target, TreeModelMviewExt},
+    classification::{FileClassification, FileType, Preference},
+    file_view::{Column, Cursor, Direction, Filter, Target},
     window::MViewWindow,
 };
+
 glib::wrapper! {
 pub struct FileView(ObjectSubclass<super::FileViewImp>)
-    @extends gtk4::Widget, gtk4::TreeView,
-    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
+    @extends gtk4::Box, gtk4::Widget,
+    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Orientable;
 }
 
 impl FileView {
     pub fn new() -> Self {
         glib::Object::builder().build()
+    }
+
+    pub fn column_view(&self) -> &gtk4::ColumnView {
+        self.imp().column_view.get().unwrap()
+    }
+
+    pub fn model(&self) -> Option<gtk4::SelectionModel> {
+        self.column_view().model()
+    }
+
+    pub fn set_model<P: gtk4::glib::prelude::IsA<gtk4::SelectionModel>>(&self, model: Option<&P>) {
+        self.column_view().set_model(model.map(|m| m.as_ref()));
+    }
+
+    pub fn sorter(&self) -> Option<gtk4::Sorter> {
+        self.column_view().sorter()
+    }
+
+    pub fn sort_by_column(&self, col: Option<&gtk4::ColumnViewColumn>, order: SortType) {
+        self.column_view().sort_by_column(col, order);
+    }
+
+    pub fn scroll_to(
+        &self,
+        index: u32,
+        col: Option<&gtk4::ColumnViewColumn>,
+        flags: gtk4::ListScrollFlags,
+        scroll: Option<gtk4::ScrollInfo>,
+    ) {
+        self.column_view().scroll_to(index, col, flags, scroll);
+    }
+
+    pub fn connect_activate<F: Fn(&gtk4::ColumnView, u32) + 'static>(&self, f: F) {
+        self.column_view().connect_activate(f);
     }
 }
 
@@ -49,62 +82,100 @@ impl Default for FileView {
 }
 
 impl FileView {
-    pub fn store(&self) -> Option<ListStore> {
-        self.model()
-            .and_then(|tree_model| tree_model.downcast::<ListStore>().ok())
+    fn scroll_index_into_view(&self, index: u32) {
+        let scroll = gtk4::ScrollInfo::new();
+        scroll.set_enable_horizontal(false);
+        scroll.set_enable_vertical(true);
+        self.scroll_to(
+            index,
+            None::<&gtk4::ColumnViewColumn>,
+            gtk4::ListScrollFlags::NONE,
+            Some(scroll),
+        );
+    }
+
+    pub fn store(&self) -> Option<gio::ListModel> {
+        self.model()?
+            .downcast::<gtk4::SingleSelection>()
+            .ok()?
+            .model()
+    }
+
+    pub fn source_store(&self) -> Option<gio::ListStore> {
+        let model = self.store()?;
+        if let Ok(sort_model) = model.clone().downcast::<gtk4::SortListModel>() {
+            return sort_model.model()?.downcast::<gio::ListStore>().ok();
+        }
+        model.downcast::<gio::ListStore>().ok()
     }
 
     pub fn current(&self) -> Option<Cursor> {
-        let (tree_path, _) = self.cursor();
         if let Some(store) = self.store() {
-            if let Some(path) = tree_path {
-                store
-                    .iter(&path)
-                    .map(|iter| Cursor::new(store, iter, *path.indices().first().unwrap_or(&0)))
-            } else {
-                store.iter_first().map(|iter| Cursor::new(store, iter, 0))
+            let source_store = self.source_store();
+            if let Some(selection_model) = self
+                .model()
+                .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
+            {
+                let selected_idx = selection_model.selected();
+                if selected_idx != gtk4::INVALID_LIST_POSITION {
+                    if let Some(obj) = store.item(selected_idx) {
+                        if let Ok(file_row) = obj.downcast::<FileRow>() {
+                            return Some(Cursor::new(store, source_store, file_row, selected_idx));
+                        }
+                    }
+                }
             }
-        } else {
-            None
+            if store.n_items() > 0 {
+                if let Some(obj) = store.item(0) {
+                    if let Ok(file_row) = obj.downcast::<FileRow>() {
+                        return Some(Cursor::new(store, source_store, file_row, 0));
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn select_index(&self, index: u32) {
+        if let Some(selection_model) = self
+            .model()
+            .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
+        {
+            selection_model.set_selected(index);
+            idle_add_local(clone!(
+                #[weak(rename_to = this)]
+                self,
+                #[upgrade_or]
+                ControlFlow::Break,
+                move || {
+                    this.scroll_index_into_view(index);
+                    ControlFlow::Break
+                }
+            ));
         }
     }
 
-    /// Helper for goto function
-    ///
-    fn goto_iter(&self, window: &MViewWindow, store: &ListStore, iter: &TreeIter) {
-        let tp = store.path(iter);
+    fn goto_idx(&self, window: &MViewWindow, idx: u32) {
         let window = window.imp();
         let skip_loading = window.skip_loading.get();
         if skip_loading {
-            // do not delay, we need the result now because the final goto which will come later
-            self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+            self.select_index(idx);
         } else {
             let open_container = window.open_container.get();
             if open_container {
-                // do not delay, we need the result now because the final goto which will come later
                 window.skip_loading.set(true);
-                self.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                self.select_index(idx);
                 window.open_container.set(false);
                 window.skip_loading.set(false);
                 window.dir_enter();
             } else {
-                // This is the final goto: delay navigation so the file_view can render on screen
-                // before executing set_cursor.
-                // Capture store + iter (not the pre-computed TreePath) so that the path is
-                // re-derived inside the callback, correctly reflecting any sort that may have
-                // happened between enqueue and execution.
-                let store = store.clone();
-                let iter = *iter;
                 idle_add_local(clone!(
                     #[weak(rename_to = this)]
                     self,
                     #[upgrade_or]
                     ControlFlow::Break,
                     move || {
-                        // Re-derive path from iter to handle any sort that occurred
-                        // between enqueue and execution.
-                        let tp = store.path(&iter);
-                        this.set_cursor(&tp, None::<&TreeViewColumn>, false);
+                        this.select_index(idx);
                         ControlFlow::Break
                     }
                 ));
@@ -112,86 +183,69 @@ impl FileView {
         }
     }
 
-    /// Goto an entry in the list (files, pages, etc). We do this delayed using idle_add_local,
-    /// so the file_view can render on screen before executing set_cursor. In some cases we go
-    /// through several goto operations before reaching the final (with the `skip_loading` and
-    /// `open_container` flags), in those cases do not delay as the file_view does not yet
-    /// contain the final/desired content.
-    ///
-    /// If `target` is `First` or `Last`, we try to honor the `filter` argument. If the none of
-    /// the items match the filter, we go to the actual first or last item.
-    ///
-    /// If a `Name` or `Index` target is not found, we will select the last item.
-    ///
-    /// Ignores empty lists.
-    ///
-    /// Gets called via:
-    /// - MViewWindowImp::set_backend(.. goto: &target ..)
-    /// - MViewWindowImp::reload(.. target: &Target) if the reload does not trigger a new backend
-    /// - MViewWindowImp::slidshow_go_next to go to `First` item
-    ///
     pub fn goto(&self, target: &Target, filter: &Filter, window: &MViewWindow) {
-        // println!("fileview::goto {:?}", target);
         if let Some(store) = self.store() {
-            let n = store.iter_n_children(None);
+            let n = store.n_items();
             if n < 1 {
                 return;
             }
-            let starting_point = if *target == Target::Last {
-                store.iter_nth_child(None, n - 1)
-            } else {
-                store.iter_first()
-            };
-            if let Some(mut iter) = starting_point {
-                loop {
-                    if match target {
-                        Target::Name(filename) => *filename == store.name(&iter),
-                        Target::Index(index) => *index == store.index(&iter),
-                        _ => filter.matches(store.category(&iter)),
-                    } {
-                        // Found what we are looking for
-                        self.goto_iter(window, &store, &iter);
-                        return;
+            let starting_idx = if *target == Target::Last { n - 1 } else { 0 };
+
+            let mut idx = starting_idx;
+            loop {
+                if let Some(obj) = store.item(idx) {
+                    if let Ok(file_row) = obj.downcast::<FileRow>() {
+                        let row = file_row.row();
+                        let row_ref = row.as_ref().unwrap();
+                        let matches = match target {
+                            Target::Name(filename) => *filename == row_ref.name,
+                            Target::Index(index) => *index == row_ref.index(),
+                            _ => {
+                                let category = FileClassification::new(
+                                    FileType::from(row_ref.file_type),
+                                    Preference::from_icon(row_ref.preference_icon()),
+                                );
+                                filter.matches(category)
+                            }
+                        };
+                        if matches {
+                            self.goto_idx(window, idx);
+                            return;
+                        }
                     }
-                    let has_next = if *target == Target::Last {
-                        store.iter_previous(&mut iter)
-                    } else {
-                        store.iter_next(&mut iter)
-                    };
-                    if !has_next {
+                }
+
+                if *target == Target::Last {
+                    if idx == 0 {
+                        break;
+                    }
+                    idx -= 1;
+                } else {
+                    idx += 1;
+                    if idx >= n {
                         break;
                     }
                 }
             }
-            // We did not find what we are looking for
-            let fallback = if *target == Target::First {
-                store.iter_first()
-            } else {
-                store.iter_nth_child(None, n - 1)
-            };
-            if let Some(iter) = fallback {
-                self.goto_iter(window, &store, &iter);
-            }
+
+            // Fallback
+            let fallback_idx = if *target == Target::First { 0 } else { n - 1 };
+            self.goto_idx(window, fallback_idx);
         }
     }
 
-    // RUST_BUG: navigate_item_bool sometimes gets optimized out if the result is not used.
-    // We need to provide an alternative that does not have a return value, to prevent the
-    // function from being optimized out in those cases.
     pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) {
         if let Some(mut current) = self.current() {
-            let treepath = current.navigate(direction, filter, count);
-            if let Some(tree_path) = &treepath {
-                self.set_cursor(tree_path, None::<&TreeViewColumn>, false);
+            if let Some(new_idx) = current.navigate(direction, filter, count) {
+                self.select_index(new_idx);
             }
         }
     }
 
     pub fn navigate_item_bool(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
         if let Some(mut current) = self.current() {
-            let treepath = current.navigate(direction, filter, count);
-            if let Some(tree_path) = &treepath {
-                self.set_cursor(tree_path, None::<&TreeViewColumn>, false);
+            if let Some(new_idx) = current.navigate(direction, filter, count) {
+                self.select_index(new_idx);
                 return true;
             }
         }
@@ -199,16 +253,25 @@ impl FileView {
     }
 
     pub fn set_unsorted(&self) {
-        if let Some(store) = self.store() {
-            store.set_unsorted();
-        }
+        self.sort_by_column(None::<&gtk4::ColumnViewColumn>, SortType::Ascending);
     }
 
     pub fn set_sortable(&self, sortable: bool) {
-        self.set_headers_clickable(sortable);
-        for (i, column) in self.columns().iter().enumerate() {
-            column.set_clickable(sortable);
-            column.set_sort_column_id(if sortable { i as i32 } else { -1 });
+        let imp = self.imp();
+        if let Some(columns) = imp.columns.get() {
+            if sortable {
+                if let Some((s_type, s_name, s_size, s_mod)) = imp.sorters.get() {
+                    columns.category.set_sorter(Some(s_type));
+                    columns.name.set_sorter(Some(s_name));
+                    columns.size.set_sorter(Some(s_size));
+                    columns.date.set_sorter(Some(s_mod));
+                }
+            } else {
+                columns.category.set_sorter(None::<&gtk4::Sorter>);
+                columns.name.set_sorter(None::<&gtk4::Sorter>);
+                columns.size.set_sorter(None::<&gtk4::Sorter>);
+                columns.date.set_sorter(None::<&gtk4::Sorter>);
+            }
         }
     }
 
@@ -216,24 +279,69 @@ impl FileView {
         self.imp().set_extended(extended);
     }
 
-    pub fn change_sort(&self, sort_col: Column) {
-        if let Some(store) = self.store() {
-            let new_sort_column = SortColumn::Index(sort_col as u32);
-            let current_sort = store.sort_column_id();
-            let new_direction = match current_sort {
-                Some((current_column, current_direction)) => {
-                    if current_column.eq(&new_sort_column) {
-                        match current_direction {
-                            SortType::Ascending => SortType::Descending,
-                            _ => SortType::Ascending,
-                        }
-                    } else {
-                        SortType::Ascending
-                    }
-                }
-                None => SortType::Ascending,
-            };
-            store.set_sort_column_id(new_sort_column, new_direction);
+    pub fn current_sort(&self) -> Option<(Column, SortType)> {
+        let sorter = self.sorter()?;
+        let cv_sorter = sorter.downcast::<gtk4::ColumnViewSorter>().ok()?;
+        if cv_sorter.n_sort_columns() == 0 {
+            return None;
         }
+        let (col, order) = cv_sorter.nth_sort_column(0);
+        let col = col?;
+        let cols = self.imp().columns.get()?;
+        let sort_col = if col == cols.category {
+            Column::FileType
+        } else if col == cols.name {
+            Column::Name
+        } else if col == cols.size {
+            Column::Size
+        } else if col == cols.date {
+            Column::Modified
+        } else {
+            return None;
+        };
+        Some((sort_col, order))
+    }
+
+    pub fn set_sort(&self, sort_col: Column, order: SortType) {
+        let imp = self.imp();
+        if let Some(cols) = imp.columns.get() {
+            let col = match sort_col {
+                Column::FileType => &cols.category,
+                Column::Name => &cols.name,
+                Column::Size => &cols.size,
+                Column::Modified => &cols.date,
+                _ => return,
+            };
+            self.sort_by_column(Some(col), order);
+        }
+    }
+
+    pub fn change_sort(&self, sort_col: Column) {
+        if let Some((current_col, current_order)) = self.current_sort() {
+            let new_order = if current_col == sort_col {
+                match current_order {
+                    SortType::Ascending => SortType::Descending,
+                    _ => SortType::Ascending,
+                }
+            } else {
+                if sort_col == Column::Modified {
+                    SortType::Descending
+                } else {
+                    SortType::Ascending
+                }
+            };
+            self.set_sort(sort_col, new_order);
+        } else {
+            let order = if sort_col == Column::Modified {
+                SortType::Descending
+            } else {
+                SortType::Ascending
+            };
+            self.set_sort(sort_col, order);
+        }
+    }
+
+    pub fn connect_selection_changed<F: Fn() + 'static>(&self, f: F) {
+        *self.imp().selection_changed_callback.borrow_mut() = Some(Box::new(f));
     }
 }

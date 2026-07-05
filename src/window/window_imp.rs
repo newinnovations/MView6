@@ -321,14 +321,18 @@ impl ObjectImpl for MViewWindowImp {
         let file_widget = ScrolledWindow::new();
         // files_widget.set_shadow_type(gtk4::ShadowType::EtchedIn); TODO
         file_widget.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+        file_widget.set_propagate_natural_width(true);
         file_widget.set_can_focus(false);
         hbox.append(&file_widget);
 
         let file_view = FileView::new();
         file_view.set_vexpand(true);
-        file_view.set_fixed_height_mode(true);
+        file_view.set_hexpand(false);
+        file_view.set_halign(gtk4::Align::Start);
         file_view.set_can_focus(false);
-        file_widget.set_child(Some(&file_view));
+        let file_column_view = file_view.column_view().clone();
+        file_view.remove(&file_column_view);
+        file_widget.set_child(Some(&file_column_view));
 
         let image_view = ImageView::new();
         let panel = Panel::create(self, &image_view, &menu);
@@ -336,11 +340,14 @@ impl ObjectImpl for MViewWindowImp {
 
         let info_widget = ScrolledWindow::new();
         info_widget.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+        info_widget.set_propagate_natural_width(true);
         info_widget.set_can_focus(false);
         hbox.append(&info_widget);
 
         let info_view = InfoView::new();
         info_view.set_vexpand(true);
+        info_view.set_hexpand(false);
+        info_view.set_halign(gtk4::Align::Start);
         // info_view.set_fixed_height_mode(true);
         info_view.set_can_focus(false);
         info_widget.set_child(Some(&info_view));
@@ -410,17 +417,25 @@ impl ObjectImpl for MViewWindowImp {
 
         image_view.add_context_menu(menu);
 
-        file_view.connect_cursor_changed(clone!(
+        file_view.connect_selection_changed(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_| this.on_cursor_changed()
+            move || this.on_cursor_changed()
         ));
 
-        file_view.connect_row_activated(clone!(
+        file_view.connect_activate(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, path, column| {
-                this.on_row_activated(path, column);
+            move |_, _| {
+                this.on_row_activated();
+            }
+        ));
+
+        file_view.sorter().unwrap().connect_changed(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_, _| {
+                this.on_sort_column_changed();
             }
         ));
 

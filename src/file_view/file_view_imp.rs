@@ -17,50 +17,53 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::cell::OnceCell;
+use std::cell::{OnceCell, RefCell};
 
 use crate::file_view;
 use chrono::{
     offset::LocalResult,
     {Local, TimeZone},
 };
-use glib::{
-    object::ObjectExt,
-    subclass::{
-        object::{ObjectImpl, ObjectImplExt},
-        types::{ObjectSubclass, ObjectSubclassExt},
-    },
+use glib::subclass::{
+    object::{ObjectImpl, ObjectImplExt},
+    types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
 };
 use gtk4::{
     glib,
-    prelude::{CellRendererExt, TreeViewExt},
-    subclass::{prelude::TreeViewImpl, widget::WidgetImpl},
-    CellRendererPixbuf, CellRendererText, TreeView, TreeViewColumn, TreeViewColumnSizing,
+    prelude::*,
+    subclass::{prelude::BoxImpl, widget::WidgetImpl},
+    Box as GtkBox, ColumnView, ColumnViewColumn,
 };
 use human_bytes::human_bytes;
 
-use super::cursor::TreeModelMviewExt;
-use super::model::Column;
-
+use super::model::file_row::FileRow;
 #[derive(Debug)]
 #[allow(dead_code)]
-struct FileViewColumns {
-    category: TreeViewColumn,
-    name: TreeViewColumn,
-    size: TreeViewColumn,
-    date: TreeViewColumn,
+pub(super) struct FileViewColumns {
+    pub(super) category: ColumnViewColumn,
+    pub(super) name: ColumnViewColumn,
+    pub(super) size: ColumnViewColumn,
+    pub(super) date: ColumnViewColumn,
 }
 
 #[derive(Default)]
 pub struct FileViewImp {
-    columns: OnceCell<FileViewColumns>,
+    pub(super) columns: OnceCell<FileViewColumns>,
+    pub(super) selection_changed_callback: RefCell<Option<Box<dyn Fn() + 'static>>>,
+    pub(super) sorters: OnceCell<(
+        gtk4::CustomSorter,
+        gtk4::CustomSorter,
+        gtk4::CustomSorter,
+        gtk4::CustomSorter,
+    )>,
+    pub(super) column_view: OnceCell<ColumnView>,
 }
 
 #[glib::object_subclass]
 impl ObjectSubclass for FileViewImp {
     const NAME: &'static str = "FileListView";
     type Type = file_view::FileView;
-    type ParentType = TreeView;
+    type ParentType = GtkBox;
 }
 
 impl FileViewImp {
@@ -77,70 +80,205 @@ impl ObjectImpl for FileViewImp {
     fn constructed(&self) {
         self.parent_constructed();
         let instance = self.obj();
+        instance.set_halign(gtk4::Align::Start);
 
-        // Column for category
-        let renderer = CellRendererPixbuf::new();
-        let col_category = TreeViewColumn::new();
-        col_category.pack_start(&renderer, true);
-        // column.set_title("Cat");
-        col_category.add_attribute(&renderer, "icon-name", Column::ContentIcon as i32);
-        col_category.set_sizing(TreeViewColumnSizing::Fixed);
+        let column_view = ColumnView::new(None::<gtk4::SingleSelection>);
+        column_view.set_vexpand(true);
+        column_view.set_hexpand(false);
+        column_view.set_halign(gtk4::Align::Start);
+
+        // Set up custom sorters for each column
+        let sorter_type = gtk4::CustomSorter::new(|a, b| {
+            let a = a.downcast_ref::<FileRow>().unwrap();
+            let b = b.downcast_ref::<FileRow>().unwrap();
+            let a_row = a.row();
+            let b_row = b.row();
+            let a_val = a_row.as_ref().unwrap();
+            let b_val = b_row.as_ref().unwrap();
+            let res = a_val.file_type.cmp(&b_val.file_type);
+            if res.is_eq() {
+                a_val
+                    .name
+                    .to_lowercase()
+                    .cmp(&b_val.name.to_lowercase())
+                    .into()
+            } else {
+                res.into()
+            }
+        });
+
+        let sorter_name = gtk4::CustomSorter::new(|a, b| {
+            let a = a.downcast_ref::<FileRow>().unwrap();
+            let b = b.downcast_ref::<FileRow>().unwrap();
+            let a_row = a.row();
+            let b_row = b.row();
+            let a_val = a_row.as_ref().unwrap();
+            let b_val = b_row.as_ref().unwrap();
+            a_val
+                .name
+                .to_lowercase()
+                .cmp(&b_val.name.to_lowercase())
+                .into()
+        });
+
+        let sorter_size = gtk4::CustomSorter::new(|a, b| {
+            let a = a.downcast_ref::<FileRow>().unwrap();
+            let b = b.downcast_ref::<FileRow>().unwrap();
+            let a_row = a.row();
+            let b_row = b.row();
+            let a_val = a_row.as_ref().unwrap();
+            let b_val = b_row.as_ref().unwrap();
+            a_val.size.cmp(&b_val.size).into()
+        });
+
+        let sorter_modified = gtk4::CustomSorter::new(|a, b| {
+            let a = a.downcast_ref::<FileRow>().unwrap();
+            let b = b.downcast_ref::<FileRow>().unwrap();
+            let a_row = a.row();
+            let b_row = b.row();
+            let a_val = a_row.as_ref().unwrap();
+            let b_val = b_row.as_ref().unwrap();
+            a_val.modified.cmp(&b_val.modified).into()
+        });
+
+        self.sorters
+            .set((
+                sorter_type.clone(),
+                sorter_name.clone(),
+                sorter_size.clone(),
+                sorter_modified.clone(),
+            ))
+            .unwrap();
+
+        // Column for category (FileType)
+        let factory_category = gtk4::SignalListItemFactory::new();
+        factory_category.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            list_item.set_activatable(true);
+            let image = gtk4::Image::builder()
+                .icon_size(gtk4::IconSize::Normal)
+                .build();
+            list_item.set_child(Some(&image));
+        });
+        factory_category.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let image = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Image>().ok())
+                .unwrap();
+            let file_row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<FileRow>().ok())
+                .unwrap();
+            let row = file_row.row();
+            let row_ref = row.as_ref().unwrap();
+            image.set_icon_name(Some(row_ref.content_icon()));
+        });
+        let col_category = ColumnViewColumn::new(None, Some(factory_category.clone()));
         col_category.set_fixed_width(30);
-        col_category.set_sort_column_id(Column::FileType as i32);
-        instance.append_column(&col_category);
+        col_category.set_sorter(Some(&sorter_type));
+        column_view.append_column(&col_category);
 
-        // Column for file/direcory
-        let renderer_txt = CellRendererText::new();
-        let renderer_icon = CellRendererPixbuf::new();
-        renderer_icon.set_padding(2, 0);
-        let col_name = TreeViewColumn::new();
-        col_name.pack_start(&renderer_icon, false);
-        col_name.pack_start(&renderer_txt, true);
-        col_name.set_title("Name");
-        col_name.add_attribute(&renderer_icon, "icon-name", Column::PrefIcon as i32);
-        col_name.add_attribute(&renderer_icon, "visible", Column::ShowPrefIcon as i32);
-        col_name.add_attribute(&renderer_txt, "text", Column::Name as i32);
-        col_name.set_sizing(TreeViewColumnSizing::Fixed);
+        // Column for file/directory name
+        let factory_name = gtk4::SignalListItemFactory::new();
+        factory_name.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            list_item.set_activatable(true);
+            let box_widget = gtk4::Box::builder()
+                .orientation(gtk4::Orientation::Horizontal)
+                .spacing(4)
+                .build();
+            let image = gtk4::Image::builder()
+                .icon_size(gtk4::IconSize::Normal)
+                .build();
+            let label = gtk4::Label::builder().halign(gtk4::Align::Start).build();
+            box_widget.append(&image);
+            box_widget.append(&label);
+            list_item.set_child(Some(&box_widget));
+        });
+        factory_name.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let box_widget = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Box>().ok())
+                .unwrap();
+            let image = box_widget
+                .first_child()
+                .and_then(|w| w.downcast::<gtk4::Image>().ok())
+                .unwrap();
+            let label = image
+                .next_sibling()
+                .and_then(|w| w.downcast::<gtk4::Label>().ok())
+                .unwrap();
+            let file_row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<FileRow>().ok())
+                .unwrap();
+            let row = file_row.row();
+            let row_ref = row.as_ref().unwrap();
+            image.set_icon_name(Some(row_ref.preference_icon()));
+            image.set_visible(row_ref.show_preference_icon());
+            label.set_text(&row_ref.name);
+        });
+        let col_name = ColumnViewColumn::new(Some("Name"), Some(factory_name.clone()));
         col_name.set_fixed_width(300);
-        col_name.set_sort_column_id(Column::Name as i32);
-        instance.append_column(&col_name);
+        col_name.set_sorter(Some(&sorter_name));
+        column_view.append_column(&col_name);
 
         // Column for size
-        let renderer = CellRendererText::new();
-        renderer.set_property("xalign", 1.0_f32);
-        let col_size = TreeViewColumn::new();
-        col_size.pack_start(&renderer, true);
-        col_size.set_title("Size");
-        col_size.set_alignment(1.0);
-        col_size.add_attribute(&renderer, "text", Column::Size as i32);
-        col_size.set_sizing(TreeViewColumnSizing::Fixed);
-        col_size.set_fixed_width(90);
-        col_size.set_sort_column_id(Column::Size as i32);
-        col_size.set_cell_data_func(&renderer, |_col, renderer, model, iter| {
-            let size = model.size(iter);
+        let factory_size = gtk4::SignalListItemFactory::new();
+        factory_size.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            list_item.set_activatable(true);
+            let label = gtk4::Label::builder().halign(gtk4::Align::End).build();
+            list_item.set_child(Some(&label));
+        });
+        factory_size.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Label>().ok())
+                .unwrap();
+            let file_row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<FileRow>().ok())
+                .unwrap();
+            let row = file_row.row();
+            let row_ref = row.as_ref().unwrap();
+            let size = row_ref.size;
             let modified_text = if size > 0 {
                 human_bytes(size as f64)
             } else {
                 String::default()
             };
-            renderer.set_property("text", modified_text);
+            label.set_text(&modified_text);
         });
-        instance.append_column(&col_size);
+        let col_size = ColumnViewColumn::new(Some("Size"), Some(factory_size.clone()));
+        col_size.set_fixed_width(90);
+        col_size.set_sorter(Some(&sorter_size));
+        column_view.append_column(&col_size);
 
         // Column for modified date
-        let renderer = CellRendererText::new();
-        let col_date = TreeViewColumn::new();
-        col_date.pack_start(&renderer, true);
-        col_date.set_title("Modified");
-        col_date.set_sizing(TreeViewColumnSizing::Fixed);
-        col_date.set_fixed_width(if cfg!(target_os = "windows") {
-            147
-        } else {
-            142
+        let factory_date = gtk4::SignalListItemFactory::new();
+        factory_date.connect_setup(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            list_item.set_activatable(true);
+            let label = gtk4::Label::builder().halign(gtk4::Align::Start).build();
+            list_item.set_child(Some(&label));
         });
-        col_date.set_sort_column_id(Column::Modified as i32);
-        col_date.set_cell_data_func(&renderer, |_col, renderer, model, iter| {
-            let modified = model.modified(iter);
+        factory_date.connect_bind(|_, list_item| {
+            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let label = list_item
+                .child()
+                .and_then(|w| w.downcast::<gtk4::Label>().ok())
+                .unwrap();
+            let file_row = list_item
+                .item()
+                .and_then(|obj| obj.downcast::<FileRow>().ok())
+                .unwrap();
+            let row = file_row.row();
+            let row_ref = row.as_ref().unwrap();
+            let modified = row_ref.modified;
             let modified_text = if modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()
@@ -150,9 +288,16 @@ impl ObjectImpl for FileViewImp {
             } else {
                 String::default()
             };
-            renderer.set_property("text", modified_text);
+            label.set_text(&modified_text);
         });
-        instance.append_column(&col_date);
+        let col_date = ColumnViewColumn::new(Some("Modified"), Some(factory_date.clone()));
+        col_date.set_fixed_width(if cfg!(target_os = "windows") {
+            147
+        } else {
+            142
+        });
+        col_date.set_sorter(Some(&sorter_modified));
+        column_view.append_column(&col_date);
 
         self.columns
             .set(FileViewColumns {
@@ -162,11 +307,31 @@ impl ObjectImpl for FileViewImp {
                 date: col_date,
             })
             .expect("Failed to store file list columns");
+
+        instance.append(&column_view);
+        self.column_view.set(column_view.clone()).unwrap();
+
+        // Listen for model changes to hook up selected change notification
+        let instance_weak = instance.downgrade();
+        column_view.connect_model_notify(move |cv| {
+            if let Some(model) = cv.model() {
+                if let Ok(selection_model) = model.downcast::<gtk4::SingleSelection>() {
+                    let instance_weak = instance_weak.clone();
+                    selection_model.connect_selected_notify(move |_| {
+                        if let Some(this) = instance_weak.upgrade() {
+                            if let Some(cb) = &*this.imp().selection_changed_callback.borrow() {
+                                cb();
+                            }
+                        }
+                    });
+                }
+            }
+        });
     }
 }
 
 impl WidgetImpl for FileViewImp {}
 
-impl TreeViewImpl for FileViewImp {}
+impl BoxImpl for FileViewImp {}
 
 impl FileViewImp {}
