@@ -19,7 +19,6 @@
 
 use super::MViewWindowImp;
 
-use gio::prelude::FileExt;
 use glib::clone;
 use glib::subclass::types::ObjectSubclassExt;
 
@@ -27,6 +26,7 @@ use crate::{
     backends::Backend,
     file_view::{BackendRef, Direction, ItemRef, Target},
     util::show_error_dialog,
+    window::window_imp::toast::ToastBuilder,
 };
 
 impl MViewWindowImp {
@@ -37,7 +37,7 @@ impl MViewWindowImp {
             None => return,
         };
 
-        let (dir_path, old_name) = {
+        let (dir_path, name) = {
             let backend = self.backend.borrow();
             if !backend.is_filesystem() {
                 return;
@@ -55,7 +55,7 @@ impl MViewWindowImp {
                 _ => return,
             }
         };
-        let old_file_path = dir_path.join(&old_name);
+        let file_path = dir_path.join(&name);
 
         if permanent {
             let dialog = gtk4::AlertDialog::builder()
@@ -63,7 +63,7 @@ impl MViewWindowImp {
                 .message("Permanently Delete?")
                 .detail(format!(
                     "Are you sure you want to permanently delete '{}'?",
-                    old_name
+                    name
                 ))
                 .buttons(["No", "Yes"])
                 .cancel_button(0)
@@ -98,10 +98,10 @@ impl MViewWindowImp {
                                 this.set_backend(<dyn Backend>::none(), &Target::First, true);
                             }
 
-                            let result = if old_file_path.is_dir() {
-                                std::fs::remove_dir_all(&old_file_path)
+                            let result = if file_path.is_dir() {
+                                std::fs::remove_dir_all(&file_path)
                             } else {
-                                std::fs::remove_file(&old_file_path)
+                                std::fs::remove_file(&file_path)
                             };
 
                             match result {
@@ -116,7 +116,7 @@ impl MViewWindowImp {
                                         "Error Deleting File",
                                         &format!("Failed to permanently delete file: {}", e),
                                     );
-                                    this.reload(&Target::Name(old_name.clone()), false);
+                                    this.reload(&Target::Name(name.clone()), false);
                                 }
                             }
                         }
@@ -124,42 +124,66 @@ impl MViewWindowImp {
                 ),
             );
         } else {
-            // Move to trash without confirmation
-            let next_target =
-                if w.file_view
-                    .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
-                {
-                    w.file_view.current().map(|c| Target::Name(c.name()))
-                } else if w.file_view.navigate_item_bool(
-                    Direction::Up,
-                    &self.current_filter.borrow(),
-                    1,
-                ) {
-                    w.file_view.current().map(|c| Target::Name(c.name()))
-                } else {
-                    None
-                };
+            current.set_to_trash(true);
 
-            if next_target.is_none() {
-                self.set_backend(<dyn Backend>::none(), &Target::First, true);
-            }
-
-            let file = gio::File::for_path(&old_file_path);
-            match file.trash(None::<&gio::Cancellable>) {
-                Ok(()) => {
-                    if let Some(target) = next_target {
-                        self.reload(&target, false);
+            let toast = ToastBuilder::new(&format!("Move '{}' to trash", name))
+                .button_label("Undo")
+                .action_name("win.trash.undo")
+                .on_dismissed(clone!(
+                    #[weak(rename_to = this)]
+                    self,
+                    move |_| {
+                        this.commit_pending_trash();
                     }
-                }
-                Err(e) => {
-                    show_error_dialog(
-                        &*self.obj(),
-                        "Error Trashing File",
-                        &format!("Failed to move file to trash: {}", e),
-                    );
-                    self.reload(&Target::Name(old_name), false);
-                }
-            }
+                ))
+                .build();
+
+            self.widgets().toast_overlay.add_toast(&toast);
+
+            // Move to trash without confirmation
+            // let next_target =
+            //     if w.file_view
+            //         .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
+            //     {
+            //         w.file_view.current().map(|c| Target::Name(c.name()))
+            //     } else if w.file_view.navigate_item_bool(
+            //         Direction::Up,
+            //         &self.current_filter.borrow(),
+            //         1,
+            //     ) {
+            //         w.file_view.current().map(|c| Target::Name(c.name()))
+            //     } else {
+            //         None
+            //     };
+
+            // if next_target.is_none() {
+            //     self.set_backend(<dyn Backend>::none(), &Target::First, true);
+            // }
+
+            // let file = gio::File::for_path(&old_file_path);
+            // match file.trash(None::<&gio::Cancellable>) {
+            //     Ok(()) => {
+            //         if let Some(target) = next_target {
+            //             self.reload(&target, false);
+            //         }
+            //     }
+            //     Err(e) => {
+            //         show_error_dialog(
+            //             &*self.obj(),
+            //             "Error Trashing File",
+            //             &format!("Failed to move file to trash: {}", e),
+            //         );
+            //         self.reload(&Target::Name(old_name), false);
+            //     }
+            // }
         }
+    }
+
+    pub fn commit_pending_trash(&self) {
+        println!("Committing pending trash...");
+    }
+
+    pub fn undo_pending_trash(&self) {
+        println!("Undoing pending trash...");
     }
 }

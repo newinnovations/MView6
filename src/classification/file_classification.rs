@@ -33,16 +33,16 @@ pub enum Preference {
 impl Preference {
     pub fn icon(&self) -> &str {
         match self {
-            Self::Liked => "mv6-liked",
-            Self::Disliked => "mv6-disliked",
+            Self::Liked => "mv6-like",
+            Self::Disliked => "mv6-dislike",
             _ => "mv6-unknown",
         }
     }
 
     pub fn from_icon(icon_name: &str) -> Self {
-        if icon_name == "mv6-liked" {
+        if icon_name == "mv6-like" {
             Self::Liked
-        } else if icon_name == "mv6-disliked" {
+        } else if icon_name == "mv6-dislike" {
             Self::Disliked
         } else {
             Self::Normal

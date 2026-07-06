@@ -368,12 +368,10 @@ impl FileView {
                     SortType::Ascending => SortType::Descending,
                     _ => SortType::Ascending,
                 }
+            } else if sort_col == Column::Modified {
+                SortType::Descending
             } else {
-                if sort_col == Column::Modified {
-                    SortType::Descending
-                } else {
-                    SortType::Ascending
-                }
+                SortType::Ascending
             };
             self.set_sort(sort_col, new_order);
         } else {

@@ -195,18 +195,26 @@ impl ObjectImpl for FileViewImp {
             list_item.set_child(Some(&image));
         });
         factory_category.connect_bind(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
-            let image = list_item
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
+            let Some(image) = list_item
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Image>().ok())
-                .unwrap();
-            let file_row = list_item
+            else {
+                return;
+            };
+            let Some(file_row) = list_item
                 .item()
                 .and_then(|obj| obj.downcast::<FileRow>().ok())
-                .unwrap();
+            else {
+                return;
+            };
             let row = file_row.row();
-            let row_ref = row.as_ref().unwrap();
-            image.set_icon_name(Some(row_ref.content_icon()));
+            let Some(row) = row.as_ref() else {
+                return;
+            };
+            image.set_icon_name(Some(row.content_icon()));
         });
         let col_category = ColumnViewColumn::new(None, Some(factory_category.clone()));
         col_category.set_fixed_width(30);
@@ -216,7 +224,9 @@ impl ObjectImpl for FileViewImp {
         // Column for file/directory name
         let factory_name = gtk4::SignalListItemFactory::new();
         factory_name.connect_setup(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
             list_item.set_activatable(true);
             let box_widget = gtk4::Box::builder()
                 .orientation(gtk4::Orientation::Horizontal)
@@ -231,28 +241,53 @@ impl ObjectImpl for FileViewImp {
             list_item.set_child(Some(&box_widget));
         });
         factory_name.connect_bind(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
-            let box_widget = list_item
+            // 1. Safe downcast of the list item
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
+
+            // 2. Safe retrieval and downcast of the child Box
+            let Some(box_widget) = list_item
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Box>().ok())
-                .unwrap();
-            let image = box_widget
+            else {
+                return;
+            };
+
+            // 3. Safe retrieval of the Image child
+            let Some(image) = box_widget
                 .first_child()
                 .and_then(|w| w.downcast::<gtk4::Image>().ok())
-                .unwrap();
-            let label = image
+            else {
+                return;
+            };
+
+            // 4. Safe retrieval of the Label sibling
+            let Some(label) = image
                 .next_sibling()
                 .and_then(|w| w.downcast::<gtk4::Label>().ok())
-                .unwrap();
-            let file_row = list_item
+            else {
+                return;
+            };
+
+            // 5. Safe retrieval of the underlying FileRow object
+            let Some(file_row) = list_item
                 .item()
                 .and_then(|obj| obj.downcast::<FileRow>().ok())
-                .unwrap();
+            else {
+                return;
+            };
+
+            // 6. Safe reference check for the row data
             let row = file_row.row();
-            let row_ref = row.as_ref().unwrap();
-            image.set_icon_name(Some(row_ref.preference_icon()));
-            image.set_visible(row_ref.show_preference_icon());
-            label.set_text(&row_ref.name);
+            let Some(row) = row.as_ref() else {
+                return;
+            };
+
+            // 7. Safe UI Updates
+            image.set_icon_name(Some(row.preference_icon()));
+            image.set_visible(row.show_preference_icon());
+            label.set_text(&row.name);
         });
         let col_name = ColumnViewColumn::new(Some("Name"), Some(factory_name.clone()));
         col_name.set_fixed_width(300);
@@ -262,24 +297,34 @@ impl ObjectImpl for FileViewImp {
         // Column for size
         let factory_size = gtk4::SignalListItemFactory::new();
         factory_size.connect_setup(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
             list_item.set_activatable(true);
             let label = gtk4::Label::builder().halign(gtk4::Align::End).build();
             list_item.set_child(Some(&label));
         });
         factory_size.connect_bind(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
-            let label = list_item
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
+            let Some(label) = list_item
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Label>().ok())
-                .unwrap();
-            let file_row = list_item
+            else {
+                return;
+            };
+            let Some(file_row) = list_item
                 .item()
                 .and_then(|obj| obj.downcast::<FileRow>().ok())
-                .unwrap();
+            else {
+                return;
+            };
             let row = file_row.row();
-            let row_ref = row.as_ref().unwrap();
-            let size = row_ref.size;
+            let Some(row) = row.as_ref() else {
+                return;
+            };
+            let size = row.size;
             let modified_text = if size > 0 {
                 human_bytes(size as f64)
             } else {
@@ -295,24 +340,34 @@ impl ObjectImpl for FileViewImp {
         // Column for modified date
         let factory_date = gtk4::SignalListItemFactory::new();
         factory_date.connect_setup(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
             list_item.set_activatable(true);
             let label = gtk4::Label::builder().halign(gtk4::Align::Start).build();
             list_item.set_child(Some(&label));
         });
         factory_date.connect_bind(|_, list_item| {
-            let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
-            let label = list_item
+            let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
+                return;
+            };
+            let Some(label) = list_item
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Label>().ok())
-                .unwrap();
-            let file_row = list_item
+            else {
+                return;
+            };
+            let Some(file_row) = list_item
                 .item()
                 .and_then(|obj| obj.downcast::<FileRow>().ok())
-                .unwrap();
+            else {
+                return;
+            };
             let row = file_row.row();
-            let row_ref = row.as_ref().unwrap();
-            let modified = row_ref.modified;
+            let Some(row) = row.as_ref() else {
+                return;
+            };
+            let modified = row.modified;
             let modified_text = if modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()

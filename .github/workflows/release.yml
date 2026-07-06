@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -93,7 +93,7 @@ jobs:
         with:
           targets: ${{ matrix.sys.target }}
 
-      - name: Remove mupdf-rs features for Winodws
+      - name: Remove mupdf-rs features for Windows
         if: runner.os == 'Windows'
         shell: bash
         run: |
@@ -163,7 +163,7 @@ jobs:
           7z a mview6_${{ steps.date.outputs.version }}_windows.zip mview6-windows/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mview6-${{ matrix.sys.name }}
           path: |

@@ -32,6 +32,7 @@ mod panel;
 mod resize;
 mod slideshow;
 mod sort;
+mod toast;
 
 pub use commands::{Command, COMMANDS};
 pub use palette::CommandPalette;
@@ -53,7 +54,7 @@ use crate::{
         RenderThreadSender,
     },
     window::{
-        window_imp::{dependencies::check_dependencies, panel::Panel},
+        window_imp::{dependencies::check_dependencies, panel::Panel, toast::ToastOverlay},
         MViewWindow,
     },
 };
@@ -78,6 +79,7 @@ use std::{
 #[derive(Debug)]
 pub struct MViewWidgets {
     hbox: gtk4::Box,
+    toast_overlay: ToastOverlay,
     file_widget: ScrolledWindow,
     file_view: FileView,
     info_widget: ScrolledWindow,
@@ -455,9 +457,13 @@ impl ObjectImpl for MViewWindowImp {
             }
         }
 
+        let toast_overlay = ToastOverlay::new();
+        toast_overlay.set_child(&hbox);
+
         self.widget_cell
             .set(MViewWidgets {
                 hbox,
+                toast_overlay,
                 file_view,
                 file_widget,
                 info_widget,
@@ -545,7 +551,7 @@ impl ObjectImpl for MViewWindowImp {
         ));
 
         self.show_info_widget(false);
-        window.set_child(Some(&w.hbox));
+        window.set_child(Some(w.toast_overlay.widget()));
 
         idle_add_local(clone!(
             #[weak(rename_to = this)]

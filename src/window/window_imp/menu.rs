@@ -150,6 +150,7 @@ impl MViewWindowImp {
             3,
             Self::set_slideshow_interval,
         );
+        self.add_action(&action_group, "trash.undo", Self::undo_pending_trash);
         action_group
     }
 

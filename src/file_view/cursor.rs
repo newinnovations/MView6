@@ -111,6 +111,21 @@ impl Cursor {
         }
     }
 
+    pub fn set_to_trash(&self, to_trash: bool) {
+        if let Some(store) = &self.store {
+            if let Some(position) = store.find(&self.file_row) {
+                if let Some(row) = self.file_row.row().as_ref() {
+                    let mut row = row.clone();
+                    row.set_to_trash(to_trash);
+                    let file_row = FileRow::new(row);
+                    store.splice(position, 1, &[file_row]);
+                }
+            }
+        } else if let Some(ref mut row) = *self.file_row.row_mut() {
+            row.set_to_trash(to_trash);
+        }
+    }
+
     pub fn navigate(&mut self, direction: Direction, filter: &Filter, count: u32) -> Option<u32> {
         if count == 0 {
             return None;

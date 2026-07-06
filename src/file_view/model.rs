@@ -89,6 +89,7 @@ pub struct Row {
     content_icon: String,
     preference_icon: String,
     show_preference_icon: bool,
+    to_trash: bool,
     folder: String,
 }
 
@@ -131,6 +132,7 @@ impl Row {
             content_icon: classification.file_type_icon().to_string(),
             preference_icon: classification.preference_icon().to_string(),
             show_preference_icon: classification.show_preference_icon(),
+            to_trash: false,
             folder,
         }
     }
@@ -144,11 +146,15 @@ impl Row {
     }
 
     pub fn preference_icon(&self) -> &str {
-        &self.preference_icon
+        if self.to_trash {
+            "mv6-trash"
+        } else {
+            &self.preference_icon
+        }
     }
 
     pub fn show_preference_icon(&self) -> bool {
-        self.show_preference_icon
+        self.show_preference_icon || self.to_trash
     }
 
     pub fn folder(&self) -> &str {
@@ -158,6 +164,14 @@ impl Row {
     pub fn set_preference(&mut self, preference: Preference) {
         self.preference_icon = preference.icon().to_string();
         self.show_preference_icon = preference.show_icon();
+    }
+
+    pub fn to_trash(&self) -> bool {
+        self.to_trash
+    }
+
+    pub fn set_to_trash(&mut self, to_trash: bool) {
+        self.to_trash = to_trash;
     }
 }
 
@@ -207,6 +221,7 @@ pub mod file_row {
         impl ObjectImpl for FileRow {}
     }
 }
+
 pub use file_row::FileRow;
 
 use gtk4::gio;
