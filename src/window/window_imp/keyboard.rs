@@ -242,7 +242,7 @@ impl MViewWindowImp {
                 self.toggle_zoom();
             }
             Key::minus | Key::KP_Subtract => {
-                w.file_view.set_unsorted();
+                // w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
                     if self
                         .backend
@@ -255,7 +255,7 @@ impl MViewWindowImp {
                 }
             }
             Key::equal | Key::KP_Add => {
-                w.file_view.set_unsorted();
+                // w.file_view.set_unsorted();
                 if let Some(current) = w.file_view.current() {
                     if self
                         .backend
