@@ -171,7 +171,7 @@ impl Toast {
         }
 
         let progress = ProgressBar::new();
-        progress.add_css_class("toast-progress");
+        progress.add_css_class("dialog-progress");
         progress.set_fraction(1.0);
         progress.set_hexpand(true);
 
@@ -189,20 +189,19 @@ impl Toast {
 
         overlay.add_overlay(&revealer);
 
-        let toast = self.clone();
         let started = Instant::now();
         let timeout = Duration::from_secs(TOAST_TIMEOUT.into());
         let timeout_id = glib::timeout_add_local(
             TOAST_PROGRESS_INTERVAL,
             clone!(
-                #[strong]
-                toast,
+                #[strong(rename_to=this)]
+                self,
                 #[strong]
                 progress,
                 move || {
                     let elapsed = started.elapsed();
                     if elapsed >= timeout {
-                        toast.dismiss();
+                        this.dismiss();
                         ControlFlow::Break
                     } else {
                         let remaining = 1.0 - elapsed.as_secs_f64() / timeout.as_secs_f64();

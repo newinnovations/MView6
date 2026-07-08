@@ -178,13 +178,13 @@ columnview.info-view row {
     font-weight: bold;
 }
 
-.toast-progress trough {
+.dialog-progress trough {
     min-height: 3px;
     background-color: rgba(255, 255, 255, 0.18);
     border: 0;
 }
 
-.toast-progress progress {
+.dialog-progress progress {
     min-height: 3px;
     min-width: 2px;
     background-color: #f1c8a2;

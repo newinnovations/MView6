@@ -17,12 +17,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{collections::HashSet, rc::Rc};
+use std::{
+    collections::HashSet,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use glib::{clone, subclass::types::ObjectSubclassExt, Propagation};
 use gtk4::{
-    gdk::Key, prelude::*, Box, Button, CheckButton, EventControllerKey, Orientation, Separator,
-    Window,
+    gdk::Key, prelude::*, Box, Button, CheckButton, EventControllerKey, Orientation, ProgressBar,
+    Separator, Window,
 };
 
 use crate::{
@@ -30,6 +34,9 @@ use crate::{
     file_view::Filter,
     window::MViewWindowImp,
 };
+
+const DIALOG_TIMEOUT: u32 = 3;
+const DIALOG_PROGRESS_INTERVAL: Duration = Duration::from_millis(50);
 
 const C_ITEMS: &[(&str, FileType, Key)] = &[
     ("Images [i]", FileType::Image, Key::i),
@@ -212,6 +219,12 @@ impl MViewWindowImp {
         hbox.append(&vbox_checks);
         root.append(&hbox);
 
+        let progress = ProgressBar::new();
+        progress.add_css_class("dialog-progress");
+        progress.set_fraction(1.0);
+        progress.set_hexpand(true);
+        root.append(&progress);
+
         let button_box = Box::builder()
             .orientation(Orientation::Horizontal)
             .spacing(8)
@@ -335,13 +348,16 @@ impl MViewWindowImp {
         dialog.add_controller(key_controller);
 
         if initial_shortcut.is_some() {
-            let mut remaining_tenths = 30u32;
+            let started = Instant::now();
+            let timeout = Duration::from_secs(DIALOG_TIMEOUT.into());
             let apply_filter = apply_filter.clone();
             glib::timeout_add_local(
-                std::time::Duration::from_millis(100),
+                DIALOG_PROGRESS_INTERVAL,
                 clone!(
                     #[weak]
                     dialog,
+                    #[weak]
+                    progress,
                     #[upgrade_or]
                     glib::ControlFlow::Break,
                     move || {
@@ -349,25 +365,20 @@ impl MViewWindowImp {
                             return glib::ControlFlow::Break;
                         }
 
-                        if remaining_tenths > 0 {
-                            remaining_tenths -= 1;
-                            let seconds = remaining_tenths / 10;
-                            let tenths = remaining_tenths % 10;
-                            dialog.set_title(Some(&format!(
-                                "Navigation filter (closes in {}.{}s)",
-                                seconds, tenths
-                            )));
-                        }
-
-                        if remaining_tenths == 0 {
+                        let elapsed = started.elapsed();
+                        if elapsed >= timeout {
                             apply_filter();
                             glib::ControlFlow::Break
                         } else {
+                            let remaining = 1.0 - elapsed.as_secs_f64() / timeout.as_secs_f64();
+                            progress.set_fraction(remaining);
                             glib::ControlFlow::Continue
                         }
                     }
                 ),
             );
+        } else {
+            progress.set_visible(false);
         }
 
         dialog.present();
