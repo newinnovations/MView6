@@ -28,7 +28,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{BackendRef, Cursor, ItemRef, Reference, Row},
+    file_view::{BackendRef, Cursor, FileRow, ItemRef, Reference},
     image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
@@ -37,7 +37,7 @@ use crate::{
 
 pub struct RarArchive {
     path: PathBuf,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
 }
 
 impl RarArchive {
@@ -75,7 +75,7 @@ impl Backend for RarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 
@@ -134,7 +134,7 @@ fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
     })
 }
 
-fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
+fn list_rar(rar_file: &Path) -> UnrarResult<Vec<FileRow>> {
     let mut result = Vec::new();
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
@@ -149,7 +149,7 @@ fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        result.push(Row::new(
+        result.push(FileRow::new(
             classification,
             name.to_string(),
             file_size,

@@ -17,46 +17,56 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Display;
+use std::{collections::HashSet, path::Path};
 
-use gtk4::SortType;
-
-use super::Column;
-
-#[derive(Clone, Copy, Debug, Default)]
-pub enum Sort {
-    Sorted((Column, SortType)),
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash, gtk4::glib::Enum)]
+#[enum_type(name = "mv6Preference")]
+#[repr(u32)]
+pub enum Preference {
     #[default]
-    Unsorted,
+    Normal = 0,
+    Liked = 1,
+    Disliked = 2,
 }
 
-impl Display for Sort {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.str_repr())
-    }
-}
-
-impl Sort {
-    pub fn new(column: Column, order: SortType) -> Self {
-        Sort::Sorted((column, order))
-    }
-
-    pub fn sort_on_category() -> Self {
-        Sort::new(Column::FileType, SortType::Ascending)
-    }
-
-    pub fn str_repr(&self) -> String {
+impl Preference {
+    pub fn icon(&self) -> &str {
         match self {
-            Sort::Sorted((col, order)) => format!(
-                "{}{}",
-                *col as u32,
-                match order {
-                    SortType::Ascending => "a",
-                    SortType::Descending => "d",
-                    _ => "u",
-                }
-            ),
-            Sort::Unsorted => "u".to_string(),
+            Self::Liked => "mv6-like",
+            Self::Disliked => "mv6-dislike",
+            _ => "mv6-unknown",
+        }
+    }
+
+    pub fn from_icon(icon_name: &str) -> Self {
+        if icon_name == "mv6-like" {
+            Self::Liked
+        } else if icon_name == "mv6-dislike" {
+            Self::Disliked
+        } else {
+            Self::Normal
+        }
+    }
+
+    pub fn show_icon(&self) -> bool {
+        matches!(self, Self::Liked | Self::Disliked)
+    }
+
+    pub fn all() -> HashSet<Self> {
+        HashSet::from([Self::Normal, Self::Liked, Self::Disliked])
+    }
+}
+
+impl From<&Path> for Preference {
+    fn from(path: &Path) -> Self {
+        let filename = path.file_name().unwrap_or_default();
+        let filename = filename.to_string_lossy().to_lowercase();
+        if filename.contains(".hi.") {
+            Self::Liked
+        } else if filename.contains(".lo.") {
+            Self::Disliked
+        } else {
+            Self::Normal
         }
     }
 }

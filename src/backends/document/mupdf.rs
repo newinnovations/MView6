@@ -29,7 +29,7 @@ use crate::{
     classification::FileType,
     content::Content,
     error::MviewResult,
-    file_view::{BackendRef, Cursor, ItemRef, Reference, Row},
+    file_view::{BackendRef, Cursor, FileRow, ItemRef, Reference},
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
     profile::performance::Performance,
@@ -41,7 +41,7 @@ const MIN_DOC_HEIGHT: f32 = 32.0;
 pub struct DocMuPdf {
     path: PathBuf,
     document: mupdf::Document,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
     last_page: i32,
 }
 
@@ -56,7 +56,7 @@ impl DocMuPdf {
         })
     }
 
-    fn create_store(filename: &Path) -> (MviewResult<mupdf::Document>, Vec<Row>, i32) {
+    fn create_store(filename: &Path) -> (MviewResult<mupdf::Document>, Vec<FileRow>, i32) {
         match list_pages(filename) {
             Ok((document, store, last_page)) => (Ok(document), store, last_page),
             Err(e) => {
@@ -86,7 +86,7 @@ impl Backend for DocMuPdf {
         self.path.clone()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 
@@ -334,7 +334,7 @@ fn open(path: &Path) -> Result<mupdf::Document, mupdf::Error> {
     }
 }
 
-fn list_pages(filename: &Path) -> MviewResult<(mupdf::Document, Vec<Row>, i32)> {
+fn list_pages(filename: &Path) -> MviewResult<(mupdf::Document, Vec<FileRow>, i32)> {
     let duration = Performance::start();
     let doc = open(filename)?;
     let page_count = doc.page_count()? as u32;
@@ -344,7 +344,7 @@ fn list_pages(filename: &Path) -> MviewResult<(mupdf::Document, Vec<Row>, i32)> 
         let classification = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            result.push(Row::new_index(classification, page, 0, 0, i as u64));
+            result.push(FileRow::new_index(classification, page, 0, 0, i as u64));
         }
         duration.elapsed("mupdf list");
         Ok((doc, result, page_count as i32 - 1))

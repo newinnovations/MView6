@@ -22,14 +22,14 @@ use std::path::PathBuf;
 use crate::{
     backends::ImageParams,
     content::Content,
-    file_view::{BackendRef, Cursor, ItemRef, Row, Target},
+    file_view::{BackendRef, Cursor, FileRow, ItemRef, Target},
 };
 
 use super::Backend;
 
 #[derive(Clone)]
 pub struct NoneBackend {
-    store: Vec<Row>,
+    store: Vec<FileRow>,
 }
 
 impl NoneBackend {
@@ -55,7 +55,7 @@ impl Backend for NoneBackend {
         "invalid".into()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 

@@ -30,7 +30,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::Content,
     error::MviewResult,
-    file_view::{BackendRef, Cursor, ItemRef, Reference, Row},
+    file_view::{BackendRef, Cursor, FileRow, ItemRef, Reference},
     image::{draw_error, InternalImageLoader, InternalReader},
     mview6_error,
     profile::performance::Performance,
@@ -63,7 +63,7 @@ impl MarEntry {
 
 pub struct MarArchive {
     path: PathBuf,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
 }
 
 impl MarArchive {
@@ -97,7 +97,7 @@ impl Backend for MarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 
@@ -129,7 +129,7 @@ fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Content> {
     image
 }
 
-fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
+fn list_mar(mar_file: &Path) -> Result<Vec<FileRow>> {
     let mut result = Vec::new();
     let fname = std::path::Path::new(mar_file);
     let file = fs::File::open(fname)?;
@@ -157,7 +157,7 @@ fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
             continue;
         }
 
-        result.push(Row::new_index(
+        result.push(FileRow::new_index(
             classification,
             entry.filename.to_string(),
             file_size,

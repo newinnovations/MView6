@@ -32,7 +32,7 @@ use std::{
 use crate::{
     backends::PageMode,
     content::paginated::{PaginatedContent, PaginatedContentData},
-    file_view::{BackendRef, Reference, Row},
+    file_view::{BackendRef, FileRow, Reference},
     image::{
         Animation, AnimationImage, DualImage, GdkImageLoader, SingleImage, TransparencyMode, Zoom,
         ZoomMode,
@@ -281,7 +281,7 @@ impl Content {
         }
     }
 
-    pub fn new_list(path: &Path, reference: BackendRef, list: Vec<Row>) -> Self {
+    pub fn new_list(path: &Path, reference: BackendRef, list: Vec<FileRow>) -> Self {
         let paginated = PaginatedContent::new_list(path, reference, list);
         Self::new_paginated(paginated)
     }

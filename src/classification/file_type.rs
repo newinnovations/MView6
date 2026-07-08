@@ -21,7 +21,8 @@ use std::{collections::HashSet, path::Path};
 
 use crate::{classification::file_formats::FileFormat, image::Color};
 
-#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, gtk4::glib::Enum)]
+#[enum_type(name = "mv6FileType")]
 #[repr(u32)]
 pub enum FileType {
     Folder = 0,

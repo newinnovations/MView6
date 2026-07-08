@@ -28,10 +28,9 @@ use resvg::usvg::Tree;
 use syntect::{easy::HighlightLines, highlighting::Style};
 
 use crate::{
-    classification::FileType,
     config::config,
     error::MviewResult,
-    file_view::{BackendRef, Direction, ItemRef, Reference, Row},
+    file_view::{BackendRef, Direction, FileRow, ItemRef, Reference},
     image::{Color, MViewColor, TextCanvas},
     mview6_error,
     profile::performance::Performance,
@@ -215,11 +214,11 @@ fn limit_string(s: &str) -> String {
 pub struct ListContent {
     pub path: PathBuf,
     pub reference: BackendRef,
-    pub list: Arc<Vec<Row>>,
+    pub list: Arc<Vec<FileRow>>,
 }
 
 impl ListContent {
-    pub fn new(path: PathBuf, reference: BackendRef, list: Vec<Row>) -> Self {
+    pub fn new(path: PathBuf, reference: BackendRef, list: Vec<FileRow>) -> Self {
         Self {
             path,
             reference,
@@ -245,8 +244,8 @@ impl ListContent {
             .take(LINES_PER_PAGE)
         {
             // dbg!(sheet.pos());
-            let modified_text = if row.modified > 0 {
-                if let LocalResult::Single(dt) = Local.timestamp_opt(row.modified as i64, 0) {
+            let modified_text = if row.modified() > 0 {
+                if let LocalResult::Single(dt) = Local.timestamp_opt(row.modified() as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()
                 } else {
                     String::default()
@@ -254,15 +253,15 @@ impl ListContent {
             } else {
                 String::default()
             };
-            let size_text = if row.size > 0 {
-                human_bytes(row.size as f64)
+            let size_text = if row.size() > 0 {
+                human_bytes(row.size() as f64)
             } else {
                 String::default()
             };
-            let content = FileType::from(row.file_type);
+            let content = row.file_type();
             let content_short = content.short();
             let colors = content.colors();
-            let name = ellipsis_middle(&row.name, 59);
+            let name = ellipsis_middle(&row.name(), 59);
             let line = format!(
                 "{content_short} {modified_text:<19} {size_text:>10} {}",
                 name
@@ -288,7 +287,7 @@ impl ListContent {
         Ok(sheet.into_svg_tree()?)
     }
 
-    pub fn double_click(&self, position: PointD, page: usize) -> Option<&Row> {
+    pub fn double_click(&self, position: PointD, page: usize) -> Option<&FileRow> {
         // let idx = (position.y() - 80.7) / 21.0;
         let idx = (position.y() - 76.0) / 21.0;
         if idx < 0.0 {
@@ -310,14 +309,22 @@ impl ListContent {
         match sort {
             // "0a" => x.sort_by_key(|r| r.category),          // Ascending
             // "0d" => x.sort_by_key(|r| Reverse(r.category)), // Descending
-            "0a" => list.sort_by(|a, b| a.file_type.cmp(&b.file_type).then(a.name.cmp(&b.name))), // Ascending
-            "0d" => list.sort_by(|a, b| b.file_type.cmp(&a.file_type).then(b.name.cmp(&a.name))), // Descending
-            "1a" => list.sort_by(|a, b| a.name.cmp(&b.name)), // Ascending
-            "1d" => list.sort_by(|a, b| b.name.cmp(&a.name)), // Descending
-            "2a" => list.sort_by_key(|a| a.size),             // Ascending
-            "2d" => list.sort_by_key(|b| std::cmp::Reverse(b.size)), // Descending
-            "3a" => list.sort_by_key(|a| a.modified),         // Ascending
-            "3d" => list.sort_by_key(|b| std::cmp::Reverse(b.modified)), // Descending
+            "0a" => list.sort_by(|a, b| {
+                a.file_type()
+                    .cmp(&b.file_type())
+                    .then(a.name().cmp(&b.name()))
+            }), // Ascending
+            "0d" => list.sort_by(|a, b| {
+                b.file_type()
+                    .cmp(&a.file_type())
+                    .then(b.name().cmp(&a.name()))
+            }), // Descending
+            "1a" => list.sort_by_key(|a| a.name()), // Ascending
+            "1d" => list.sort_by_key(|b| std::cmp::Reverse(b.name())), // Descending
+            "2a" => list.sort_by_key(|a| a.size()), // Ascending
+            "2d" => list.sort_by_key(|b| std::cmp::Reverse(b.size())), // Descending
+            "3a" => list.sort_by_key(|a| a.modified()), // Ascending
+            "3d" => list.sort_by_key(|b| std::cmp::Reverse(b.modified())), // Descending
             _ => (),
         };
         self.list = list.into();
@@ -356,7 +363,7 @@ impl PaginatedContent {
         }
     }
 
-    pub fn new_list<P: AsRef<Path>>(path: P, reference: BackendRef, list: Vec<Row>) -> Self {
+    pub fn new_list<P: AsRef<Path>>(path: P, reference: BackendRef, list: Vec<FileRow>) -> Self {
         Self {
             data: PaginatedContentData::List(ListContent {
                 path: path.as_ref().into(),

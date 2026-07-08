@@ -30,7 +30,7 @@ use crate::{
     backends::thumbnail::model::TParent,
     classification::{FileClassification, FileType},
     content::Content,
-    file_view::{BackendRef, Cursor, Entry, FileRow, ItemRef, Row, Target},
+    file_view::{BackendRef, Cursor, Entry, FileRow, ItemRef, Target},
     image::thumbnail_sheet,
     rect::PointD,
 };
@@ -52,7 +52,7 @@ pub struct Thumbnail {
     parent_target: Target,
     parent_focus_pos: Cell<i32>,
     parent_store: gio::ListModel,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
 }
 
 impl Thumbnail {
@@ -104,7 +104,7 @@ impl Thumbnail {
         }
     }
 
-    fn create_store(capacity: u32, num_items: u32) -> Vec<Row> {
+    fn create_store(capacity: u32, num_items: u32) -> Vec<FileRow> {
         let mut result = Vec::new();
         // capacity = 10  num_items =  0..10 => pages = 1
         // capacity = 10  num_items = 11..20 => pages = 2
@@ -118,7 +118,7 @@ impl Thumbnail {
         let classification = FileType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
-            result.push(Row::new_index(classification, name, 0, 0, page as u64));
+            result.push(FileRow::new_index(classification, name, 0, 0, page as u64));
         }
         result
     }
@@ -144,8 +144,7 @@ impl Thumbnail {
         let start = page * self.capacity();
         if let Some(obj) = self.parent_store.item(start as u32) {
             if let Ok(file_row) = obj.downcast::<FileRow>() {
-                let mut cursor =
-                    Cursor::new(self.parent_store.clone(), None, file_row, start as u32);
+                let mut cursor = Cursor::new(self.parent_store.clone(), file_row, start as u32);
                 for row in 0..self.dim.capacity_y {
                     for col in 0..self.dim.capacity_x {
                         let source = Entry {
@@ -187,7 +186,7 @@ impl Backend for Thumbnail {
         Path::new("thumbnail").into()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 
@@ -230,7 +229,7 @@ impl Backend for Thumbnail {
             let backend = self.parent_backend.borrow();
             if let Some(obj) = self.parent_store.item(idx as u32) {
                 if let Ok(file_row) = obj.downcast::<FileRow>() {
-                    let cursor = Cursor::new(self.parent_store.clone(), None, file_row, idx as u32);
+                    let cursor = Cursor::new(self.parent_store.clone(), file_row, idx as u32);
                     let source = backend.reference(&cursor);
                     drop(backend);
                     // Moves the parent backend out (one-shot).

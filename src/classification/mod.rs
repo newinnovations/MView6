@@ -20,7 +20,9 @@
 mod file_classification;
 mod file_formats;
 mod file_type;
+mod preference;
 
-pub use file_classification::{FileClassification, Preference};
+pub use file_classification::FileClassification;
 pub use file_formats::{DocumentFormat, FileFormat, ImageFormat};
 pub use file_type::FileType;
+pub use preference::Preference;

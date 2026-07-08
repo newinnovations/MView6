@@ -22,10 +22,9 @@ use gtk4::glib::{
 };
 use gtk4::{gio, prelude::ListModelExt, SortType};
 
-use super::model::file_row::FileRow;
 use crate::{
-    classification::{FileClassification, FileType, Preference},
-    file_view::{Column, Cursor, Direction, Filter, Target},
+    classification::FileClassification,
+    file_view::{Column, Cursor, Direction, FileRow, Filter, Target},
     window::MViewWindow,
 };
 
@@ -150,7 +149,6 @@ impl FileView {
 
     pub fn current(&self) -> Option<Cursor> {
         if let Some(store) = self.store() {
-            let source_store = self.source_store();
             if let Some(selection_model) = self
                 .model()
                 .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
@@ -159,7 +157,7 @@ impl FileView {
                 if selected_idx != gtk4::INVALID_LIST_POSITION {
                     if let Some(obj) = store.item(selected_idx) {
                         if let Ok(file_row) = obj.downcast::<FileRow>() {
-                            return Some(Cursor::new(store, source_store, file_row, selected_idx));
+                            return Some(Cursor::new(store, file_row, selected_idx));
                         }
                     }
                 }
@@ -167,7 +165,7 @@ impl FileView {
             if store.n_items() > 0 {
                 if let Some(obj) = store.item(0) {
                     if let Ok(file_row) = obj.downcast::<FileRow>() {
-                        return Some(Cursor::new(store, source_store, file_row, 0));
+                        return Some(Cursor::new(store, file_row, 0));
                     }
                 }
             }
@@ -240,15 +238,15 @@ impl FileView {
             loop {
                 if let Some(obj) = store.item(idx) {
                     if let Ok(file_row) = obj.downcast::<FileRow>() {
-                        let row = file_row.row();
-                        let row_ref = row.as_ref().unwrap();
+                        // let row = file_row.row();
+                        // let row_ref = row.as_ref().unwrap();
                         let matches = match target {
-                            Target::Name(filename) => *filename == row_ref.name,
-                            Target::Index(index) => *index == row_ref.index(),
+                            Target::Name(filename) => *filename == file_row.name(),
+                            Target::Index(index) => *index == file_row.index(),
                             _ => {
                                 let category = FileClassification::new(
-                                    FileType::from(row_ref.file_type),
-                                    Preference::from_icon(row_ref.preference_icon()),
+                                    file_row.file_type(),
+                                    file_row.preference(),
                                 );
                                 filter.matches(category)
                             }

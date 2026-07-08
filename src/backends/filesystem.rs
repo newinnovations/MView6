@@ -23,7 +23,7 @@ use crate::{
     content::{Content, ContentLoader},
     error::MviewResult,
     file_view::{
-        Cursor, Direction, Target, {BackendRef, ItemRef, Reference, Row},
+        Cursor, Direction, Target, {BackendRef, FileRow, ItemRef, Reference},
     },
     image::{InternalImageLoader, RsImageLoader},
     mview6_error,
@@ -61,7 +61,7 @@ fn remove_marker(filename: &str, marker: &str) -> String {
 
 pub struct FileSystem {
     directory: PathBuf,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
 }
 
 impl FileSystem {
@@ -72,7 +72,7 @@ impl FileSystem {
         })
     }
 
-    fn read_directory(current_dir: &Path) -> io::Result<Vec<Row>> {
+    fn read_directory(current_dir: &Path) -> io::Result<Vec<FileRow>> {
         let mut result = Vec::new();
         for entry in read_dir(current_dir)? {
             let entry = entry?;
@@ -101,7 +101,7 @@ impl FileSystem {
 
             let classification = FileClassification::determine(&path, metadata.is_dir());
 
-            result.push(Row::new(
+            result.push(FileRow::new(
                 classification,
                 filename.to_string(),
                 size,
@@ -144,7 +144,7 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 

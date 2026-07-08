@@ -23,7 +23,7 @@ use crate::{
     config::config,
     content::{Content, ContentLoader},
     file_view::{
-        Cursor, Target, {BackendRef, ItemRef, Row},
+        Cursor, Target, {BackendRef, FileRow, ItemRef},
     },
 };
 use std::{
@@ -34,7 +34,7 @@ use std::{
 };
 
 pub struct Bookmarks {
-    store: Vec<Row>,
+    store: Vec<FileRow>,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
 }
@@ -48,7 +48,7 @@ impl Bookmarks {
         }
     }
 
-    fn read_bookmarks() -> io::Result<Vec<Row>> {
+    fn read_bookmarks() -> io::Result<Vec<FileRow>> {
         let mut result = Vec::new();
         let config = config();
         for entry in &config.config_file.bookmarks {
@@ -67,7 +67,7 @@ impl Bookmarks {
             };
             let file_size = metadata.len();
             let classification = FileType::Folder.into();
-            result.push(Row::new_folder_index(
+            result.push(FileRow::new_folder_index(
                 classification,
                 entry.name.clone(),
                 file_size,
@@ -89,7 +89,7 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 

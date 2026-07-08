@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::classification::{FileClassification, FileType, Preference};
 
+pub use super::FileRow;
+
 #[derive(Debug, Clone, Copy)]
 #[repr(i32)]
 pub enum Direction {
@@ -77,167 +79,6 @@ pub enum Column {
     PrefIcon,
     ShowPrefIcon,
     Folder,
-}
-
-#[derive(Debug, Clone)]
-pub struct Row {
-    pub file_type: u32,
-    pub name: String,
-    pub size: u64,
-    pub modified: u64,
-    index: u64,
-    content_icon: String,
-    preference_icon: String,
-    show_preference_icon: bool,
-    to_trash: bool,
-    folder: String,
-}
-
-impl Row {
-    pub fn new(classification: FileClassification, name: String, size: u64, modified: u64) -> Self {
-        Self::new_folder_index(classification, name, size, modified, 0, Default::default())
-    }
-
-    pub fn new_index(
-        classification: FileClassification,
-        name: String,
-        size: u64,
-        modified: u64,
-        index: u64,
-    ) -> Self {
-        Self::new_folder_index(
-            classification,
-            name,
-            size,
-            modified,
-            index,
-            Default::default(),
-        )
-    }
-
-    pub fn new_folder_index(
-        classification: FileClassification,
-        name: String,
-        size: u64,
-        modified: u64,
-        index: u64,
-        folder: String,
-    ) -> Self {
-        Row {
-            file_type: classification.file_type_id(),
-            name,
-            size,
-            modified,
-            index,
-            content_icon: classification.file_type_icon().to_string(),
-            preference_icon: classification.preference_icon().to_string(),
-            show_preference_icon: classification.show_preference_icon(),
-            to_trash: false,
-            folder,
-        }
-    }
-
-    pub fn index(&self) -> u64 {
-        self.index
-    }
-
-    pub fn content_icon(&self) -> &str {
-        &self.content_icon
-    }
-
-    pub fn preference_icon(&self) -> &str {
-        if self.to_trash {
-            "mv6-trash"
-        } else {
-            &self.preference_icon
-        }
-    }
-
-    pub fn show_preference_icon(&self) -> bool {
-        self.show_preference_icon || self.to_trash
-    }
-
-    pub fn folder(&self) -> &str {
-        &self.folder
-    }
-
-    pub fn set_preference(&mut self, preference: Preference) {
-        self.preference_icon = preference.icon().to_string();
-        self.show_preference_icon = preference.show_icon();
-    }
-
-    pub fn to_trash(&self) -> bool {
-        self.to_trash
-    }
-
-    pub fn set_to_trash(&mut self, to_trash: bool) {
-        self.to_trash = to_trash;
-    }
-}
-
-pub mod file_row {
-    use super::Row;
-    use glib::subclass::types::ObjectSubclassIsExt;
-    use gtk4::glib;
-
-    glib::wrapper! {
-        pub struct FileRow(ObjectSubclass<imp::FileRow>);
-    }
-
-    impl FileRow {
-        pub fn new(row: Row) -> Self {
-            let obj: Self = glib::Object::builder().build();
-            *obj.imp().row.borrow_mut() = Some(row);
-            obj
-        }
-
-        pub fn row(&self) -> std::cell::Ref<'_, Option<Row>> {
-            self.imp().row.borrow()
-        }
-
-        pub fn row_mut(&self) -> std::cell::RefMut<'_, Option<Row>> {
-            self.imp().row.borrow_mut()
-        }
-    }
-
-    mod imp {
-        use super::Row;
-        use gtk4::glib;
-        use gtk4::subclass::prelude::*;
-        use std::cell::RefCell;
-
-        #[derive(Default)]
-        pub struct FileRow {
-            pub row: RefCell<Option<Row>>,
-        }
-
-        #[glib::object_subclass]
-        impl ObjectSubclass for FileRow {
-            const NAME: &'static str = "FileRow";
-            type Type = super::FileRow;
-            type ParentType = glib::Object;
-        }
-
-        impl ObjectImpl for FileRow {}
-    }
-}
-
-pub use file_row::FileRow;
-
-use gtk4::gio;
-
-impl Column {
-    pub fn empty_store() -> gio::ListStore {
-        gio::ListStore::new::<FileRow>()
-    }
-
-    pub fn store(index: &[Row]) -> gio::ListStore {
-        let store = Self::empty_store();
-        for row in index {
-            store.append(&FileRow::new(row.clone()));
-        }
-        store
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -378,16 +219,16 @@ pub enum ItemRef {
 }
 
 impl ItemRef {
-    pub fn new_from_row(backend: &BackendRef, row: &Row) -> Self {
+    pub fn new_from_row(backend: &BackendRef, row: &FileRow) -> Self {
         match backend {
-            BackendRef::FileSystem(_) => ItemRef::String(row.name.clone()),
-            BackendRef::MarArchive(_) => ItemRef::Index(row.index),
-            BackendRef::RarArchive(_) => ItemRef::String(row.name.clone()),
-            BackendRef::ZipArchive(_) => ItemRef::Index(row.index),
-            BackendRef::Mupdf(_) => ItemRef::Index(row.index),
-            BackendRef::Pdfium(_) => ItemRef::Index(row.index),
-            BackendRef::Thumbnail => ItemRef::Index(row.index),
-            BackendRef::Bookmarks => ItemRef::String(row.folder.clone()),
+            BackendRef::FileSystem(_) => ItemRef::String(row.name()),
+            BackendRef::MarArchive(_) => ItemRef::Index(row.index()),
+            BackendRef::RarArchive(_) => ItemRef::String(row.name()),
+            BackendRef::ZipArchive(_) => ItemRef::Index(row.index()),
+            BackendRef::Mupdf(_) => ItemRef::Index(row.index()),
+            BackendRef::Pdfium(_) => ItemRef::Index(row.index()),
+            BackendRef::Thumbnail => ItemRef::Index(row.index()),
+            BackendRef::Bookmarks => ItemRef::String(row.folder()),
             BackendRef::None => ItemRef::None,
         }
     }

@@ -24,38 +24,25 @@ use gtk4::{
 
 use crate::classification::{FileClassification, FileType, Preference};
 
-use super::model::file_row::FileRow;
-use super::model::{Direction, Filter};
+use super::{Direction, FileRow, Filter};
 
 pub struct Cursor {
     model: gio::ListModel,
-    store: Option<gio::ListStore>,
     file_row: FileRow,
     position: u32,
 }
 
 impl Cursor {
-    pub fn new(
-        model: gio::ListModel,
-        store: Option<gio::ListStore>,
-        file_row: FileRow,
-        position: u32,
-    ) -> Self {
+    pub fn new(model: gio::ListModel, file_row: FileRow, position: u32) -> Self {
         Cursor {
             model,
-            store,
             file_row,
             position,
         }
     }
 
     fn category(&self) -> FileClassification {
-        let row = self.file_row.row();
-        let row_ref = row.as_ref().unwrap();
-        FileClassification::new(
-            FileType::from(row_ref.file_type),
-            Preference::from_icon(row_ref.preference_icon()),
-        )
+        FileClassification::new(self.content(), self.preference())
     }
 
     fn set_position(&mut self, position: u32) -> Option<()> {
@@ -71,22 +58,22 @@ impl Cursor {
 
     /// Value of the index field of the row
     pub fn index(&self) -> u64 {
-        self.file_row.row().as_ref().unwrap().index()
+        self.file_row.index()
     }
 
     /// Value of the name field of the row
     pub fn name(&self) -> String {
-        self.file_row.row().as_ref().unwrap().name.clone()
+        self.file_row.name()
     }
 
     /// Value of the folder field of the row
     pub fn folder(&self) -> String {
-        self.file_row.row().as_ref().unwrap().folder().to_string()
+        self.file_row.folder()
     }
 
     /// Value of the category field of the row (as u32)
     pub fn content_id(&self) -> u32 {
-        self.file_row.row().as_ref().unwrap().file_type
+        self.file_row.file_type() as u32
     }
 
     /// Value of the content field of the row (as ContentType)
@@ -96,34 +83,16 @@ impl Cursor {
 
     /// Value of the preference field of the row (as Preference)
     pub fn preference(&self) -> Preference {
-        Preference::from_icon(self.file_row.row().as_ref().unwrap().preference_icon())
+        self.file_row.preference()
     }
 
     pub fn update(&self, new_preference: Preference, new_filename: &str) {
-        if let Some(ref mut row) = *self.file_row.row_mut() {
-            row.set_preference(new_preference);
-            row.name = new_filename.to_string();
-        }
-        if let Some(store) = &self.store {
-            if let Some(position) = store.find(&self.file_row) {
-                store.items_changed(position, 1, 1);
-            }
-        }
+        self.file_row.set_name(new_filename.to_string());
+        self.file_row.set_preference(new_preference);
     }
 
     pub fn set_to_trash(&self, to_trash: bool) {
-        if let Some(store) = &self.store {
-            if let Some(position) = store.find(&self.file_row) {
-                if let Some(row) = self.file_row.row().as_ref() {
-                    let mut row = row.clone();
-                    row.set_to_trash(to_trash);
-                    let file_row = FileRow::new(row);
-                    store.splice(position, 1, &[file_row]);
-                }
-            }
-        } else if let Some(ref mut row) = *self.file_row.row_mut() {
-            row.set_to_trash(to_trash);
-        }
+        self.file_row.set_trash(to_trash);
     }
 
     pub fn navigate(&mut self, direction: Direction, filter: &Filter, count: u32) -> Option<u32> {

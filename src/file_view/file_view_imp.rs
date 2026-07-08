@@ -36,7 +36,7 @@ use gtk4::{
 };
 use human_bytes::human_bytes;
 
-use super::model::file_row::FileRow;
+use super::FileRow;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(super) struct FileViewColumns {
@@ -101,11 +101,11 @@ impl ObjectImpl for FileViewImp {
         let sorter_type = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
             let b = b.downcast_ref::<FileRow>().unwrap();
-            let a_row = a.row();
-            let b_row = b.row();
-            let a_val = a_row.as_ref().unwrap();
-            let b_val = b_row.as_ref().unwrap();
-            a_val.file_type.cmp(&b_val.file_type).into()
+            // let a_row = a.row();
+            // let b_row = b.row();
+            // let a_val = a_row.as_ref().unwrap();
+            // let b_val = b_row.as_ref().unwrap();
+            a.file_type().cmp(&b.file_type()).into()
         });
         let sorter_type_desc = {
             let sorter_type = sorter_type.clone();
@@ -115,15 +115,11 @@ impl ObjectImpl for FileViewImp {
         let sorter_name = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
             let b = b.downcast_ref::<FileRow>().unwrap();
-            let a_row = a.row();
-            let b_row = b.row();
-            let a_val = a_row.as_ref().unwrap();
-            let b_val = b_row.as_ref().unwrap();
-            a_val
-                .name
-                .to_lowercase()
-                .cmp(&b_val.name.to_lowercase())
-                .into()
+            // let a_row = a.row();
+            // let b_row = b.row();
+            // let a_val = a_row.as_ref().unwrap();
+            // let b_val = b_row.as_ref().unwrap();
+            a.name().to_lowercase().cmp(&b.name().to_lowercase()).into()
         });
         let sorter_name_desc = {
             let sorter_name = sorter_name.clone();
@@ -133,11 +129,11 @@ impl ObjectImpl for FileViewImp {
         let sorter_size = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
             let b = b.downcast_ref::<FileRow>().unwrap();
-            let a_row = a.row();
-            let b_row = b.row();
-            let a_val = a_row.as_ref().unwrap();
-            let b_val = b_row.as_ref().unwrap();
-            a_val.size.cmp(&b_val.size).into()
+            // let a_row = a.row();
+            // let b_row = b.row();
+            // let a_val = a_row.as_ref().unwrap();
+            // let b_val = b_row.as_ref().unwrap();
+            a.size().cmp(&b.size()).into()
         });
         let sorter_size_desc = {
             let sorter_size = sorter_size.clone();
@@ -147,11 +143,11 @@ impl ObjectImpl for FileViewImp {
         let sorter_modified = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
             let b = b.downcast_ref::<FileRow>().unwrap();
-            let a_row = a.row();
-            let b_row = b.row();
-            let a_val = a_row.as_ref().unwrap();
-            let b_val = b_row.as_ref().unwrap();
-            a_val.modified.cmp(&b_val.modified).into()
+            // let a_row = a.row();
+            // let b_row = b.row();
+            // let a_val = a_row.as_ref().unwrap();
+            // let b_val = b_row.as_ref().unwrap();
+            a.modified().cmp(&b.modified()).into()
         });
         let sorter_modified_desc = {
             let sorter_modified = sorter_modified.clone();
@@ -160,11 +156,11 @@ impl ObjectImpl for FileViewImp {
         let sorter_index = gtk4::CustomSorter::new(|a, b| {
             let a = a.downcast_ref::<FileRow>().unwrap();
             let b = b.downcast_ref::<FileRow>().unwrap();
-            let a_row = a.row();
-            let b_row = b.row();
-            let a_val = a_row.as_ref().unwrap();
-            let b_val = b_row.as_ref().unwrap();
-            a_val.index().cmp(&b_val.index()).into()
+            // let a_row = a.row();
+            // let b_row = b.row();
+            // let a_val = a_row.as_ref().unwrap();
+            // let b_val = b_row.as_ref().unwrap();
+            a.index().cmp(&b.index()).into()
         });
 
         self.sorters
@@ -210,11 +206,15 @@ impl ObjectImpl for FileViewImp {
             else {
                 return;
             };
-            let row = file_row.row();
-            let Some(row) = row.as_ref() else {
-                return;
-            };
-            image.set_icon_name(Some(row.content_icon()));
+            // let row = file_row.row();
+            // let Some(row) = row.as_ref() else {
+            //     return;
+            // };
+            // image.set_icon_name(Some(&file_row.icon()));
+            file_row
+                .bind_property("file-icon", &image, "icon-name")
+                .sync_create() // Applies the current initial state immediately
+                .build();
         });
         let col_category = ColumnViewColumn::new(None, Some(factory_category.clone()));
         col_category.set_fixed_width(30);
@@ -278,16 +278,27 @@ impl ObjectImpl for FileViewImp {
                 return;
             };
 
-            // 6. Safe reference check for the row data
-            let row = file_row.row();
-            let Some(row) = row.as_ref() else {
-                return;
-            };
+            // // 6. Safe reference check for the row data
+            // let row = file_row.row();
+            // let Some(row) = row.as_ref() else {
+            //     return;
+            // };
 
             // 7. Safe UI Updates
-            image.set_icon_name(Some(row.preference_icon()));
-            image.set_visible(row.show_preference_icon());
-            label.set_text(&row.name);
+            // image.set_icon_name(Some(file_row.preference().icon()));
+            // image.set_visible(file_row.preference().show_icon());
+
+            file_row
+                .bind_property("pref-icon", &image, "icon-name")
+                .sync_create() // Applies the current initial state immediately
+                .build();
+
+            file_row
+                .bind_property("pref-icon-visible", &image, "visible")
+                .sync_create() // Applies the current initial state immediately
+                .build();
+
+            label.set_text(&file_row.name());
         });
         let col_name = ColumnViewColumn::new(Some("Name"), Some(factory_name.clone()));
         col_name.set_fixed_width(300);
@@ -320,11 +331,11 @@ impl ObjectImpl for FileViewImp {
             else {
                 return;
             };
-            let row = file_row.row();
-            let Some(row) = row.as_ref() else {
-                return;
-            };
-            let size = row.size;
+            // let row = file_row.row();
+            // let Some(row) = row.as_ref() else {
+            //     return;
+            // };
+            let size = file_row.size();
             let modified_text = if size > 0 {
                 human_bytes(size as f64)
             } else {
@@ -363,11 +374,7 @@ impl ObjectImpl for FileViewImp {
             else {
                 return;
             };
-            let row = file_row.row();
-            let Some(row) = row.as_ref() else {
-                return;
-            };
-            let modified = row.modified;
+            let modified = file_row.modified();
             let modified_text = if modified > 0 {
                 if let LocalResult::Single(dt) = Local.timestamp_opt(modified as i64, 0) {
                     dt.format("%d-%m-%Y %H:%M:%S").to_string()

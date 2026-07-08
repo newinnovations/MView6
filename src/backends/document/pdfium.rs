@@ -30,7 +30,7 @@ use crate::{
     content::Content,
     error::MviewResult,
     file_view::{
-        Cursor, {BackendRef, ItemRef, Reference, Row},
+        Cursor, {BackendRef, FileRow, ItemRef, Reference},
     },
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
@@ -41,7 +41,7 @@ use crate::{
 pub struct DocPdfium {
     path: PathBuf,
     document: PdfiumDocument,
-    store: Vec<Row>,
+    store: Vec<FileRow>,
     last_page: i32,
 }
 
@@ -56,7 +56,7 @@ impl DocPdfium {
         })
     }
 
-    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<Row>, i32) {
+    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<FileRow>, i32) {
         match list_pages(filename) {
             Ok((document, store, last_page)) => (Ok(document), store, last_page),
             Err(e) => {
@@ -86,7 +86,7 @@ impl Backend for DocPdfium {
         self.path.clone()
     }
 
-    fn list(&self) -> &[Row] {
+    fn list(&self) -> &[FileRow] {
         &self.store
     }
 
@@ -307,7 +307,7 @@ fn page_render(
     }
 }
 
-fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
+fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<FileRow>, i32)> {
     let duration = Performance::start();
     let document = PdfiumDocument::new_from_path(filename, None)?;
     let page_count = document.page_count();
@@ -317,7 +317,7 @@ fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
         let classification = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            result.push(Row::new_index(classification, page, 0, 0, i as u64));
+            result.push(FileRow::new_index(classification, page, 0, 0, i as u64));
         }
         duration.elapsed("pdfium list");
         Ok((document, result, page_count - 1))
