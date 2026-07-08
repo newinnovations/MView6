@@ -28,7 +28,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{BackendRef, Cursor, FileRow, ItemRef, Reference},
+    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
@@ -37,7 +37,7 @@ use crate::{
 
 pub struct RarArchive {
     path: PathBuf,
-    store: Vec<FileRow>,
+    store: FileStore,
 }
 
 impl RarArchive {
@@ -75,8 +75,8 @@ impl Backend for RarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
@@ -134,8 +134,8 @@ fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
     })
 }
 
-fn list_rar(rar_file: &Path) -> UnrarResult<Vec<FileRow>> {
-    let mut result = Vec::new();
+fn list_rar(rar_file: &Path) -> UnrarResult<FileStore> {
+    let store = FileRow::empty_store();
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
@@ -149,14 +149,14 @@ fn list_rar(rar_file: &Path) -> UnrarResult<Vec<FileRow>> {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        result.push(FileRow::new(
+        store.append(&FileRow::new(
             classification,
             name.to_string(),
             file_size,
             modified,
         ));
     }
-    Ok(result)
+    Ok(store)
 }
 
 pub fn unix_from_msdos(dostime: u32) -> u64 {

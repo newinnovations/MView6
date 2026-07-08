@@ -8,7 +8,9 @@ use crate::classification::FileClassification;
 
 pub use reference::{BackendRef, Column, Direction, Entry, Filter, ItemRef, Reference, Target};
 
-type FileStore = gio::ListStore;
+// Cloning a gio::ListStore is a very cheap O(1) operation. It simply creates a new Rust wrapper around
+// the underlying C pointer and increments the reference count of the object.
+pub type FileStore = gio::ListStore;
 
 glib::wrapper! {
     pub struct FileRow(ObjectSubclass<imp::FileRow>);
@@ -79,13 +81,5 @@ impl FileRow {
 
     pub fn empty_store() -> FileStore {
         FileStore::new::<Self>()
-    }
-
-    pub fn store(index: &[Self]) -> FileStore {
-        let store = Self::empty_store();
-        for row in index {
-            store.append(row);
-        }
-        store
     }
 }

@@ -22,20 +22,20 @@ use std::path::PathBuf;
 use crate::{
     backends::ImageParams,
     content::Content,
-    file_view::{BackendRef, Cursor, FileRow, ItemRef, Target},
+    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Target},
 };
 
 use super::Backend;
 
 #[derive(Clone)]
 pub struct NoneBackend {
-    store: Vec<FileRow>,
+    store: FileStore,
 }
 
 impl NoneBackend {
     pub fn new() -> Self {
         NoneBackend {
-            store: Default::default(),
+            store: FileRow::empty_store(),
         }
     }
 }
@@ -55,8 +55,8 @@ impl Backend for NoneBackend {
         "invalid".into()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {

@@ -30,7 +30,7 @@ use crate::{
     backends::thumbnail::model::TParent,
     classification::{FileClassification, FileType},
     content::Content,
-    file_view::{BackendRef, Cursor, Entry, FileRow, ItemRef, Target},
+    file_view::{BackendRef, Cursor, Entry, FileRow, FileStore, ItemRef, Target},
     image::thumbnail_sheet,
     rect::PointD,
 };
@@ -52,7 +52,7 @@ pub struct Thumbnail {
     parent_target: Target,
     parent_focus_pos: Cell<i32>,
     parent_store: gio::ListModel,
-    store: Vec<FileRow>,
+    store: FileStore,
 }
 
 impl Thumbnail {
@@ -92,7 +92,7 @@ impl Thumbnail {
         };
 
         let capacity = dim.capacity() as u32;
-        let num_items = parent.backend.list().len() as u32;
+        let num_items = parent.backend.list().n_items();
 
         Thumbnail {
             dim,
@@ -104,8 +104,8 @@ impl Thumbnail {
         }
     }
 
-    fn create_store(capacity: u32, num_items: u32) -> Vec<FileRow> {
-        let mut result = Vec::new();
+    fn create_store(capacity: u32, num_items: u32) -> FileStore {
+        let store = FileRow::empty_store();
         // capacity = 10  num_items =  0..10 => pages = 1
         // capacity = 10  num_items = 11..20 => pages = 2
         // capacity = 10  num_items = 21..30 => pages = 3 ...
@@ -118,9 +118,9 @@ impl Thumbnail {
         let classification = FileType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
-            result.push(FileRow::new_index(classification, name, 0, 0, page as u64));
+            store.append(&FileRow::new_index(classification, name, 0, 0, page as u64));
         }
-        result
+        store
     }
 
     pub fn capacity(&self) -> i32 {
@@ -186,8 +186,8 @@ impl Backend for Thumbnail {
         Path::new("thumbnail").into()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -207,7 +207,7 @@ impl Backend for Thumbnail {
                 self.parent_focus_pos.set(page * capacity);
             }
         }
-        let caption = format!("{} of {}", page + 1, self.store.len());
+        let caption = format!("{} of {}", page + 1, self.store.n_items());
         let image = match thumbnail_sheet(self.dim.width, self.dim.height, MARGIN, &caption) {
             Ok(image) => image,
             Err(_) => {

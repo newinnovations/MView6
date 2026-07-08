@@ -27,6 +27,6 @@ pub use cursor::Cursor;
 pub use file_view_imp::FileViewImp;
 pub use file_view_obj::FileView;
 pub use model::{
-    BackendRef, Column, Direction, Entry, FileRow, Filter, ItemRef, Reference, Target,
+    BackendRef, Column, Direction, Entry, FileRow, FileStore, Filter, ItemRef, Reference, Target,
 };
 pub use sort::Sort;

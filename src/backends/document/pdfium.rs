@@ -30,7 +30,7 @@ use crate::{
     content::Content,
     error::MviewResult,
     file_view::{
-        Cursor, {BackendRef, FileRow, ItemRef, Reference},
+        Cursor, {BackendRef, FileRow, FileStore, ItemRef, Reference},
     },
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
@@ -41,7 +41,7 @@ use crate::{
 pub struct DocPdfium {
     path: PathBuf,
     document: PdfiumDocument,
-    store: Vec<FileRow>,
+    store: FileStore,
     last_page: i32,
 }
 
@@ -56,12 +56,12 @@ impl DocPdfium {
         })
     }
 
-    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<FileRow>, i32) {
+    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, FileStore, i32) {
         match list_pages(filename) {
             Ok((document, store, last_page)) => (Ok(document), store, last_page),
             Err(e) => {
                 eprintln!("ERROR {e:?}");
-                (Err(e), Default::default(), Default::default())
+                (Err(e), FileRow::empty_store(), Default::default())
             }
         }
     }
@@ -86,8 +86,8 @@ impl Backend for DocPdfium {
         self.path.clone()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
@@ -307,20 +307,20 @@ fn page_render(
     }
 }
 
-fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<FileRow>, i32)> {
+fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, FileStore, i32)> {
     let duration = Performance::start();
     let document = PdfiumDocument::new_from_path(filename, None)?;
     let page_count = document.page_count();
-    let mut result = Vec::new();
+    let store = FileRow::empty_store();
     println!("Total pages: {page_count}");
     if page_count > 0 {
         let classification = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            result.push(FileRow::new_index(classification, page, 0, 0, i as u64));
+            store.append(&FileRow::new_index(classification, page, 0, 0, i as u64));
         }
         duration.elapsed("pdfium list");
-        Ok((document, result, page_count - 1))
+        Ok((document, store, page_count - 1))
     } else {
         mview6_error!("No pages in document").into()
     }

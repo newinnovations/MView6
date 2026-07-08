@@ -22,7 +22,7 @@ use gtk4::prelude::{GtkWindowExt, WidgetExt};
 
 use crate::{
     backends::{thumbnail::Thumbnail, Backend},
-    file_view::{FileRow, Filter, Reference, Sort, Target},
+    file_view::{Filter, Reference, Sort, Target},
     util::path_to_filename,
 };
 
@@ -53,7 +53,7 @@ impl MViewWindowImp {
             Sort::sort_on_category()
         };
 
-        let new_store = FileRow::store(new_backend.list());
+        let new_store = new_backend.list();
         let sorter = w.file_view.model_sorter().unwrap();
         let sort_model = gtk4::SortListModel::new(Some(new_store), Some(sorter));
         let selection_model = gtk4::SingleSelection::new(Some(sort_model));

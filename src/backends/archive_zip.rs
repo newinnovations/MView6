@@ -32,7 +32,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{BackendRef, Cursor, FileRow, ItemRef, Reference},
+    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, InternalImageLoader, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
@@ -41,7 +41,7 @@ use crate::{
 
 pub struct ZipArchive {
     path: PathBuf,
-    store: Vec<FileRow>,
+    store: FileStore,
 }
 
 impl ZipArchive {
@@ -92,8 +92,8 @@ impl Backend for ZipArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
@@ -138,8 +138,8 @@ fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_zip(zip_file: &Path) -> ZipResult<Vec<FileRow>> {
-    let mut result = Vec::new();
+fn list_zip(zip_file: &Path) -> ZipResult<FileStore> {
+    let store = FileRow::empty_store();
     let fname = std::path::Path::new(zip_file);
     let file = fs::File::open(fname)?;
     let reader = BufReader::new(file);
@@ -185,7 +185,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<FileRow>> {
             }
         };
 
-        result.push(FileRow::new_index(
+        store.append(&FileRow::new_index(
             classification,
             path_to_filename(&outpath),
             file_size,
@@ -193,5 +193,5 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<FileRow>> {
             index,
         ));
     }
-    Ok(result)
+    Ok(store)
 }

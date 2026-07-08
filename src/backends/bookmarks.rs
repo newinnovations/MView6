@@ -23,7 +23,7 @@ use crate::{
     config::config,
     content::{Content, ContentLoader},
     file_view::{
-        Cursor, Target, {BackendRef, FileRow, ItemRef},
+        Cursor, Target, {BackendRef, FileRow, FileStore, ItemRef},
     },
 };
 use std::{
@@ -34,7 +34,7 @@ use std::{
 };
 
 pub struct Bookmarks {
-    store: Vec<FileRow>,
+    store: FileStore,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
 }
@@ -42,14 +42,14 @@ pub struct Bookmarks {
 impl Bookmarks {
     pub fn new(parent_backend: Box<dyn Backend>, parent_target: Target) -> Self {
         Bookmarks {
-            store: Self::read_bookmarks().unwrap_or_default(),
+            store: Self::read_bookmarks().unwrap_or_else(|_| FileRow::empty_store()),
             parent_backend: parent_backend.into(),
             parent_target,
         }
     }
 
-    fn read_bookmarks() -> io::Result<Vec<FileRow>> {
-        let mut result = Vec::new();
+    fn read_bookmarks() -> io::Result<FileStore> {
+        let store = FileRow::empty_store();
         let config = config();
         for entry in &config.config_file.bookmarks {
             let metadata = match fs::metadata(&entry.folder) {
@@ -67,7 +67,7 @@ impl Bookmarks {
             };
             let file_size = metadata.len();
             let classification = FileType::Folder.into();
-            result.push(FileRow::new_folder_index(
+            store.append(&FileRow::new_folder_index(
                 classification,
                 entry.name.clone(),
                 file_size,
@@ -76,7 +76,7 @@ impl Bookmarks {
                 entry.folder.clone(),
             ));
         }
-        Ok(result)
+        Ok(store)
     }
 }
 
@@ -89,8 +89,8 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {

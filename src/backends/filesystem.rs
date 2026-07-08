@@ -23,7 +23,7 @@ use crate::{
     content::{Content, ContentLoader},
     error::MviewResult,
     file_view::{
-        Cursor, Direction, Target, {BackendRef, FileRow, ItemRef, Reference},
+        Cursor, Direction, Target, {BackendRef, FileRow, FileStore, ItemRef, Reference},
     },
     image::{InternalImageLoader, RsImageLoader},
     mview6_error,
@@ -61,7 +61,7 @@ fn remove_marker(filename: &str, marker: &str) -> String {
 
 pub struct FileSystem {
     directory: PathBuf,
-    store: Vec<FileRow>,
+    store: FileStore,
 }
 
 impl FileSystem {
@@ -72,8 +72,8 @@ impl FileSystem {
         })
     }
 
-    fn read_directory(current_dir: &Path) -> io::Result<Vec<FileRow>> {
-        let mut result = Vec::new();
+    fn read_directory(current_dir: &Path) -> io::Result<FileStore> {
+        let store = FileRow::empty_store();
         for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -101,14 +101,14 @@ impl FileSystem {
 
             let classification = FileClassification::determine(&path, metadata.is_dir());
 
-            result.push(FileRow::new(
+            store.append(&FileRow::new(
                 classification,
                 filename.to_string(),
                 size,
                 modified,
             ));
         }
-        Ok(result)
+        Ok(store)
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
@@ -144,8 +144,8 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn list(&self) -> &[FileRow] {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
@@ -267,7 +267,7 @@ impl Backend for FileSystem {
         let directory = &self.directory;
         Some(Box::new(FileSystem {
             directory: directory.into(),
-            store: Self::read_directory(directory).unwrap_or_default(),
+            store: Self::read_directory(directory).unwrap_or_else(|_| FileRow::empty_store()),
         }))
     }
 }

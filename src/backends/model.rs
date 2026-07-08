@@ -35,7 +35,7 @@ use crate::{
     },
     content::Content,
     error::MviewResult,
-    file_view::{BackendRef, Cursor, Direction, FileRow, ItemRef, Reference, Target},
+    file_view::{BackendRef, Cursor, Direction, FileRow, FileStore, ItemRef, Reference, Target},
     image::{SurfaceData, Zoom},
     rect::{PointD, RectD},
     util::path_to_filename,
@@ -51,7 +51,7 @@ pub struct ImageParams<'a> {
 pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
-    fn list(&self) -> &[FileRow];
+    fn list(&self) -> FileStore;
     fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
         false
     }
