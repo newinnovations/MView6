@@ -247,7 +247,7 @@ impl MViewWindowImp {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if backend.can_show_thumbnails() {
-            if let Some(store) = w.file_view.store() {
+            if let Some(store) = w.file_view.list_model() {
                 let position = if let Some((file_row, pos)) = w.file_view.selected() {
                     let target: Target = backend.reference(&file_row).into();
                     (target, pos)

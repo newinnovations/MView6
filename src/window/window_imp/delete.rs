@@ -23,8 +23,7 @@ use glib::clone;
 use glib::subclass::types::ObjectSubclassExt;
 
 use crate::{
-    backends::Backend,
-    file_view::{BackendRef, Direction, ItemRef, Target},
+    file_view::{BackendRef, ItemRef},
     util::show_error_dialog,
     window::window_imp::toast::ToastBuilder,
 };
@@ -32,10 +31,6 @@ use crate::{
 impl MViewWindowImp {
     pub fn delete_current_file(&self, permanent: bool) {
         let w = self.widgets();
-        // let current = match w.file_view.current() {
-        //     Some(c) => c,
-        //     None => return,
-        // };
         let Some((file_row, _)) = w.file_view.selected() else {
             return;
         };
@@ -80,30 +75,11 @@ impl MViewWindowImp {
                     self,
                     move |response| {
                         if response == Ok(1) {
-                            let w = this.widgets();
-                            let next_target = if w.file_view.navigate_item_bool(
-                                Direction::Down,
-                                &this.current_filter.borrow(),
-                                1,
-                            ) {
-                                w.file_view
-                                    .selected()
-                                    .map(|(file_row, _)| Target::Name(file_row.name()))
-                            } else if w.file_view.navigate_item_bool(
-                                Direction::Up,
-                                &this.current_filter.borrow(),
-                                1,
-                            ) {
-                                w.file_view
-                                    .selected()
-                                    .map(|(file_row, _)| Target::Name(file_row.name()))
-                            } else {
-                                None
-                            };
-
-                            if next_target.is_none() {
-                                this.set_backend(<dyn Backend>::none(), &Target::First, true);
-                            }
+                            println!(
+                                "Permanently deleting file: {:?}, {:?}",
+                                file_path,
+                                file_row.name()
+                            );
 
                             let result = if file_path.is_dir() {
                                 std::fs::remove_dir_all(&file_path)
@@ -113,9 +89,10 @@ impl MViewWindowImp {
 
                             match result {
                                 Ok(()) => {
-                                    if let Some(target) = next_target {
-                                        this.reload(&target, false);
-                                    }
+                                    let w = this.widgets();
+                                    w.file_view.remove_row(&file_row);
+                                    w.file_view
+                                        .ensure_selected_filter(&this.current_filter.borrow());
                                 }
                                 Err(e) => {
                                     show_error_dialog(
@@ -123,7 +100,6 @@ impl MViewWindowImp {
                                         "Error Deleting File",
                                         &format!("Failed to permanently delete file: {}", e),
                                     );
-                                    this.reload(&Target::Name(name.clone()), false);
                                 }
                             }
                         }
@@ -131,6 +107,8 @@ impl MViewWindowImp {
                 ),
             );
         } else {
+            println!("Trashing file: {:?}, {:?}", file_path, file_row.name());
+
             file_row.set_trash(true);
 
             let toast = ToastBuilder::new(&format!("Move '{}' to trash", name))

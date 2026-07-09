@@ -17,6 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use glib::object::ObjectExt;
 use gtk4::glib::{
     self, clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
 };
@@ -132,48 +133,21 @@ impl FileView {
         );
     }
 
-    pub fn store(&self) -> Option<gio::ListModel> {
+    pub fn list_model(&self) -> Option<gio::ListModel> {
         self.model()?
             .downcast::<gtk4::SingleSelection>()
             .ok()?
             .model()
     }
 
-    pub fn source_store(&self) -> Option<gio::ListStore> {
-        let model = self.store()?;
-        if let Ok(sort_model) = model.clone().downcast::<gtk4::SortListModel>() {
-            return sort_model.model()?.downcast::<gio::ListStore>().ok();
-        }
-        model.downcast::<gio::ListStore>().ok()
-    }
-
-    pub fn selected(&self) -> Option<(FileRow, u32)> {
-        let store = self.store()?;
-        self.selected_store(&store)
-    }
-
-    pub fn selected_store(&self, store: &gio::ListModel) -> Option<(FileRow, u32)> {
-        if let Some(selection_model) = self
-            .model()
-            .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
-        {
-            let selected_idx = selection_model.selected();
-            if selected_idx != gtk4::INVALID_LIST_POSITION {
-                if let Some(obj) = store.item(selected_idx) {
-                    if let Ok(file_row) = obj.downcast::<FileRow>() {
-                        return Some((file_row, selected_idx));
-                    }
-                }
-            }
-        }
-        if store.n_items() > 0 {
-            if let Some(obj) = store.item(0) {
-                if let Ok(file_row) = obj.downcast::<FileRow>() {
-                    return Some((file_row, 0));
-                }
-            }
-        }
-        None
+    pub fn list_store(&self) -> Option<gio::ListStore> {
+        let base_model = self.list_model()?;
+        let real_model = if base_model.is::<gtk4::SortListModel>() {
+            base_model.downcast::<gtk4::SortListModel>().ok()?.model()?
+        } else {
+            base_model
+        };
+        real_model.downcast::<gio::ListStore>().ok()
     }
 
     pub fn select_index(&self, index: u32) {
@@ -230,7 +204,7 @@ impl FileView {
     }
 
     pub fn goto(&self, target: &Target, filter: &Filter, window: &MViewWindow) {
-        if let Some(store) = self.store() {
+        if let Some(store) = self.list_model() {
             let n = store.n_items();
             if n < 1 {
                 return;
@@ -369,5 +343,19 @@ impl FileView {
 
     pub fn connect_selection_changed<F: Fn() + 'static>(&self, f: F) {
         *self.imp().selection_changed_callback.borrow_mut() = Some(Box::new(f));
+    }
+
+    pub fn trigger_selection_changed(&self) {
+        if let Some(cb) = &*self.imp().selection_changed_callback.borrow() {
+            cb();
+        }
+    }
+
+    pub fn remove_row(&self, file_row: &FileRow) {
+        if let Some(store) = self.list_store() {
+            if let Some(idx) = store.find(file_row) {
+                store.remove(idx);
+            }
+        }
     }
 }

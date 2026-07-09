@@ -67,7 +67,7 @@ impl FileRow {
         if self.preference.get() != preference {
             self.preference.set(preference);
             self.update_preficon();
-            self.obj().notify("preference");
+            // self.obj().notify("preference");
         }
     }
 
@@ -75,12 +75,11 @@ impl FileRow {
         if self.trash.get() != to_trash {
             self.trash.set(to_trash);
             self.update_preficon();
-            self.obj().notify("trash");
+            // self.obj().notify("trash");
         }
     }
 
     fn update_preficon(&self) {
-        println!("Updating preficon {}", self.name.borrow());
         if self.trash.get() {
             self.pref_icon.replace("mv6-trash".to_string());
             self.pref_icon_visible.set(true);
