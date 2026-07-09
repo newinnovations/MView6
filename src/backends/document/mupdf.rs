@@ -29,7 +29,7 @@ use crate::{
     classification::FileType,
     content::Content,
     error::MviewResult,
-    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Reference},
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
     profile::performance::Performance,
@@ -107,10 +107,6 @@ impl Backend for DocMuPdf {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Mupdf(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 
     fn render(

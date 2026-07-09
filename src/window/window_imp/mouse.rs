@@ -24,11 +24,11 @@ use super::MViewWindowImp;
 impl MViewWindowImp {
     pub(super) fn on_mouse_press(&self, position: PointD) {
         let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
+        if let Some((file_row, _)) = w.file_view.selected() {
             let zoom = w.image_view.zoom();
             let backend = self.backend.borrow();
             if let Some((new_backend, goto)) =
-                backend.click(&backend.reference(&current).item, position - zoom.origin())
+                backend.click(&backend.reference(&file_row).item, position - zoom.origin())
             {
                 drop(backend);
                 self.set_backend(new_backend, &goto, true);

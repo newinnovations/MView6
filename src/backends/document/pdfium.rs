@@ -29,9 +29,7 @@ use crate::{
     classification::FileType,
     content::Content,
     error::MviewResult,
-    file_view::{
-        Cursor, {BackendRef, FileRow, FileStore, ItemRef, Reference},
-    },
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, SurfaceData, Zoom},
     mview6_error,
     profile::performance::Performance,
@@ -107,10 +105,6 @@ impl Backend for DocPdfium {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Pdfium(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 
     fn render(

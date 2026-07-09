@@ -49,18 +49,19 @@ impl Filter {
         Self::Set((FileType::all(), Preference::all()))
     }
 
-    pub fn matches(&self, category: FileClassification) -> bool {
+    pub fn matches(&self, classification: FileClassification) -> bool {
         match self {
             Self::None => true,
-            Self::Image => category.file_type == FileType::Image,
-            Self::Liked => category.preference == Preference::Liked,
+            Self::Image => classification.file_type == FileType::Image,
+            Self::Liked => classification.preference == Preference::Liked,
             Self::Container => {
-                category.file_type == FileType::Folder
-                    || category.file_type == FileType::Archive
-                    || category.file_type == FileType::Document
+                classification.file_type == FileType::Folder
+                    || classification.file_type == FileType::Archive
+                    || classification.file_type == FileType::Document
             }
             Self::Set((ref c_set, ref f_set)) => {
-                c_set.contains(&category.file_type) && f_set.contains(&category.preference)
+                c_set.contains(&classification.file_type)
+                    && f_set.contains(&classification.preference)
             }
         }
     }

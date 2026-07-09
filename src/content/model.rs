@@ -366,7 +366,7 @@ impl Content {
         self.exif.as_ref()
     }
 
-    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
+    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: u32, dest_y: u32) {
         if let ContentData::Single(single) = &self.data {
             single.draw_pixbuf(pixbuf, dest_x, dest_y);
         }

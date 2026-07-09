@@ -236,7 +236,7 @@ impl ImageView {
         self.imp().data.borrow().content.size()
     }
 
-    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
+    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: u32, dest_y: u32) {
         let p = self.imp().data.borrow();
         p.content.draw_pixbuf(pixbuf, dest_x, dest_y);
     }

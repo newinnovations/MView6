@@ -24,7 +24,7 @@ use gtk4::{gio, prelude::ListModelExt, SortType};
 
 use crate::{
     classification::FileClassification,
-    file_view::{Column, Cursor, Direction, FileRow, Filter, Target},
+    file_view::{Column, FileRow, Filter, Target},
     window::MViewWindow,
 };
 
@@ -147,26 +147,29 @@ impl FileView {
         model.downcast::<gio::ListStore>().ok()
     }
 
-    pub fn current(&self) -> Option<Cursor> {
-        if let Some(store) = self.store() {
-            if let Some(selection_model) = self
-                .model()
-                .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
-            {
-                let selected_idx = selection_model.selected();
-                if selected_idx != gtk4::INVALID_LIST_POSITION {
-                    if let Some(obj) = store.item(selected_idx) {
-                        if let Ok(file_row) = obj.downcast::<FileRow>() {
-                            return Some(Cursor::new(store, file_row, selected_idx));
-                        }
+    pub fn selected(&self) -> Option<(FileRow, u32)> {
+        let store = self.store()?;
+        self.selected_store(&store)
+    }
+
+    pub fn selected_store(&self, store: &gio::ListModel) -> Option<(FileRow, u32)> {
+        if let Some(selection_model) = self
+            .model()
+            .and_then(|m| m.downcast::<gtk4::SingleSelection>().ok())
+        {
+            let selected_idx = selection_model.selected();
+            if selected_idx != gtk4::INVALID_LIST_POSITION {
+                if let Some(obj) = store.item(selected_idx) {
+                    if let Ok(file_row) = obj.downcast::<FileRow>() {
+                        return Some((file_row, selected_idx));
                     }
                 }
             }
-            if store.n_items() > 0 {
-                if let Some(obj) = store.item(0) {
-                    if let Ok(file_row) = obj.downcast::<FileRow>() {
-                        return Some(Cursor::new(store, file_row, 0));
-                    }
+        }
+        if store.n_items() > 0 {
+            if let Some(obj) = store.item(0) {
+                if let Ok(file_row) = obj.downcast::<FileRow>() {
+                    return Some((file_row, 0));
                 }
             }
         }
@@ -275,24 +278,6 @@ impl FileView {
             let fallback_idx = if *target == Target::First { 0 } else { n - 1 };
             self.goto_idx(window, fallback_idx);
         }
-    }
-
-    pub fn navigate_item(&self, direction: Direction, filter: &Filter, count: u32) {
-        if let Some(mut current) = self.current() {
-            if let Some(new_idx) = current.navigate(direction, filter, count) {
-                self.select_index(new_idx);
-            }
-        }
-    }
-
-    pub fn navigate_item_bool(&self, direction: Direction, filter: &Filter, count: u32) -> bool {
-        if let Some(mut current) = self.current() {
-            if let Some(new_idx) = current.navigate(direction, filter, count) {
-                self.select_index(new_idx);
-                return true;
-            }
-        }
-        false
     }
 
     pub fn set_unsorted(&self) {

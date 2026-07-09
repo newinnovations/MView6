@@ -35,7 +35,7 @@ use crate::{
     },
     content::Content,
     error::MviewResult,
-    file_view::{BackendRef, Cursor, Direction, FileRow, FileStore, ItemRef, Reference, Target},
+    file_view::{BackendRef, Direction, FileRow, FileStore, ItemRef, Reference, Target},
     image::{SurfaceData, Zoom},
     rect::{PointD, RectD},
     util::path_to_filename,
@@ -52,7 +52,7 @@ pub trait Backend {
     fn class_name(&self) -> &str;
     fn path(&self) -> PathBuf;
     fn list(&self) -> FileStore;
-    fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
+    fn set_preference(&self, row: &FileRow, direction: Direction) -> bool {
         false
     }
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -73,9 +73,9 @@ pub trait Backend {
     }
 
     fn backend_ref(&self) -> BackendRef;
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef;
+    // fn item_ref(&self, cursor: &Cursor) -> ItemRef;
 
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
+    fn enter(&self, row: &FileRow) -> Option<Box<dyn Backend>> {
         None
     }
 
@@ -205,11 +205,10 @@ impl dyn Backend {
         }
     }
 
-    pub fn reference(&self, cursor: &Cursor) -> Reference {
-        Reference {
-            backend: self.backend_ref(),
-            item: self.item_ref(cursor),
-        }
+    pub fn reference(&self, row: &FileRow) -> Reference {
+        let backend = self.backend_ref();
+        let item = ItemRef::new_from_row(&backend, row);
+        Reference { backend, item }
     }
 
     pub fn can_show_thumbnails(&self) -> bool {

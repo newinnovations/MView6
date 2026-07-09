@@ -28,7 +28,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Reference},
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
@@ -101,10 +101,6 @@ impl Backend for RarArchive {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::RarArchive(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.name())
     }
 }
 

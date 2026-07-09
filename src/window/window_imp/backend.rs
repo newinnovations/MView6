@@ -106,9 +106,9 @@ impl MViewWindowImp {
             drop(backend);
             let thumbnail = Thumbnail::new(
                 parent,
-                w.image_view.width(),
-                w.image_view.height(),
-                self.thumbnail_size.get(),
+                w.image_view.width().max(0) as u32,
+                w.image_view.height().max(0) as u32,
+                self.thumbnail_size.get().try_into().unwrap_or(0),
             );
             let focus_page = thumbnail.focus_page();
             self.set_backend(<dyn Backend>::thumbnail(thumbnail), &focus_page, false);

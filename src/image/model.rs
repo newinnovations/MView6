@@ -108,7 +108,7 @@ impl SingleImage {
         current_image_zoom.transform_matrix()
     }
 
-    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: i32, dest_y: i32) {
+    pub fn draw_pixbuf(&self, pixbuf: &Pixbuf, dest_x: u32, dest_y: u32) {
         if let Ok(ctx) = Context::new(&self.surface) {
             ctx.set_source_pixbuf(pixbuf, dest_x as f64, dest_y as f64);
             let _ = ctx.paint();

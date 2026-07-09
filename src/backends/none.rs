@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use crate::{
     backends::ImageParams,
     content::Content,
-    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Target},
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Target},
 };
 
 use super::Backend;
@@ -69,9 +69,5 @@ impl Backend for NoneBackend {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::None
-    }
-
-    fn item_ref(&self, _cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(0)
     }
 }

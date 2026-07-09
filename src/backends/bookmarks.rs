@@ -23,7 +23,7 @@ use crate::{
     config::config,
     content::{Content, ContentLoader},
     file_view::{
-        Cursor, Target, {BackendRef, FileRow, FileStore, ItemRef},
+        Target, {BackendRef, FileRow, FileStore, ItemRef},
     },
 };
 use std::{
@@ -93,8 +93,8 @@ impl Backend for Bookmarks {
         self.store.clone()
     }
 
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        <dyn Backend>::new_from_path(Path::new(&cursor.folder())).ok()
+    fn enter(&self, row: &FileRow) -> Option<Box<dyn Backend>> {
+        <dyn Backend>::new_from_path(Path::new(&row.folder())).ok()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -111,9 +111,5 @@ impl Backend for Bookmarks {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Bookmarks
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.folder())
     }
 }

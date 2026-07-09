@@ -32,7 +32,7 @@ use crate::{
     classification::{FileClassification, FileType},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{BackendRef, Cursor, FileRow, FileStore, ItemRef, Reference},
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
     image::{draw_error, InternalImageLoader, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
@@ -118,10 +118,6 @@ impl Backend for ZipArchive {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::ZipArchive(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 }
 

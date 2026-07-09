@@ -248,9 +248,9 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if backend.can_show_thumbnails() {
             if let Some(store) = w.file_view.store() {
-                let position = if let Some(cursor) = w.file_view.current() {
-                    let target: Target = backend.reference(&cursor).into();
-                    (target, cursor.position())
+                let position = if let Some((file_row, pos)) = w.file_view.selected() {
+                    let target: Target = backend.reference(&file_row).into();
+                    (target, pos)
                 } else {
                     (Target::First, 0)
                 };
@@ -263,9 +263,9 @@ impl MViewWindowImp {
                 };
                 let thumbnail = Thumbnail::new(
                     parent,
-                    w.image_view.width(),
-                    w.image_view.height(),
-                    self.thumbnail_size.get(),
+                    w.image_view.width().max(0) as u32,
+                    w.image_view.height().max(0) as u32,
+                    self.thumbnail_size.get().try_into().unwrap_or(0),
                 );
                 let focus_page = thumbnail.focus_page();
                 let thumbnail = <dyn Backend>::thumbnail(thumbnail);
@@ -308,10 +308,10 @@ impl MViewWindowImp {
 
     pub fn create_preview(&self) {
         let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
+        if let Some((file_row, _)) = w.file_view.selected() {
             let backend = self.backend.borrow();
             if backend.is_filesystem() {
-                let fullpath = backend.path().join(current.name());
+                let fullpath = backend.path().join(file_row.name());
                 let preview = Preview::new(FileFormat::from_path(&fullpath), &fullpath);
                 if let Err(error) = preview.create() {
                     eprintln!("Failed to create preview: {error:?}");

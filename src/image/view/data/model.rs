@@ -78,7 +78,7 @@ pub struct ImageViewData {
     pub drag: Option<PointD>,
     pub quality: Filter,
     pub annotations: Option<Annotations>,
-    pub hover: Option<i32>,
+    pub hover: Option<u32>,
     pub shown: bool,
     pub rb_sender: Option<RenderThreadSender>,
     pub hq_redraw_timeout_id: Option<SourceId>,

@@ -82,4 +82,8 @@ impl FileRow {
     pub fn empty_store() -> FileStore {
         FileStore::new::<Self>()
     }
+
+    pub fn classification(&self) -> FileClassification {
+        FileClassification::new(self.file_type(), self.preference())
+    }
 }

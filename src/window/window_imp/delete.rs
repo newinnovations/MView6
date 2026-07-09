@@ -32,9 +32,12 @@ use crate::{
 impl MViewWindowImp {
     pub fn delete_current_file(&self, permanent: bool) {
         let w = self.widgets();
-        let current = match w.file_view.current() {
-            Some(c) => c,
-            None => return,
+        // let current = match w.file_view.current() {
+        //     Some(c) => c,
+        //     None => return,
+        // };
+        let Some((file_row, _)) = w.file_view.selected() else {
+            return;
         };
 
         let (dir_path, name) = {
@@ -43,7 +46,7 @@ impl MViewWindowImp {
                 return;
             }
 
-            let reference = backend.reference(&current);
+            let reference = backend.reference(&file_row);
             match &reference.backend {
                 BackendRef::FileSystem(dir) => {
                     if let ItemRef::String(name) = &reference.item {
@@ -83,13 +86,17 @@ impl MViewWindowImp {
                                 &this.current_filter.borrow(),
                                 1,
                             ) {
-                                w.file_view.current().map(|c| Target::Name(c.name()))
+                                w.file_view
+                                    .selected()
+                                    .map(|(file_row, _)| Target::Name(file_row.name()))
                             } else if w.file_view.navigate_item_bool(
                                 Direction::Up,
                                 &this.current_filter.borrow(),
                                 1,
                             ) {
-                                w.file_view.current().map(|c| Target::Name(c.name()))
+                                w.file_view
+                                    .selected()
+                                    .map(|(file_row, _)| Target::Name(file_row.name()))
                             } else {
                                 None
                             };
@@ -124,7 +131,7 @@ impl MViewWindowImp {
                 ),
             );
         } else {
-            current.set_to_trash(true);
+            file_row.set_trash(true);
 
             let toast = ToastBuilder::new(&format!("Move '{}' to trash", name))
                 .button_label("Undo")
@@ -145,13 +152,13 @@ impl MViewWindowImp {
             //     if w.file_view
             //         .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
             //     {
-            //         w.file_view.current().map(|c| Target::Name(c.name()))
+            //         w.file_view.current().map(|c| Target::Name(c.file_row().name()))
             //     } else if w.file_view.navigate_item_bool(
             //         Direction::Up,
             //         &self.current_filter.borrow(),
             //         1,
             //     ) {
-            //         w.file_view.current().map(|c| Target::Name(c.name()))
+            //         w.file_view.current().map(|c| Target::Name(c.file_row().name()))
             //     } else {
             //         None
             //     };

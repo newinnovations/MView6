@@ -61,17 +61,17 @@ pub fn draw_error(path: &Path, error: MviewError) -> Content {
     }
 }
 
-pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Content> {
-    let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width, height)?;
+pub fn thumbnail_sheet(width: u32, height: u32, margin: u32, text: &str) -> MviewResult<Content> {
+    let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width as i32, height as i32)?;
     let context = Context::new(&surface)?;
     context.color(Color::Black);
     context.paint()?;
 
-    let mut logo_width = margin + logo(&context, 0, 0, 30.0, false)? as i32;
+    let mut logo_width = margin + logo(&context, 0, 0, 30.0, false)? as u32;
 
     context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(20.0);
-    let caption_width = context.text_extents(text)?.width() as i32;
+    let caption_width = context.text_extents(text)?.width() as u32;
 
     if caption_width + logo_width + margin > width {
         logo_width = 0;
@@ -87,7 +87,13 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
     }
 
     if logo_width != 0 {
-        logo(&context, width - margin, height - margin, 30.0, true)?;
+        logo(
+            &context,
+            width as i32 - margin as i32,
+            height as i32 - margin as i32,
+            30.0,
+            true,
+        )?;
     }
 
     Ok(Content::new_surface_nozoom(surface))

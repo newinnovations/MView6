@@ -153,16 +153,22 @@ pub fn handle_thumbnail_result(
                     Some(thumb_pb)
                 };
 
+                let size = result.task.size;
+
                 if let Some(thumb_pb) = thumb_pb {
                     let (x, y) = result.task.position;
-                    let dest_x = x + (size - thumb_pb.width()) / 2;
-                    let dest_y = y + (size - thumb_pb.height()) / 2;
+                    let dest_x = x + (size.saturating_sub(thumb_pb.width() as u32)) / 2;
+                    let dest_y = y + (size.saturating_sub(thumb_pb.height() as u32)) / 2;
 
                     image_view.draw_pixbuf(&thumb_pb, dest_x, dest_y);
                     // ongoing
                     if let Some(task) = command.tasks.get_mut(result.task.id as usize) {
-                        task.annotation.position =
-                            TRect::new_i32(dest_x, dest_y, thumb_pb.width(), thumb_pb.height());
+                        task.annotation.position = TRect::new_u32(
+                            dest_x,
+                            dest_y,
+                            thumb_pb.width() as u32,
+                            thumb_pb.height() as u32,
+                        );
                     }
                 }
             }

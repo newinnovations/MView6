@@ -41,7 +41,7 @@ impl MViewWindowImp {
         // println!("on_cursor_changed skip={}", self.skip_loading.get());
         let w = self.widgets();
         if !self.skip_loading.get() {
-            if let Some(current) = w.file_view.current() {
+            if let Some((file_row, _)) = w.file_view.selected() {
                 let params = ImageParams {
                     tn_sender: Some(&w.tn_sender),
                     page_mode: &self.page_mode.get(),
@@ -50,10 +50,10 @@ impl MViewWindowImp {
                 let backend = self.backend.borrow();
                 self.target_store.borrow_mut().insert(
                     backend.normalized_path(),
-                    TargetTime::new(&backend.reference(&current).into()),
+                    TargetTime::new(&backend.reference(&file_row).into()),
                 );
 
-                let reference = backend.reference(&current);
+                let reference = backend.reference(&file_row);
 
                 let mut content = backend.content(&reference.item, &params);
                 content.sort(&self.current_sort.get().str_repr());
@@ -90,9 +90,9 @@ impl MViewWindowImp {
 
     pub fn dir_enter(&self) {
         let w = self.widgets();
-        if let Some(current) = w.file_view.current() {
+        if let Some((file_row, _)) = w.file_view.selected() {
             let backend = self.backend.borrow();
-            let new_backend = backend.enter(&current);
+            let new_backend = backend.enter(&file_row);
             drop(backend);
             if let Some(new_backend) = new_backend {
                 let target_store = self.target_store.borrow();

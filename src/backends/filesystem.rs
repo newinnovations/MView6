@@ -23,7 +23,7 @@ use crate::{
     content::{Content, ContentLoader},
     error::MviewResult,
     file_view::{
-        Cursor, Direction, Target, {BackendRef, FileRow, FileStore, ItemRef, Reference},
+        Direction, Target, {BackendRef, FileRow, FileStore, ItemRef, Reference},
     },
     image::{InternalImageLoader, RsImageLoader},
     mview6_error,
@@ -148,10 +148,10 @@ impl Backend for FileSystem {
         self.store.clone()
     }
 
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        let content = cursor.content();
-        if content == FileType::Video {
-            let full_path = self.directory.join(cursor.name());
+    fn enter(&self, row: &FileRow) -> Option<Box<dyn Backend>> {
+        let file_type = row.file_type();
+        if file_type == FileType::Video {
+            let full_path = self.directory.join(row.name());
             println!("Launch video external {}", full_path.to_string_lossy());
             let child = Command::new("mpv")
                 .arg(full_path)
@@ -164,11 +164,11 @@ impl Backend for FileSystem {
                 eprintln!("Failed to launch mpv {:?}", error);
             };
             None
-        } else if content == FileType::Folder
-            || content == FileType::Archive
-            || content == FileType::Document
+        } else if file_type == FileType::Folder
+            || file_type == FileType::Archive
+            || file_type == FileType::Document
         {
-            <dyn Backend>::new_from_path(&self.directory.join(cursor.name())).ok()
+            <dyn Backend>::new_from_path(&self.directory.join(row.name())).ok()
         } else {
             None
         }
@@ -210,14 +210,14 @@ impl Backend for FileSystem {
     //     )
     // }
 
-    fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
-        let content = cursor.content();
-        if content != FileType::Image {
+    fn set_preference(&self, row: &FileRow, direction: Direction) -> bool {
+        let file_type = row.file_type();
+        if file_type != FileType::Image {
             //TODO: drop this restriction?
             return false;
         }
 
-        let filename = cursor.name();
+        let filename = row.name();
         let (new_filename, new_preference) = if matches!(direction, Direction::Up) {
             if filename.contains(".hi.") {
                 return true;
@@ -245,7 +245,8 @@ impl Backend for FileSystem {
             self.directory.join(&new_filename),
         ) {
             Ok(()) => {
-                cursor.update(new_preference, &new_filename);
+                row.set_name(new_filename);
+                row.set_preference(new_preference);
                 true
             }
             Err(e) => {
@@ -257,10 +258,6 @@ impl Backend for FileSystem {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::FileSystem(self.directory.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.name())
     }
 
     fn reload(&self) -> Option<Box<dyn Backend>> {

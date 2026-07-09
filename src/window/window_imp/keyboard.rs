@@ -171,8 +171,8 @@ impl MViewWindowImp {
                 self.show_files_widget(true);
                 if !self.backend.borrow().is_bookmarks() {
                     let backend = self.backend.replace(<dyn Backend>::none());
-                    let target = if let Some(cursor) = w.file_view.current() {
-                        backend.reference(&cursor).into()
+                    let target = if let Some((file_row, _)) = w.file_view.selected() {
+                        backend.reference(&file_row).into()
                     } else {
                         Target::First
                     };
@@ -243,11 +243,11 @@ impl MViewWindowImp {
             }
             Key::minus | Key::KP_Subtract => {
                 // w.file_view.set_unsorted();
-                if let Some(current) = w.file_view.current() {
+                if let Some((file_row, _)) = w.file_view.selected() {
                     if self
                         .backend
                         .borrow()
-                        .set_preference(&current, Direction::Down)
+                        .set_preference(&file_row, Direction::Down)
                     {
                         w.file_view
                             .navigate_item(Direction::Down, &Filter::Image, 1);
@@ -256,11 +256,11 @@ impl MViewWindowImp {
             }
             Key::equal | Key::KP_Add => {
                 // w.file_view.set_unsorted();
-                if let Some(current) = w.file_view.current() {
+                if let Some((file_row, _)) = w.file_view.selected() {
                     if self
                         .backend
                         .borrow()
-                        .set_preference(&current, Direction::Up)
+                        .set_preference(&file_row, Direction::Up)
                     {
                         w.file_view
                             .navigate_item(Direction::Down, &Filter::Image, 1);
@@ -391,11 +391,13 @@ impl MViewWindowImp {
                         page_mode: &self.page_mode.get(),
                         allocation_height: self.obj().height(),
                     };
-                    if let Some(mut current) = w.file_view.current() {
+                    if let Some((file_row, _)) = w.file_view.selected() {
                         let b = self.backend.borrow();
-                        let image1 = b.content(&b.reference(&current).item, &params);
-                        if current.next() {
-                            let image2 = b.content(&b.reference(&current).item, &params);
+                        let image1 = b.content(&b.reference(&file_row).item, &params);
+                        if let Some((file_row, _)) =
+                            w.file_view.try_navigate(Direction::Down, &Filter::None, 1)
+                        {
+                            let image2 = b.content(&b.reference(&file_row).item, &params);
                             if let (ContentData::Single(single1), ContentData::Single(single2)) =
                                 (image1.data, image2.data)
                             {
