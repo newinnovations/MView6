@@ -68,6 +68,8 @@ struct ActiveToast {
     overlay: Overlay,
     revealer: Revealer,
     timeout_id: SourceId,
+    label: Label,
+    progress: ProgressBar,
 }
 
 pub struct ToastBuilder {
@@ -105,7 +107,7 @@ impl ToastBuilder {
     pub fn build(self) -> Toast {
         Toast {
             inner: Rc::new(ToastInner {
-                title: self.title,
+                title: RefCell::new(self.title),
                 button_label: self.button_label,
                 action_name: self.action_name,
                 callback: self.callback,
@@ -127,7 +129,7 @@ impl std::fmt::Debug for Toast {
 }
 
 struct ToastInner {
-    title: String,
+    title: RefCell<String>,
     button_label: Option<String>,
     action_name: Option<String>,
     callback: Option<DismissCallback>,
@@ -151,6 +153,46 @@ impl Toast {
         }
     }
 
+    /// Updates the toast's title text and restarts its countdown timer, without
+    /// tearing down the widget or invoking the dismissed callback. Used when a
+    /// bulk action (e.g. moving multiple files to trash) grows while the toast
+    /// is still visible, so the user gets fresh time to undo.
+    pub fn restart(&self, title: &str) {
+        self.inner.title.replace(title.to_string());
+        let mut active_ref = self.inner.active.borrow_mut();
+        if let Some(active) = active_ref.as_mut() {
+            active.label.set_text(title);
+            let _ = remove_source_id(&active.timeout_id);
+            active.timeout_id = self.start_timer(active.progress.clone());
+        }
+    }
+
+    fn start_timer(&self, progress: ProgressBar) -> SourceId {
+        let started = Instant::now();
+        let timeout = Duration::from_secs(TOAST_TIMEOUT.into());
+        progress.set_fraction(1.0);
+        glib::timeout_add_local(
+            TOAST_PROGRESS_INTERVAL,
+            clone!(
+                #[strong(rename_to=this)]
+                self,
+                #[strong]
+                progress,
+                move || {
+                    let elapsed = started.elapsed();
+                    if elapsed >= timeout {
+                        this.dismiss();
+                        ControlFlow::Break
+                    } else {
+                        let remaining = 1.0 - elapsed.as_secs_f64() / timeout.as_secs_f64();
+                        progress.set_fraction(remaining);
+                        ControlFlow::Continue
+                    }
+                }
+            ),
+        )
+    }
+
     fn show(&self, overlay: &Overlay) {
         self.dismiss();
 
@@ -160,7 +202,8 @@ impl Toast {
 
         let content_box = GtkBox::new(Orientation::Horizontal, 12);
         content_box.set_valign(Align::Center);
-        content_box.append(&Label::new(Some(&self.inner.title)));
+        let label = Label::new(Some(&self.inner.title.borrow()));
+        content_box.append(&label);
 
         if let Some(button_label) = self.inner.button_label.as_ref() {
             let button = Button::with_label(button_label);
@@ -189,33 +232,14 @@ impl Toast {
 
         overlay.add_overlay(&revealer);
 
-        let started = Instant::now();
-        let timeout = Duration::from_secs(TOAST_TIMEOUT.into());
-        let timeout_id = glib::timeout_add_local(
-            TOAST_PROGRESS_INTERVAL,
-            clone!(
-                #[strong(rename_to=this)]
-                self,
-                #[strong]
-                progress,
-                move || {
-                    let elapsed = started.elapsed();
-                    if elapsed >= timeout {
-                        this.dismiss();
-                        ControlFlow::Break
-                    } else {
-                        let remaining = 1.0 - elapsed.as_secs_f64() / timeout.as_secs_f64();
-                        progress.set_fraction(remaining);
-                        ControlFlow::Continue
-                    }
-                }
-            ),
-        );
+        let timeout_id = self.start_timer(progress.clone());
 
         self.inner.active.replace(Some(ActiveToast {
             overlay: overlay.clone(),
             revealer,
             timeout_id,
+            label,
+            progress,
         }));
     }
 }

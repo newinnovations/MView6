@@ -38,6 +38,15 @@ impl MViewWindowImp {
     pub(super) fn on_key_press(&self, key: Key, modifiers: ModifierType) {
         let w = self.widgets();
 
+        // While a "move to trash" toast is visible, ESC/Enter/Space cancel it
+        // instead of performing their usual action.
+        if matches!(key, Key::Escape | Key::Return | Key::KP_Enter | Key::space)
+            && self.has_pending_trash()
+        {
+            self.undo_pending_trash();
+            return;
+        }
+
         // PREV = Up, Left, z, KP_8, KP_4, KP_Up, KP_Left
         let prev = matches!(
             key,

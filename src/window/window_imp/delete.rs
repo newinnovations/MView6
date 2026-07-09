@@ -17,18 +17,52 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use super::toast::{Toast, ToastBuilder};
 use super::MViewWindowImp;
+
+use std::path::PathBuf;
 
 use glib::clone;
 use glib::subclass::types::ObjectSubclassExt;
 
+use gio::prelude::FileExt;
+
 use crate::{
-    file_view::{BackendRef, ItemRef},
+    file_view::{BackendRef, Direction, FileRow, ItemRef},
     util::show_error_dialog,
-    window::window_imp::toast::ToastBuilder,
 };
 
+/// A single file that is queued to be moved to the trash once the toast expires.
+pub(super) struct PendingTrashItem {
+    file_row: FileRow,
+    file_path: PathBuf,
+    name: String,
+}
+
+/// Tracks the files queued for a bulk "move to trash" action together with the
+/// toast that lets the user undo it. Pressing DEL again while the toast is
+/// visible appends the newly selected file to `items` and restarts the toast.
+pub(super) struct PendingTrash {
+    items: Vec<PendingTrashItem>,
+    toast: Toast,
+}
+
+impl PendingTrash {
+    fn title(&self) -> String {
+        if self.items.len() == 1 {
+            format!("Move '{}' to trash", self.items[0].name)
+        } else {
+            format!("{} files will be moved to trash", self.items.len())
+        }
+    }
+}
+
 impl MViewWindowImp {
+    /// Returns true if there is a pending (not yet committed) trash action.
+    pub fn has_pending_trash(&self) -> bool {
+        self.pending_trash.borrow().is_some()
+    }
+
     pub fn delete_current_file(&self, permanent: bool) {
         let w = self.widgets();
         let Some((file_row, _)) = w.file_view.selected() else {
@@ -107,68 +141,99 @@ impl MViewWindowImp {
                 ),
             );
         } else {
-            println!("Trashing file: {:?}, {:?}", file_path, file_row.name());
+            // Already queued for trashing (selection can't normally land on it again,
+            // but guard against it just in case).
+            if file_row.trash() {
+                return;
+            }
 
             file_row.set_trash(true);
 
-            let toast = ToastBuilder::new(&format!("Move '{}' to trash", name))
-                .button_label("Undo")
-                .action_name("win.trash.undo")
-                .on_dismissed(clone!(
-                    #[weak(rename_to = this)]
-                    self,
-                    move |_| {
-                        this.commit_pending_trash();
-                    }
-                ))
-                .build();
+            // Move the selection to the next file, respecting the active filter,
+            // falling back to the previous one if this was the last match.
+            if !w
+                .file_view
+                .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
+            {
+                w.file_view
+                    .navigate_item_bool(Direction::Up, &self.current_filter.borrow(), 1);
+            }
 
-            self.widgets().toast_overlay.add_toast(&toast);
+            let mut pending = self.pending_trash.borrow_mut();
+            if let Some(pending) = pending.as_mut() {
+                pending.items.push(PendingTrashItem {
+                    file_row,
+                    file_path,
+                    name,
+                });
+                let title = pending.title();
+                pending.toast.restart(&title);
+            } else {
+                let items = vec![PendingTrashItem {
+                    file_row,
+                    file_path,
+                    name: name.clone(),
+                }];
 
-            // Move to trash without confirmation
-            // let next_target =
-            //     if w.file_view
-            //         .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
-            //     {
-            //         w.file_view.current().map(|c| Target::Name(c.file_row().name()))
-            //     } else if w.file_view.navigate_item_bool(
-            //         Direction::Up,
-            //         &self.current_filter.borrow(),
-            //         1,
-            //     ) {
-            //         w.file_view.current().map(|c| Target::Name(c.file_row().name()))
-            //     } else {
-            //         None
-            //     };
+                let toast = ToastBuilder::new(&format!("Move '{}' to trash", name))
+                    .button_label("Undo")
+                    .action_name("win.trash.undo")
+                    .on_dismissed(clone!(
+                        #[weak(rename_to = this)]
+                        self,
+                        move |_| {
+                            this.commit_pending_trash();
+                        }
+                    ))
+                    .build();
 
-            // if next_target.is_none() {
-            //     self.set_backend(<dyn Backend>::none(), &Target::First, true);
-            // }
+                self.widgets().toast_overlay.add_toast(&toast);
 
-            // let file = gio::File::for_path(&old_file_path);
-            // match file.trash(None::<&gio::Cancellable>) {
-            //     Ok(()) => {
-            //         if let Some(target) = next_target {
-            //             self.reload(&target, false);
-            //         }
-            //     }
-            //     Err(e) => {
-            //         show_error_dialog(
-            //             &*self.obj(),
-            //             "Error Trashing File",
-            //             &format!("Failed to move file to trash: {}", e),
-            //         );
-            //         self.reload(&Target::Name(old_name), false);
-            //     }
-            // }
+                *pending = Some(PendingTrash { items, toast });
+            }
         }
     }
 
+    /// Called when the trash toast expires (or is dismissed after expiry). Moves
+    /// every queued file to the trash and removes it from the file view.
     pub fn commit_pending_trash(&self) {
-        println!("Committing pending trash...");
+        let Some(pending) = self.pending_trash.borrow_mut().take() else {
+            return;
+        };
+
+        let w = self.widgets();
+        for item in &pending.items {
+            let file = gio::File::for_path(&item.file_path);
+            match file.trash(None::<&gio::Cancellable>) {
+                Ok(()) => {
+                    w.file_view.remove_row(&item.file_row);
+                }
+                Err(e) => {
+                    item.file_row.set_trash(false);
+                    show_error_dialog(
+                        &*self.obj(),
+                        "Error Trashing File",
+                        &format!("Failed to move '{}' to trash: {}", item.name, e),
+                    );
+                }
+            }
+        }
+        w.file_view
+            .ensure_selected_filter(&self.current_filter.borrow());
     }
 
+    /// Cancels a pending trash action: removes the trash icons and dismisses the
+    /// toast without moving any files. Selection is left where it is, since the
+    /// user may want to continue queueing more files for deletion.
     pub fn undo_pending_trash(&self) {
-        println!("Undoing pending trash...");
+        let Some(pending) = self.pending_trash.borrow_mut().take() else {
+            return;
+        };
+        for item in &pending.items {
+            item.file_row.set_trash(false);
+        }
+        // Dismissing after `take()` is safe: `commit_pending_trash` will run but
+        // find nothing left to do.
+        pending.toast.dismiss();
     }
 }

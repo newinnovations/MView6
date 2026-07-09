@@ -171,6 +171,7 @@ pub struct MViewWindowImp {
     clipboard: RefCell<Option<Clipboard>>,
     current_filter: RefCell<Filter>,
     recent_commands: Rc<RefCell<VecDeque<usize>>>,
+    pending_trash: RefCell<Option<delete::PendingTrash>>,
 }
 
 #[glib::object_subclass]
