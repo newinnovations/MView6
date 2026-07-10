@@ -28,7 +28,7 @@ use glib::subclass::types::ObjectSubclassExt;
 use gio::prelude::FileExt;
 
 use crate::{
-    file_view::{BackendRef, Direction, FileRow, ItemRef},
+    file_view::{BackendRef, FileRow, ItemRef},
     util::show_error_dialog,
 };
 
@@ -141,23 +141,12 @@ impl MViewWindowImp {
                 ),
             );
         } else {
-            // Already queued for trashing (selection can't normally land on it again,
-            // but guard against it just in case).
+            // Already queued for trashing?
             if file_row.trash() {
                 return;
             }
 
             file_row.set_trash(true);
-
-            // Move the selection to the next file, respecting the active filter,
-            // falling back to the previous one if this was the last match.
-            if !w
-                .file_view
-                .navigate_item_bool(Direction::Down, &self.current_filter.borrow(), 1)
-            {
-                w.file_view
-                    .navigate_item_bool(Direction::Up, &self.current_filter.borrow(), 1);
-            }
 
             let mut pending = self.pending_trash.borrow_mut();
             if let Some(pending) = pending.as_mut() {
