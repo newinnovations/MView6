@@ -22,7 +22,7 @@ use exif::Exif;
 use gdk_pixbuf::Pixbuf;
 use resvg::usvg::Tree;
 use std::{
-    path::Path,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc,
@@ -157,6 +157,7 @@ pub struct Content {
     pub zoom_mode: ZoomMode,
     pub transparency_mode: TransparencyMode,
     pub tag: Option<String>,
+    pub path: Option<PathBuf>,
 }
 
 impl Content {
@@ -168,6 +169,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -179,6 +181,7 @@ impl Content {
             zoom_mode: ZoomMode::NoZoom,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -190,6 +193,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -205,6 +209,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -220,6 +225,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -231,6 +237,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::NotSpecified,
             tag: None,
+            path: None,
         }
     }
 
@@ -249,6 +256,7 @@ impl Content {
             zoom_mode,
             transparency_mode,
             tag,
+            path: None,
         }
     }
 
@@ -264,6 +272,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::White,
             tag: None,
+            path: None,
         }
     }
 
@@ -278,6 +287,7 @@ impl Content {
             zoom_mode: ZoomMode::NotSpecified,
             transparency_mode: TransparencyMode::Black,
             tag: None,
+            path: None,
         }
     }
 

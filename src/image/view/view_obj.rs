@@ -25,7 +25,7 @@ use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
 use gtk4::{
     gdk::{
         prelude::{DisplayExt, SeatExt, SurfaceExt},
-        Display, Rectangle, BUTTON_SECONDARY,
+        Clipboard, Display, Rectangle, BUTTON_SECONDARY,
     },
     glib,
     prelude::{GestureSingleExt, NativeExt, PopoverExt, WidgetExt},
@@ -307,6 +307,11 @@ impl ImageView {
         });
 
         self.add_controller(gesture);
+    }
+
+    pub fn copy_to_clipboard(&self, clipboard: &Clipboard) {
+        let p = self.imp().data.borrow();
+        p.content.copy_to_clipboard(clipboard);
     }
 
     #[allow(dead_code)]

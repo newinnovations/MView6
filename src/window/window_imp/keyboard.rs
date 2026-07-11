@@ -193,7 +193,13 @@ impl MViewWindowImp {
                 }
             }
             Key::c => {
-                self.create_preview();
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    if let Some(clipboard) = self.clipboard.borrow().as_ref() {
+                        w.image_view.copy_to_clipboard(clipboard);
+                    }
+                } else {
+                    self.create_preview();
+                }
             }
             Key::t => {
                 self.toggle_thumbnail_view();

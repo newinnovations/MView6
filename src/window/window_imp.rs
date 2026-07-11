@@ -58,13 +58,15 @@ use crate::{
         MViewWindow,
     },
 };
-use arboard::Clipboard;
 use async_channel::Sender;
 use gio::{SimpleAction, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, property::PropertySet, ControlFlow, SourceId};
 use gtk4::{
-    glib::Propagation, prelude::*, subclass::prelude::*, Button, EventControllerKey, HeaderBar,
-    MenuButton, ScrolledWindow,
+    gdk::{Clipboard, Display},
+    glib::Propagation,
+    prelude::*,
+    subclass::prelude::*,
+    Button, EventControllerKey, HeaderBar, MenuButton, ScrolledWindow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -258,7 +260,10 @@ impl ObjectImpl for MViewWindowImp {
         self.current_sort.set(Sort::sort_on_category());
         self.current_filter.set(Filter::full_set());
 
-        let window = self.obj();
+        self.clipboard
+            .replace(Display::default().map(|d| d.clipboard()));
+
+        let window: glib::BorrowedObject<'_, MViewWindow> = self.obj();
 
         window.set_title(Some("MView6"));
         // window.set_position(gtk4::WindowPosition::Center); TODO
@@ -449,15 +454,6 @@ impl ObjectImpl for MViewWindowImp {
         let render_thread = RenderThread::new(from_rt_sender, to_rt_receiver, to_rt_sender.clone());
         let rt_sender = render_thread.create_sender(to_rt_sender);
 
-        match Clipboard::new() {
-            Ok(clipboard) => {
-                self.clipboard.replace(Some(clipboard));
-            }
-            Err(e) => {
-                eprint!("Failed to open clipboard: {e:?}");
-            }
-        }
-
         let toast_overlay = ToastOverlay::new();
         toast_overlay.set_child(&hbox);
 
@@ -596,23 +592,3 @@ impl ObjectImpl for MViewWindowImp {
 impl WidgetImpl for MViewWindowImp {}
 impl WindowImpl for MViewWindowImp {}
 impl ApplicationWindowImpl for MViewWindowImp {}
-
-impl MViewWindowImp {
-    pub fn copy_to_clipboard(&self, content: &str) {
-        if let Some(clipboard) = self.clipboard.borrow_mut().as_mut() {
-            if let Err(e) = clipboard.set_text(content) {
-                eprintln!("Failed to copy to clipboard: {e:?}");
-            }
-        }
-    }
-}
-
-// impl MViewWidgets {
-//     pub fn filter(&self) -> Filter {
-//         if self.file_widget.is_visible() {
-//             Filter::None
-//         } else {
-//             Filter::Image
-//         }
-//     }
-// }

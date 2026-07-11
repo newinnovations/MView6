@@ -145,7 +145,7 @@ pub enum BackendRef {
     ZipArchive(PathBuf),
     Mupdf(PathBuf),
     Pdfium(PathBuf),
-    Thumbnail, //(Box<Reference>),
+    Thumbnail,
     Bookmarks,
     None,
 }

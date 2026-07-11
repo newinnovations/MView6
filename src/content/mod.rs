@@ -18,6 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 mod analyze_text;
+mod clipboard;
 mod loader;
 mod model;
 mod paginated;

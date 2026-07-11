@@ -192,23 +192,11 @@ impl Backend for FileSystem {
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
-        let filename = self.directory.join(item.str());
-        ContentLoader::content_from_file(&filename)
+        let path = self.directory.join(item.str());
+        let mut content = ContentLoader::content_from_file(&path);
+        content.path = Some(path);
+        content
     }
-
-    // fn content(&self, item: &ItemRef) -> Content {
-    //     let filename = self.directory.join(item.str());
-    //     Content::new(
-    //         Reference {
-    //             backend: self.backend_ref(),
-    //             item: item.clone(),
-    //         },
-    //         match read_bytes(&filename) {
-    //             Ok(bytes) => ContentData::Raw(bytes),
-    //             Err(error) => ContentData::Error(error.into()),
-    //         },
-    //     )
-    // }
 
     fn set_preference(&self, row: &FileRow, direction: Direction) -> bool {
         let file_type = row.file_type();

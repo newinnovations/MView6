@@ -63,16 +63,14 @@ impl Thumbnail {
         let capacity_x = (usable_width + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
         let capacity_y = (usable_height + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
 
-        let separator_x = if capacity_x > 0 {
-            (usable_width.saturating_sub(capacity_x * size)) / capacity_x
-        } else {
-            0
-        };
-        let separator_y = if capacity_y > 0 {
-            (usable_height.saturating_sub(capacity_y * size)) / capacity_y
-        } else {
-            0
-        };
+        let separator_x = usable_width
+            .saturating_sub(capacity_x * size)
+            .checked_div(capacity_x)
+            .unwrap_or(0);
+        let separator_y = usable_height
+            .saturating_sub(capacity_y * size)
+            .checked_div(capacity_y)
+            .unwrap_or(0);
 
         let offset_x = MARGIN
             + (usable_width.saturating_sub(capacity_x * (size + separator_x)) + separator_x) / 2;
@@ -202,8 +200,7 @@ impl Backend for Thumbnail {
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
         let page = item.idx() as u32;
         let capacity = self.capacity();
-        if capacity > 0 {
-            let focus_page = self.parent_focus_pos.get() / capacity;
+        if let Some(focus_page) = self.parent_focus_pos.get().checked_div(capacity) {
             if focus_page != page {
                 self.parent_focus_pos.set(page * capacity);
             }
