@@ -38,7 +38,7 @@ impl MviewApplication {
             .property("application-id", "org.vanderwerff.mview.mview6")
             .property(
                 "flags",
-                ApplicationFlags::NON_UNIQUE | ApplicationFlags::HANDLES_OPEN,
+                ApplicationFlags::NON_UNIQUE | ApplicationFlags::HANDLES_COMMAND_LINE,
             )
             .build()
     }

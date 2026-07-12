@@ -218,7 +218,8 @@ impl ObjectImpl for FileViewImp {
         });
         let col_category = ColumnViewColumn::new(None, Some(factory_category.clone()));
         col_category.set_fixed_width(30);
-        col_category.set_sorter(Some(&sorter_type));
+        //col_category.set_sorter(Some(&sorter_type));
+
         column_view.append_column(&col_category);
 
         // Column for file/directory name
@@ -302,7 +303,7 @@ impl ObjectImpl for FileViewImp {
         });
         let col_name = ColumnViewColumn::new(Some("Name"), Some(factory_name.clone()));
         col_name.set_fixed_width(300);
-        col_name.set_sorter(Some(&sorter_name));
+        //col_name.set_sorter(Some(&sorter_name));
         column_view.append_column(&col_name);
 
         // Column for size
@@ -345,7 +346,7 @@ impl ObjectImpl for FileViewImp {
         });
         let col_size = ColumnViewColumn::new(Some("Size"), Some(factory_size.clone()));
         col_size.set_fixed_width(90);
-        col_size.set_sorter(Some(&sorter_size));
+        //col_size.set_sorter(Some(&sorter_size));
         column_view.append_column(&col_size);
 
         // Column for modified date
@@ -392,7 +393,7 @@ impl ObjectImpl for FileViewImp {
         } else {
             142
         });
-        col_date.set_sorter(Some(&sorter_modified));
+        //col_date.set_sorter(Some(&sorter_modified));
         column_view.append_column(&col_date);
 
         self.columns

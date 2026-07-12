@@ -45,7 +45,8 @@ use crate::{
         },
         Backend, PageMode,
     },
-    file_view::{BackendRef, FileView, Filter, ItemRef, Reference, Sort, Target},
+    classification::FileType,
+    file_view::{BackendRef, FileRow, FileView, Filter, ItemRef, Reference, Sort, Target},
     image::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
     info_view::InfoView,
     rect::PointD,
@@ -72,7 +73,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::{Cell, OnceCell, RefCell},
     collections::{HashMap, VecDeque},
-    env, fs,
+    fs,
     path::PathBuf,
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
@@ -174,6 +175,7 @@ pub struct MViewWindowImp {
     current_filter: RefCell<Filter>,
     recent_commands: Rc<RefCell<VecDeque<usize>>>,
     pending_trash: RefCell<Option<delete::PendingTrash>>,
+    current_selection: RefCell<Option<FileRow>>,
 }
 
 #[glib::object_subclass]
@@ -249,16 +251,18 @@ impl ObjectImpl for MViewWindowImp {
 
         _ = self.load_navigation();
 
-        let args: Vec<String> = env::args().collect();
-        let filename = if args.len() > 1 {
-            Some(args[1].clone())
-        } else {
-            None
-        };
-
         self.thumbnail_size.set(250);
-        self.current_sort.set(Sort::sort_on_category());
-        self.current_filter.set(Filter::full_set());
+        self.current_sort.set(Sort::from_args());
+
+        let args = crate::ARGS.get().expect("ARGS not set");
+        let filter = match args.filter {
+            crate::FilterOptions::All => Filter::full_set(),
+            crate::FilterOptions::Image => Filter::single_set(FileType::Image),
+            crate::FilterOptions::Video => Filter::single_set(FileType::Video),
+            crate::FilterOptions::Document => Filter::single_set(FileType::Document),
+            crate::FilterOptions::Archive => Filter::single_set(FileType::Archive),
+        };
+        self.current_filter.set(filter);
 
         self.clipboard
             .replace(Display::default().map(|d| d.clipboard()));
@@ -428,7 +432,7 @@ impl ObjectImpl for MViewWindowImp {
         file_view.connect_selection_changed(clone!(
             #[weak(rename_to = this)]
             self,
-            move || this.on_cursor_changed()
+            move || this.on_selection_changed()
         ));
 
         file_view.connect_activate(clone!(
@@ -557,7 +561,8 @@ impl ObjectImpl for MViewWindowImp {
             ControlFlow::Break,
             move || {
                 check_dependencies(&this.obj(), false);
-                if let Some(filename) = &filename {
+                let args = crate::ARGS.get().expect("ARGS not set");
+                if let Some(filename) = &args.filename {
                     println!("Opening {filename}");
                     // match path::absolute(filename) {
                     match fs::canonicalize(filename) {

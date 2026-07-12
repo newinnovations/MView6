@@ -55,6 +55,19 @@ impl ApplicationImpl for MviewApplicationImp {
             .set(window)
             .expect("Failed to initialize application window");
     }
+
+    // fn local_command_line(
+    //     &self,
+    //     arguments: &mut gio::subclass::ArgumentList,
+    // ) -> std::ops::ControlFlow<glib::ExitCode> {
+    //     println!("Command line arguments: {:?}", arguments);
+    //     while arguments.len() > 0 {
+    //         arguments.remove(0);
+    //         println!("Command line arguments: {:?}", arguments);
+    //     }
+    //     std::ops::ControlFlow::Continue(())
+    //     // std::ops::ControlFlow::Break(glib::ExitCode::from(0))
+    // }
 }
 
 impl GtkApplicationImpl for MviewApplicationImp {}

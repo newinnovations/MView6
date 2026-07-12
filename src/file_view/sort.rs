@@ -21,6 +21,8 @@ use std::fmt::Display;
 
 use gtk4::SortType;
 
+use crate::SortOptions;
+
 use super::Column;
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -43,6 +45,20 @@ impl Sort {
 
     pub fn sort_on_category() -> Self {
         Sort::new(Column::FileType, SortType::Ascending)
+    }
+
+    pub fn from_args() -> Self {
+        let args = crate::ARGS.get().expect("ARGS not set");
+        match args.sort {
+            SortOptions::TypeAscending => Sort::new(Column::FileType, SortType::Ascending),
+            SortOptions::TypeDescending => Sort::new(Column::FileType, SortType::Descending),
+            SortOptions::NameAscending => Sort::new(Column::Name, SortType::Ascending),
+            SortOptions::NameDescending => Sort::new(Column::Name, SortType::Descending),
+            SortOptions::SizeAscending => Sort::new(Column::Size, SortType::Ascending),
+            SortOptions::SizeDescending => Sort::new(Column::Size, SortType::Descending),
+            SortOptions::DateAscending => Sort::new(Column::Modified, SortType::Ascending),
+            SortOptions::DateDescending => Sort::new(Column::Modified, SortType::Descending),
+        }
     }
 
     pub fn str_repr(&self) -> String {

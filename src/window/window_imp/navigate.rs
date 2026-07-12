@@ -37,11 +37,17 @@ use glib::subclass::types::ObjectSubclassExt;
 use gtk4::prelude::WidgetExt;
 
 impl MViewWindowImp {
-    pub(super) fn on_cursor_changed(&self) {
-        // println!("on_cursor_changed skip={}", self.skip_loading.get());
+    pub(super) fn on_selection_changed(&self) {
         let w = self.widgets();
         if !self.skip_loading.get() {
             if let Some((file_row, _)) = w.file_view.selected() {
+                if let Some(current_selection) = self.current_selection.borrow().as_ref() {
+                    if current_selection == &file_row {
+                        // same as current selection, skipping
+                        return;
+                    }
+                }
+
                 let params = ImageParams {
                     tn_sender: Some(&w.tn_sender),
                     page_mode: &self.page_mode.get(),
@@ -79,6 +85,8 @@ impl MViewWindowImp {
                 } else {
                     w.image_view.set_content(content);
                 }
+
+                *self.current_selection.borrow_mut() = Some(file_row);
             }
         }
     }

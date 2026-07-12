@@ -49,6 +49,10 @@ impl Filter {
         Self::Set((FileType::all(), Preference::all()))
     }
 
+    pub fn single_set(file_type: FileType) -> Self {
+        Self::Set((HashSet::from([file_type]), Preference::normal_liked()))
+    }
+
     pub fn matches(&self, classification: FileClassification) -> bool {
         match self {
             Self::None => true,

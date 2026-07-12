@@ -189,7 +189,7 @@ impl MViewWindowImp {
         self.widgets().set_action_string("page", page_mode);
         self.page_mode.set(page_mode.into());
         if self.backend.borrow().is_doc() {
-            self.on_cursor_changed();
+            self.on_selection_changed();
         }
     }
 
@@ -316,7 +316,7 @@ impl MViewWindowImp {
                 if let Err(error) = preview.create() {
                     eprintln!("Failed to create preview: {error:?}");
                 } else {
-                    self.on_cursor_changed();
+                    self.on_selection_changed();
                 }
             }
         }

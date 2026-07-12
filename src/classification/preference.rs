@@ -55,6 +55,10 @@ impl Preference {
     pub fn all() -> HashSet<Self> {
         HashSet::from([Self::Normal, Self::Liked, Self::Disliked])
     }
+
+    pub fn normal_liked() -> HashSet<Self> {
+        HashSet::from([Self::Normal, Self::Liked])
+    }
 }
 
 impl From<&Path> for Preference {
