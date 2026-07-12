@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,7 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use chrono::{Local, TimeZone};
 use human_bytes::human_bytes;
 use image::DynamicImage;
@@ -29,35 +28,28 @@ use std::{
 use zip::result::ZipResult;
 
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType},
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor,
-    },
-    image::{
-        draw::draw_error,
-        provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
-    },
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
+    image::{draw_error, InternalImageLoader, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
     util::path_to_filename,
 };
 
-use super::Backend;
-
 pub struct ZipArchive {
     path: PathBuf,
-    store: Vec<Row>,
+    store: FileStore,
 }
 
 impl ZipArchive {
-    pub fn new(filename: &Path) -> Self {
-        ZipArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(ZipArchive {
             path: filename.into(),
-            store: list_zip(filename).unwrap_or_default(),
-        }
+            store: list_zip(filename)?,
+        })
     }
 
     // pub fn get_thumbnail(src: &TZipReference) -> MviewResult<DynamicImage> {
@@ -100,8 +92,8 @@ impl Backend for ZipArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
@@ -127,10 +119,6 @@ impl Backend for ZipArchive {
     fn backend_ref(&self) -> BackendRef {
         BackendRef::ZipArchive(self.path.clone())
     }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
-    }
 }
 
 fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
@@ -146,8 +134,8 @@ fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
     Ok(buf)
 }
 
-fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
-    let mut result = Vec::new();
+fn list_zip(zip_file: &Path) -> ZipResult<FileStore> {
+    let store = FileRow::empty_store();
     let fname = std::path::Path::new(zip_file);
     let file = fs::File::open(fname)?;
     let reader = BufReader::new(file);
@@ -165,7 +153,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        let cat = FileClassification::determine(&outpath, file.is_dir());
+        let classification = FileClassification::determine(&outpath, file.is_dir());
         let file_size = file.size();
         let index = i as u64;
 
@@ -173,7 +161,7 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             continue;
         }
 
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
 
@@ -193,13 +181,13 @@ fn list_zip(zip_file: &Path) -> ZipResult<Vec<Row>> {
             }
         };
 
-        result.push(Row::new_index(
-            cat,
+        store.append(&FileRow::new_index(
+            classification,
             path_to_filename(&outpath),
             file_size,
             modified,
             index,
         ));
     }
-    Ok(result)
+    Ok(store)
 }

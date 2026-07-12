@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -19,24 +19,23 @@
 
 use std::path::PathBuf;
 
-use super::{Content, ImageParams};
-
-use crate::file_view::{
-    model::{BackendRef, ItemRef, Row},
-    Cursor,
+use crate::{
+    backends::ImageParams,
+    content::Content,
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Target},
 };
 
-use super::{Backend, Target};
+use super::Backend;
 
 #[derive(Clone)]
 pub struct NoneBackend {
-    store: Vec<Row>,
+    store: FileStore,
 }
 
 impl NoneBackend {
     pub fn new() -> Self {
         NoneBackend {
-            store: Default::default(),
+            store: FileRow::empty_store(),
         }
     }
 }
@@ -56,8 +55,8 @@ impl Backend for NoneBackend {
         "invalid".into()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -70,9 +69,5 @@ impl Backend for NoneBackend {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::None
-    }
-
-    fn item_ref(&self, _cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(0)
     }
 }

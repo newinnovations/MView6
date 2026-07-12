@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -167,7 +167,7 @@ impl InternalReader {
                 data
             }
         };
-        let mode = mode + contrast();
+        let mode = mode.wrapping_add(contrast());
         data.iter_mut().for_each(|data| *data ^= mode);
         Ok(data)
     }

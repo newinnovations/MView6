@@ -1,6 +1,6 @@
 /* MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 
-   Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+   Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 
    This file is part of MView6.
 
@@ -23,27 +23,49 @@
     font-size: 15px;
 }
 
-.view button {
-    border-radius: 0px;
-    border-width: 0px 1px 1px 0px;
-    font-weight: bold;
+columnview row cell {
+    padding-top: 3px;
+    padding-bottom: 3px;
 }
 
-.view {
-    outline: 0;
-    background: #222;
+columnview row:selected cell {
+    padding-top: 2px;
+    padding-bottom: 2px;
 }
 
-.view:selected {
-    color: #ff8;
-    background: #238;
-    border-color: #46c;
+columnview row:selected {
     border-style: solid;
     border-width: 1px 0px 1px 0px;
 }
 
+columnview.file-view row:selected {
+    color: #ff8;
+    background: #238;
+    border-color: #46c;
+}
+
+columnview.info-view row:selected {
+    color: inherit;
+    background: inherit;
+	border-color: #666;
+}
+
+columnview row:hover {
+    background: #383838;
+}
+
+columnview.info-view row:hover {
+    background: #383838;
+}
+
+columnview.info-view row {
+	border-width: 0px 0px 1px 0px;
+	border-color: #666;
+	border-style: dashed;
+}
+
 .panel {
-    background-color: rgba(187, 192, 186, 0.7);
+    background-color: #bbc0bab3;
     margin-top: 15px;
     margin-left: 15px;
     padding-left: 5px;
@@ -140,4 +162,31 @@
     font-weight: bolder;
     font-size: 1.2em;
     color: yellow;
+}
+
+.toast {
+    background-color: rgba(45, 45, 45, 0.95);
+    color: #ffffff;
+    border: 1px solid rgba(60, 60, 60, 0.95);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.toast button {
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.dialog-progress trough {
+    min-height: 3px;
+    background-color: rgba(255, 255, 255, 0.18);
+    border: 0;
+}
+
+.dialog-progress progress {
+    min-height: 3px;
+    min-width: 2px;
+    background-color: #f1c8a2;
+    border: 0;
 }

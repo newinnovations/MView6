@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,66 +17,48 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use chrono::{Local, TimeZone};
 use human_bytes::human_bytes;
 use image::DynamicImage;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use unrar::{error::UnrarError, Archive, UnrarResult};
 
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType},
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor,
-    },
-    image::{
-        draw::draw_error,
-        provider::{image_rs::RsImageLoader, ImageSaver},
-    },
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
+    image::{draw_error, ImageSaver, RsImageLoader},
     mview6_error,
     profile::performance::Performance,
+    util::mview_hash,
 };
-
-use super::Backend;
 
 pub struct RarArchive {
     path: PathBuf,
-    store: Vec<Row>,
+    store: FileStore,
 }
 
 impl RarArchive {
-    pub fn new(filename: &Path) -> Self {
-        RarArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(RarArchive {
             path: filename.into(),
-            store: list_rar(filename).unwrap_or_default(),
-        }
+            store: list_rar(filename)?,
+        })
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
         if let (BackendRef::RarArchive(filename), ItemRef::String(selection)) = src.as_tuple() {
-            if let Some(directory) = filename.parent() {
-                let mut hasher = Sha256::new();
-                hasher.update(filename.to_string_lossy().to_string().as_bytes());
-                hasher.update(selection.as_bytes());
-                let sha256sum = format!("{:x}", hasher.finalize());
-                let thumb_filename = format!("{sha256sum}.mthumb");
-                let thumb_path = directory.join(".mview").join(thumb_filename);
-
-                if Path::new(&thumb_path).exists() {
-                    RsImageLoader::dynimg_from_file(&thumb_path)
-                } else {
-                    let bytes = extract_rar(filename, selection)?;
-                    let image = RsImageLoader::dynimg_from_memory(&bytes)?;
-                    let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
-                    ImageSaver::save_thumbnail(&thumb_path, &image);
-                    Ok(image)
-                }
+            let thumb_path = mview_hash(filename, Some(selection), "mthumb");
+            if Path::new(&thumb_path).exists() {
+                RsImageLoader::dynimg_from_file(&thumb_path)
             } else {
-                mview6_error!("Failed to find directory of rar file").into() // FIXME
+                let bytes = extract_rar(filename, selection)?;
+                let image = RsImageLoader::dynimg_from_memory(&bytes)?;
+                let image = image.resize(175, 175, image::imageops::FilterType::Lanczos3);
+                ImageSaver::save_thumbnail(&thumb_path, &image);
+                Ok(image)
             }
         } else {
             mview6_error!("invalid reference").into()
@@ -93,8 +75,8 @@ impl Backend for RarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
@@ -119,10 +101,6 @@ impl Backend for RarArchive {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::RarArchive(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.name())
     }
 }
 
@@ -152,24 +130,29 @@ fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
     })
 }
 
-fn list_rar(rar_file: &Path) -> UnrarResult<Vec<Row>> {
-    let mut result = Vec::new();
+fn list_rar(rar_file: &Path) -> UnrarResult<FileStore> {
+    let store = FileRow::empty_store();
     let archive = Archive::new(&rar_file).open_for_listing()?;
     for e in archive {
         let entry = e?;
-        let cat = FileClassification::determine(&entry.filename, false); //file.is_dir());
+        let classification = FileClassification::determine(&entry.filename, false); //file.is_dir());
         let file_size = entry.unpacked_size;
         let modified = unix_from_msdos(entry.file_time);
         if file_size == 0 {
             continue;
         }
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
         let name = entry.filename.as_os_str().to_str().unwrap_or("???");
-        result.push(Row::new(cat, name.to_string(), file_size, modified));
+        store.append(&FileRow::new(
+            classification,
+            name.to_string(),
+            file_size,
+            modified,
+        ));
     }
-    Ok(result)
+    Ok(store)
 }
 
 pub fn unix_from_msdos(dostime: u32) -> u64 {

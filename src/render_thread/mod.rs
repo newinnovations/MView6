@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,48 +17,11 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-pub mod model;
+mod model;
 mod sender;
+mod thread;
 mod worker;
 
-use std::{
-    sync::{atomic::AtomicU32, Arc},
-    thread::{self, JoinHandle},
-};
-
-use async_channel::{Receiver, Sender};
-
-use crate::render_thread::{
-    model::{RenderCommandMessage, RenderReplyMessage},
-    worker::RenderWorker,
-};
-
+pub use model::{RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage};
 pub use sender::RenderThreadSender;
-
-#[derive(Debug)]
-pub struct RenderThread {
-    _handle: JoinHandle<()>,
-    counter: Arc<AtomicU32>,
-}
-
-impl RenderThread {
-    pub fn new(
-        from_rt_sender: Sender<RenderReplyMessage>,
-        to_rt_receiver: Receiver<RenderCommandMessage>,
-    ) -> Self {
-        let counter = Arc::new(AtomicU32::new(0));
-        let counter_clone = Arc::clone(&counter);
-        let worker = RenderWorker::new(from_rt_sender, to_rt_receiver, counter_clone);
-        let handle = thread::spawn(move || {
-            worker.run();
-        });
-        RenderThread {
-            _handle: handle,
-            counter,
-        }
-    }
-
-    pub fn create_sender(&self, to_rt_sender: Sender<RenderCommandMessage>) -> RenderThreadSender {
-        RenderThreadSender::new(to_rt_sender, self.counter.clone())
-    }
-}
+pub use thread::RenderThread;

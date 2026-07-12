@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -109,6 +109,10 @@ impl SurfaceData {
     ) -> MviewResult<SurfaceData> {
         // Ensure both images have the same height
         if left_height != right_height {
+            eprintln!(
+                "Height mismatch in dual page render: left {}px, right {}px",
+                left_height, right_height
+            );
             return mview6_error!("Left and right images must have the same height").into();
         }
 

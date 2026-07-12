@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -38,7 +38,7 @@ impl MviewApplication {
             .property("application-id", "org.vanderwerff.mview.mview6")
             .property(
                 "flags",
-                ApplicationFlags::NON_UNIQUE | ApplicationFlags::HANDLES_OPEN,
+                ApplicationFlags::NON_UNIQUE | ApplicationFlags::HANDLES_COMMAND_LINE,
             )
             .build()
     }

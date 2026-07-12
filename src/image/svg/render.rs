@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -20,7 +20,7 @@
 use resvg::{tiny_skia, usvg::Tree};
 
 use crate::{
-    image::{provider::surface::SurfaceData, view::Zoom},
+    image::{view::Zoom, SurfaceData},
     rect::RectD,
 };
 
@@ -31,8 +31,8 @@ pub fn render_svg(zoom: &Zoom, viewport: &RectD, tree: &Tree) -> Option<SurfaceD
         return None;
     }
 
-    let width = intersection.width().ceil() as u32;
-    let height = intersection.height().ceil() as u32;
+    let width = intersection.width().round() as u32;
+    let height = intersection.height().round() as u32;
 
     // Create a high-resolution pixmap based on zoom level
     if let Some(mut pixmap) = tiny_skia::Pixmap::new(width, height) {

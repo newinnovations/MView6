@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -55,6 +55,19 @@ impl ApplicationImpl for MviewApplicationImp {
             .set(window)
             .expect("Failed to initialize application window");
     }
+
+    // fn local_command_line(
+    //     &self,
+    //     arguments: &mut gio::subclass::ArgumentList,
+    // ) -> std::ops::ControlFlow<glib::ExitCode> {
+    //     println!("Command line arguments: {:?}", arguments);
+    //     while arguments.len() > 0 {
+    //         arguments.remove(0);
+    //         println!("Command line arguments: {:?}", arguments);
+    //     }
+    //     std::ops::ControlFlow::Continue(())
+    //     // std::ops::ControlFlow::Break(glib::ExitCode::from(0))
+    // }
 }
 
 impl GtkApplicationImpl for MviewApplicationImp {}

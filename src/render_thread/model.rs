@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -23,7 +23,7 @@ use resvg::usvg::Tree;
 
 use crate::{
     content::DocContent,
-    image::{provider::surface::SurfaceData, view::Zoom},
+    image::{SurfaceData, Zoom},
     rect::RectD,
 };
 
@@ -34,11 +34,12 @@ pub enum RenderCommand {
     // RenderSvg(u32, Zoom, RectD, Box<Tree>),
     RenderDoc(u32, Zoom, RectD, DocContent),
     RenderSvg(u32, Zoom, RectD, Arc<Tree>),
+    Shutdown,
 }
 
 #[derive(Debug, Clone)]
 pub struct RenderCommandMessage {
-    pub id: u32,
+    pub id: u64,
     pub cmd: RenderCommand,
 }
 
@@ -50,7 +51,10 @@ pub enum RenderReply {
 
 #[derive(Debug, Clone)]
 pub struct RenderReplyMessage {
-    pub _id: u32,
+    /// ID of the command that produced this reply. Available for consumer-side
+    /// freshness validation if needed; the worker already checks before sending.
+    #[allow(dead_code)]
+    pub id: u64,
     pub reply: RenderReply,
 }
 

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -21,60 +21,29 @@ use std::path::Path;
 
 use cairo::{Context, FontSlant, FontWeight, Format, ImageSurface, Operator};
 use gdk_pixbuf::Pixbuf;
-use gtk4::gdk::pixbuf_get_from_surface;
-use resvg::usvg::Tree;
+use glib::Bytes;
 
 use crate::{
     backends::thumbnail::TMessage,
-    content::{
-        paginated::{FONT_SIZE, FONT_SIZE_TITLE},
-        Content,
-    },
+    content::Content,
     error::{MviewError, MviewResult},
     image::{
-        svg::text_sheet::{svg_options, svg_text_sheet, TextSheet},
-        view::{data::TransparencyMode, ZoomMode},
+        view::{TransparencyMode, ZoomMode},
+        TextCanvas,
     },
-    mview6_error,
 };
 
 use super::colors::{CairoColorExt, Color};
 
-pub fn draw_text(title: &str, msg: &str, colors: (Color, Color, Color)) -> Content {
-    match svg_text_sheet(title, msg, colors) {
-        Ok(image) => image,
-        Err(e) => {
-            println!("Failed to draw text: {e:?}");
-            Content::default()
-        }
-    }
-}
-
 pub fn draw_error(path: &Path, error: MviewError) -> Content {
-    // println!("{error:#?}");
-    // let msg = &format!("{error:?}");
-    // match svg_text_sheet(
-    //     "error",
-    //     msg,
-    //     (Color::ErrorBack, Color::ErrorTitle, Color::ErrorMsg),
-    // ) {
-    //     Ok(image) => image,
-    //     Err(e) => {
-    //         println!("Failed to draw text: {e:?}");
-    //         Content::default()
-    //     }
-    // }
-    let mut sheet = TextSheet::new(800, 800, FONT_SIZE);
-    sheet.header(path, FONT_SIZE_TITLE, 54);
+    let mut sheet = TextCanvas::new_auto(); // new(800, 800, FONT_SIZE);
+    sheet.header(path);
 
     sheet.delta_y(2.0);
 
     sheet.add_line(
         "ERROR",
-        sheet
-            .base_style()
-            .color(Color::ErrorTitle)
-            .font_size(FONT_SIZE_TITLE * 3 / 2),
+        sheet.base_style().color(Color::ErrorTitle).font_size(36),
     );
 
     sheet.delta_y(1.0);
@@ -83,8 +52,7 @@ pub fn draw_error(path: &Path, error: MviewError) -> Content {
         sheet.add_line(line, sheet.base_style().color(Color::ErrorMsg));
     }
 
-    let svg_content = sheet.finish().render();
-    match Tree::from_str(&svg_content, &svg_options()) {
+    match sheet.into_svg_tree() {
         Ok(tree) => Content::new_svg(tree, None, ZoomMode::NotSpecified, TransparencyMode::Black),
         Err(e) => {
             eprintln!("Error creating ErrorContent {e:#?}");
@@ -93,17 +61,17 @@ pub fn draw_error(path: &Path, error: MviewError) -> Content {
     }
 }
 
-pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> MviewResult<Content> {
-    let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width, height)?;
+pub fn thumbnail_sheet(width: u32, height: u32, margin: u32, text: &str) -> MviewResult<Content> {
+    let surface: ImageSurface = ImageSurface::create(Format::ARgb32, width as i32, height as i32)?;
     let context = Context::new(&surface)?;
     context.color(Color::Black);
     context.paint()?;
 
-    let mut logo_width = margin + logo(&context, 0, 0, 30.0, false)? as i32;
+    let mut logo_width = margin + logo(&context, 0, 0, 30.0, false)? as u32;
 
     context.select_font_face("Liberation Sans", FontSlant::Normal, FontWeight::Normal);
     context.set_font_size(20.0);
-    let caption_width = context.text_extents(text)?.width() as i32;
+    let caption_width = context.text_extents(text)?.width() as u32;
 
     if caption_width + logo_width + margin > width {
         logo_width = 0;
@@ -119,7 +87,13 @@ pub fn thumbnail_sheet(width: i32, height: i32, margin: i32, text: &str) -> Mvie
     }
 
     if logo_width != 0 {
-        logo(&context, width - margin, height - margin, 30.0, true)?;
+        logo(
+            &context,
+            width as i32 - margin as i32,
+            height as i32 - margin as i32,
+            30.0,
+            true,
+        )?;
     }
 
     Ok(Content::new_surface_nozoom(surface))
@@ -218,10 +192,34 @@ pub fn text_thumb(message: TMessage) -> MviewResult<Pixbuf> {
         context.show_text(message.message())?;
     }
 
-    match pixbuf_get_from_surface(&surface, 0, 0, 175, 175) {
-        Some(pixbuf) => Ok(pixbuf),
-        None => mview6_error!("Failed to get pixbuf from surface").into(),
-    }
+    let width = surface.width();
+    let height = surface.height();
+    let stride = surface.stride() as usize;
+    let mut rgba = vec![0u8; width as usize * height as usize * 4];
+    surface
+        .with_data(|data| {
+            for y in 0..height as usize {
+                let row = &data[y * stride..y * stride + width as usize * 4];
+                let out_row = &mut rgba[y * width as usize * 4..(y + 1) * width as usize * 4];
+                for (src, dst) in row.chunks_exact(4).zip(out_row.chunks_exact_mut(4)) {
+                    dst[0] = src[2];
+                    dst[1] = src[1];
+                    dst[2] = src[0];
+                    dst[3] = src[3];
+                }
+            }
+        })
+        .map_err(|e| MviewError::App(crate::AppError::new(e.to_string(), file!(), line!())))?;
+
+    Ok(Pixbuf::from_bytes(
+        &Bytes::from_owned(rgba),
+        gdk_pixbuf::Colorspace::Rgb,
+        true,
+        8,
+        width,
+        height,
+        width * 4,
+    ))
 }
 
 pub fn transparency_background() -> MviewResult<ImageSurface> {

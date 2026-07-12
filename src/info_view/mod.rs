@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,83 +17,8 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod imp;
+mod info_view_imp;
+mod info_view_obj;
 
-use convert_case::{Case, Casing};
-use exif::In;
-use gtk4::{glib, prelude::TreeViewExt, ListStore};
-
-use crate::content::Content;
-
-glib::wrapper! {
-pub struct InfoView(ObjectSubclass<imp::InfoViewImp>)
-    @extends gtk4::Widget, gtk4::TreeView,
-    @implements gtk4::Accessible, gtk4::Buildable, gtk4::ConstraintTarget, gtk4::Scrollable;
-}
-
-#[derive(Debug)]
-#[repr(u32)]
-pub enum Columns {
-    Key = 0,
-    Value,
-}
-
-impl Columns {
-    fn store() -> ListStore {
-        let col_types: [glib::Type; 2] = [glib::Type::STRING, glib::Type::STRING];
-        ListStore::new(&col_types)
-    }
-}
-
-impl InfoView {
-    pub fn new() -> Self {
-        glib::Object::builder().build()
-    }
-}
-
-impl Default for InfoView {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-fn insert(store: &ListStore, key: &str, value: &str) {
-    store.insert_with_values(
-        None,
-        &[(Columns::Key as u32, &key), (Columns::Value as u32, &value)],
-    );
-}
-
-impl InfoView {
-    pub fn update(&self, image: &Content) {
-        let store = Columns::store();
-
-        let size = image.size();
-        insert(&store, "width", &format!("{:.0} px", size.width()));
-        insert(&store, "height", &format!("{:.0} px", size.height()));
-        insert(
-            &store,
-            "alpha channel",
-            if image.has_alpha() { "yes" } else { "no" },
-        );
-
-        match &image.exif {
-            Some(exif) => {
-                for f in exif.fields() {
-                    if f.ifd_num == In::PRIMARY {
-                        let key = f.tag.to_string();
-                        let key = key.from_case(Case::Pascal).to_case(Case::Lower);
-                        // println!("{}", key);
-                        if key != "maker note" && !key.starts_with("tag(") {
-                            insert(&store, &key, &f.display_value().with_unit(exif).to_string())
-                        }
-                    }
-                }
-            }
-            None => {
-                // println!("No exif data");
-            }
-        }
-        self.set_model(Some(&store));
-    }
-}
+pub use info_view_imp::InfoViewImp;
+pub use info_view_obj::InfoView;

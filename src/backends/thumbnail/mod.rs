@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -25,61 +25,57 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use super::{Backend, Content, ImageParams, Target};
+use super::{Backend, ImageParams};
 use crate::{
     backends::thumbnail::model::TParent,
     classification::{FileClassification, FileType},
-    file_view::{
-        model::{BackendRef, Entry, ItemRef, Row},
-        Cursor,
-    },
-    image::draw::thumbnail_sheet,
+    content::Content,
+    file_view::{BackendRef, Entry, FileRow, FileStore, ItemRef, Target},
+    image::thumbnail_sheet,
     rect::PointD,
 };
-use gtk4::{prelude::TreeModelExt, Allocation, ListStore};
+use gtk4::{
+    gio,
+    prelude::{Cast, ListModelExt},
+};
 use model::{Annotation, SheetDimensions, TRect};
 pub use model::{Message, TCommand, TMessage, TResult, TResultOption, TTask};
 
-const FOOTER: i32 = 50;
-const MARGIN: i32 = 15;
-const MIN_SEPARATOR: i32 = 5;
+const FOOTER: u32 = 50;
+const MARGIN: u32 = 15;
+const MIN_SEPARATOR: u32 = 5;
 
 #[derive(Debug)]
 pub struct Thumbnail {
     dim: SheetDimensions,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
-    parent_focus_pos: Cell<i32>,
-    parent_store: ListStore,
-    store: Vec<Row>,
+    parent_focus_pos: Cell<u32>,
+    parent_store: gio::ListModel,
+    store: FileStore,
 }
 
 impl Thumbnail {
-    pub fn new(parent: TParent, sheet_size: Allocation, size: i32) -> Self {
-        let width = sheet_size.width();
-        let height = sheet_size.height();
-
-        let usable_width = (width - 2 * MARGIN).clamp(0, i32::MAX);
-        let usable_height = (height - MARGIN - FOOTER).clamp(0, i32::MAX);
+    pub fn new(parent: TParent, width: u32, height: u32, size: u32) -> Self {
+        let usable_width = width.saturating_sub(2 * MARGIN);
+        let usable_height = height.saturating_sub(MARGIN + FOOTER);
 
         let capacity_x = (usable_width + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
         let capacity_y = (usable_height + MIN_SEPARATOR) / (size + MIN_SEPARATOR);
 
-        let separator_x = if capacity_x > 0 {
-            (usable_width - capacity_x * size) / capacity_x
-        } else {
-            0
-        };
-        let separator_y = if capacity_y > 0 {
-            (usable_height - capacity_y * size) / capacity_y
-        } else {
-            0
-        };
+        let separator_x = usable_width
+            .saturating_sub(capacity_x * size)
+            .checked_div(capacity_x)
+            .unwrap_or(0);
+        let separator_y = usable_height
+            .saturating_sub(capacity_y * size)
+            .checked_div(capacity_y)
+            .unwrap_or(0);
 
-        let offset_x =
-            MARGIN + (usable_width - capacity_x * (size + separator_x) + separator_x) / 2;
-        let offset_y =
-            MARGIN + (usable_height - capacity_y * (size + separator_y) + separator_y) / 2;
+        let offset_x = MARGIN
+            + (usable_width.saturating_sub(capacity_x * (size + separator_x)) + separator_x) / 2;
+        let offset_y = MARGIN
+            + (usable_height.saturating_sub(capacity_y * (size + separator_y)) + separator_y) / 2;
 
         let dim = SheetDimensions {
             size,
@@ -93,8 +89,8 @@ impl Thumbnail {
             offset_y,
         };
 
-        let capacity = dim.capacity() as u32;
-        let num_items = parent.backend.list().len() as u32;
+        let capacity = dim.capacity();
+        let num_items = parent.backend.list().n_items();
 
         Thumbnail {
             dim,
@@ -106,26 +102,26 @@ impl Thumbnail {
         }
     }
 
-    fn create_store(capacity: u32, num_items: u32) -> Vec<Row> {
-        let mut result = Vec::new();
-        let pages = if capacity > 0 {
-            if num_items > 0 {
-                1 + ((num_items - 1) / capacity)
-            } else {
-                1
-            }
+    fn create_store(capacity: u32, num_items: u32) -> FileStore {
+        let store = FileRow::empty_store();
+        // capacity = 10  num_items =  0..10 => pages = 1
+        // capacity = 10  num_items = 11..20 => pages = 2
+        // capacity = 10  num_items = 21..30 => pages = 3 ...
+        let pages = if let Some(pages) = num_items.saturating_sub(1).checked_div(capacity) {
+            pages + 1
         } else {
             1
         };
-        let cat = FileType::Image.into();
+
+        let classification = FileType::Image.into();
         for page in 0..pages {
             let name = format!("Thumbnail page {:7}", page + 1);
-            result.push(Row::new_index(cat, name, 0, 0, page as u64));
+            store.append(&FileRow::new_index(classification, name, 0, 0, page as u64));
         }
-        result
+        store
     }
 
-    pub fn capacity(&self) -> i32 {
+    pub fn capacity(&self) -> u32 {
         self.dim.capacity()
     }
 
@@ -138,35 +134,41 @@ impl Thumbnail {
         }
     }
 
-    pub fn sheet(&self, page: i32) -> Vec<TTask> {
+    pub fn sheet(&self, page: u32) -> Vec<TTask> {
         let backend = self.parent_backend.borrow();
 
         let mut res = Vec::<TTask>::new();
 
-        let start = page * self.capacity();
-        if let Some(iter) = self.parent_store.iter_nth_child(None, start) {
-            let cursor = Cursor::new(self.parent_store.clone(), iter, start);
-            for row in 0..self.dim.capacity_y {
-                for col in 0..self.dim.capacity_x {
-                    let source = Entry {
-                        category: FileClassification::new(cursor.content(), cursor.preference()),
-                        name: cursor.name(),
-                        reference: backend.reference(&cursor),
-                    };
-                    let x = self.dim.offset_x + col * (self.dim.size + self.dim.separator_x);
-                    let y = self.dim.offset_y + row * (self.dim.size + self.dim.separator_y);
-                    let id = row * self.dim.capacity_x + col;
-                    let annotation = Annotation {
-                        id,
-                        position: TRect::new_i32(x, y, self.dim.size, self.dim.size),
-                        entry: source.clone(),
-                    };
-                    let task = TTask::new(id, self.dim.size as u32, x, y, source, annotation);
-                    res.push(task);
-                    if !cursor.next() {
-                        return res;
+        let mut position = page * self.capacity();
+        let num_items = self.parent_store.n_items();
+        for row in 0..self.dim.capacity_y {
+            for col in 0..self.dim.capacity_x {
+                if position > num_items {
+                    return res;
+                }
+                if let Some(obj) = self.parent_store.item(position) {
+                    if let Ok(file_row) = obj.downcast::<FileRow>() {
+                        let source = Entry {
+                            category: FileClassification::new(
+                                file_row.file_type(),
+                                file_row.preference(),
+                            ),
+                            name: file_row.name(),
+                            reference: backend.reference(&file_row),
+                        };
+                        let x = self.dim.offset_x + col * (self.dim.size + self.dim.separator_x);
+                        let y = self.dim.offset_y + row * (self.dim.size + self.dim.separator_y);
+                        let id = row * self.dim.capacity_x + col;
+                        let annotation = Annotation {
+                            id,
+                            position: TRect::new_u32(x, y, self.dim.size, self.dim.size),
+                            entry: source.clone(),
+                        };
+                        let task = TTask::new(id, self.dim.size, x, y, source, annotation);
+                        res.push(task);
                     }
                 }
+                position += 1;
             }
         }
 
@@ -183,11 +185,12 @@ impl Backend for Thumbnail {
         Path::new("thumbnail").into()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
+        // Moves the parent backend out (one-shot): subsequent calls will return NoneBackend.
         Some((
             self.parent_backend.replace(<dyn Backend>::none()),
             self.parent_target.clone(),
@@ -195,15 +198,14 @@ impl Backend for Thumbnail {
     }
 
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
-        let page = item.idx() as i32;
+        let page = item.idx() as u32;
         let capacity = self.capacity();
-        if capacity > 0 {
-            let focus_page = self.parent_focus_pos.get() / capacity;
+        if let Some(focus_page) = self.parent_focus_pos.get().checked_div(capacity) {
             if focus_page != page {
                 self.parent_focus_pos.set(page * capacity);
             }
         }
-        let caption = format!("{} of {}", page + 1, self.store.len());
+        let caption = format!("{} of {}", page + 1, self.store.n_items());
         let image = match thumbnail_sheet(self.dim.width, self.dim.height, MARGIN, &caption) {
             Ok(image) => image,
             Err(_) => {
@@ -212,24 +214,29 @@ impl Backend for Thumbnail {
             }
         };
         let command = TCommand::new(image.id(), page, self.sheet(page), self.dim.clone());
-        let _ = params
-            .tn_sender
-            .unwrap()
-            .send_blocking(Message::Command(command.into()));
+        if let Some(sender) = params.tn_sender {
+            let _ = sender.send_blocking(Message::Command(command.into()));
+        } else {
+            eprintln!("Thumbnail content requested without a thumbnail sender");
+        }
         image
     }
 
     fn click(&self, item: &ItemRef, mouse_pos: PointD) -> Option<(Box<dyn Backend>, Target)> {
-        if let Some(idx) = self.dim.abs_position(item.idx() as i32, mouse_pos) {
+        if let Some(idx) = self.dim.abs_position(item.idx() as u32, mouse_pos) {
             let backend = self.parent_backend.borrow();
-            if let Some(iter) = self.parent_store.iter_nth_child(None, idx) {
-                let cursor = Cursor::new(self.parent_store.clone(), iter, idx);
-                let source = backend.reference(&cursor);
-                drop(backend);
-                Some((
-                    self.parent_backend.replace(<dyn Backend>::none()),
-                    source.into(),
-                ))
+            if let Some(obj) = self.parent_store.item(idx) {
+                if let Ok(file_row) = obj.downcast::<FileRow>() {
+                    let source = backend.reference(&file_row);
+                    drop(backend);
+                    // Moves the parent backend out (one-shot).
+                    Some((
+                        self.parent_backend.replace(<dyn Backend>::none()),
+                        source.into(),
+                    ))
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -239,6 +246,7 @@ impl Backend for Thumbnail {
     }
 
     fn get_thumb_parent(&self) -> TParent {
+        // Moves the parent backend out (one-shot).
         TParent {
             backend: self.parent_backend.replace(<dyn Backend>::none()),
             target: self.parent_target.clone(),
@@ -249,9 +257,5 @@ impl Backend for Thumbnail {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Thumbnail //(self.parent_backend.borrow().reference(cursor))
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 }

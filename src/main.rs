@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -34,15 +34,81 @@ mod render_thread;
 mod util;
 mod window;
 
+use std::sync::OnceLock;
+
 pub use error::AppError;
 pub use error::MviewError;
 
+use clap::{Parser, ValueEnum};
 use gtk4::{
     gdk::Display, prelude::ApplicationExtManual, style_context_add_provider_for_display,
     CssProvider, IconTheme, STYLE_PROVIDER_PRIORITY_APPLICATION,
 };
 
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum SortOptions {
+    /// Sort by file type ascending
+    #[value(name = "0a")]
+    TypeAscending,
+    /// Sort by file type descending
+    #[value(name = "0d")]
+    TypeDescending,
+    /// Sort by name ascending
+    #[value(name = "1a")]
+    NameAscending,
+    /// Sort by name descending
+    #[value(name = "1d")]
+    NameDescending,
+    /// Sort by size ascending
+    #[value(name = "2a")]
+    SizeAscending,
+    /// Sort by size descending
+    #[value(name = "2d")]
+    SizeDescending,
+    /// Sort by date ascending
+    #[value(name = "3a")]
+    DateAscending,
+    /// Sort by date descending
+    #[value(name = "3d")]
+    DateDescending,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum FilterOptions {
+    /// Show all files
+    All,
+    /// Show only images
+    Image,
+    /// Show only videos
+    Video,
+    /// Show only documents
+    Document,
+    /// Show only archives
+    Archive,
+}
+
+#[derive(Parser, Debug, Clone)]
+#[command(
+    version,
+    about = "MView6 - High-performance PDF and photo viewer built with Rust and GTK4"
+)]
+pub struct Args {
+    /// File or directory to open
+    #[arg(value_name = "FILE OR DIRECTORY", value_hint = clap::ValueHint::FilePath)]
+    filename: Option<String>,
+
+    #[arg(short, long, value_enum, default_value_t = SortOptions::TypeAscending)]
+    sort: SortOptions,
+
+    #[arg(short, long, value_enum, default_value_t = FilterOptions::All)]
+    filter: FilterOptions,
+}
+
+pub static ARGS: OnceLock<Args> = OnceLock::new();
+
 fn main() {
+    ARGS.set(Args::parse()).unwrap();
+
     gtk4::init().expect("Failed to initialize gtk");
 
     gio::resources_register_include!("mview6.gresource").unwrap();

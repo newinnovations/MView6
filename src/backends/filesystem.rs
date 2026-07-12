@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,16 +17,15 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType, Preference},
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     error::MviewResult,
     file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor, Direction,
+        Direction, Target, {BackendRef, FileRow, FileStore, ItemRef, Reference},
     },
-    image::provider::{image_rs::RsImageLoader, internal::InternalImageLoader},
+    image::{InternalImageLoader, RsImageLoader},
     mview6_error,
     util::path_to_filename,
 };
@@ -37,26 +36,44 @@ use std::{
     io::{self},
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::OnceLock,
     time::UNIX_EPOCH,
 };
 
-use super::{Backend, Target};
+fn extension_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r"\.([^.]+)$").expect("valid regex"))
+}
+
+/// Remove a `.marker` segment from the stem of a filename, leaving the extension intact.
+/// E.g. `photo.lo.jpg` with marker `"lo"` → `photo.jpg`.
+fn remove_marker(filename: &str, marker: &str) -> String {
+    let marker_suffix = format!(".{marker}");
+    if let Some(dot_pos) = filename.rfind('.') {
+        let stem = &filename[..dot_pos];
+        let ext = &filename[dot_pos..];
+        if let Some(new_stem) = stem.strip_suffix(&marker_suffix) {
+            return format!("{new_stem}{ext}");
+        }
+    }
+    filename.to_string()
+}
 
 pub struct FileSystem {
     directory: PathBuf,
-    store: Vec<Row>,
+    store: FileStore,
 }
 
 impl FileSystem {
-    pub fn new(directory: &Path) -> Self {
-        FileSystem {
+    pub fn try_new(directory: &Path) -> MviewResult<Self> {
+        Ok(Self {
             directory: directory.into(),
-            store: Self::read_directory(directory).unwrap_or_default(),
-        }
+            store: Self::read_directory(directory)?,
+        })
     }
 
-    fn read_directory(current_dir: &Path) -> io::Result<Vec<Row>> {
-        let mut result = Vec::new();
+    fn read_directory(current_dir: &Path) -> io::Result<FileStore> {
+        let store = FileRow::empty_store();
         for entry in read_dir(current_dir)? {
             let entry = entry?;
             let path = entry.path();
@@ -82,11 +99,16 @@ impl FileSystem {
             };
             let size = metadata.len();
 
-            let cat = FileClassification::determine(&path, metadata.is_dir());
+            let classification = FileClassification::determine(&path, metadata.is_dir());
 
-            result.push(Row::new(cat, filename.to_string(), size, modified));
+            store.append(&FileRow::new(
+                classification,
+                filename.to_string(),
+                size,
+                modified,
+            ));
         }
-        Ok(result)
+        Ok(store)
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
@@ -122,14 +144,14 @@ impl Backend for FileSystem {
         self.directory.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        let content = cursor.content();
-        if content == FileType::Video {
-            let full_path = self.directory.join(cursor.name());
+    fn enter(&self, row: &FileRow) -> Option<Box<dyn Backend>> {
+        let file_type = row.file_type();
+        if file_type == FileType::Video {
+            let full_path = self.directory.join(row.name());
             println!("Launch video external {}", full_path.to_string_lossy());
             let child = Command::new("mpv")
                 .arg(full_path)
@@ -142,13 +164,11 @@ impl Backend for FileSystem {
                 eprintln!("Failed to launch mpv {:?}", error);
             };
             None
-        } else if content == FileType::Folder
-            || content == FileType::Archive
-            || content == FileType::Document
+        } else if file_type == FileType::Folder
+            || file_type == FileType::Archive
+            || file_type == FileType::Document
         {
-            Some(<dyn Backend>::new_from_path(
-                &self.directory.join(cursor.name()),
-            ))
+            <dyn Backend>::new_from_path(&self.directory.join(row.name())).ok()
         } else {
             None
         }
@@ -156,61 +176,54 @@ impl Backend for FileSystem {
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
         if let Some(parent) = self.directory.parent() {
-            Some((
-                Box::new(FileSystem::new(parent)),
-                Target::Name(path_to_filename(&self.directory)),
-            ))
+            match Self::try_new(parent) {
+                Ok(new_backend) => Some((
+                    Box::new(new_backend),
+                    Target::Name(path_to_filename(&self.directory)),
+                )),
+                Err(e) => {
+                    eprintln!("Failed to leave directory: {e}");
+                    None
+                }
+            }
         } else {
             None
         }
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
-        let filename = self.directory.join(item.str());
-        ContentLoader::content_from_file(&filename)
+        let path = self.directory.join(item.str());
+        let mut content = ContentLoader::content_from_file(&path);
+        content.path = Some(path);
+        content
     }
 
-    // fn content(&self, item: &ItemRef) -> Content {
-    //     let filename = self.directory.join(item.str());
-    //     Content::new(
-    //         Reference {
-    //             backend: self.backend_ref(),
-    //             item: item.clone(),
-    //         },
-    //         match read_bytes(&filename) {
-    //             Ok(bytes) => ContentData::Raw(bytes),
-    //             Err(error) => ContentData::Error(error.into()),
-    //         },
-    //     )
-    // }
-
-    fn set_preference(&self, cursor: &Cursor, direction: Direction) -> bool {
-        let content = cursor.content();
-        if content != FileType::Image {
+    fn set_preference(&self, row: &FileRow, direction: Direction) -> bool {
+        let file_type = row.file_type();
+        if file_type != FileType::Image {
             //TODO: drop this restriction?
             return false;
         }
 
-        let filename = cursor.name();
-        let re = Regex::new(r"\.([^\.]+)$").unwrap();
+        let filename = row.name();
         let (new_filename, new_preference) = if matches!(direction, Direction::Up) {
             if filename.contains(".hi.") {
                 return true;
             } else if filename.contains(".lo.") {
-                (filename.replace(".lo", ""), Preference::Normal)
+                (remove_marker(&filename, "lo"), Preference::Normal)
             } else {
                 (
-                    re.replace(&filename, ".hi.$1").to_string(),
+                    extension_re().replace(&filename, ".hi.$1").to_string(),
                     Preference::Liked,
                 )
             }
         } else if filename.contains(".lo.") {
             return true;
         } else if filename.contains(".hi.") {
-            (filename.replace(".hi", ""), Preference::Normal)
+            (remove_marker(&filename, "hi"), Preference::Normal)
         } else {
             (
-                re.replace(&filename, ".lo.$1").to_string(),
+                extension_re().replace(&filename, ".lo.$1").to_string(),
                 Preference::Disliked,
             )
         };
@@ -220,7 +233,8 @@ impl Backend for FileSystem {
             self.directory.join(&new_filename),
         ) {
             Ok(()) => {
-                cursor.update(new_preference, &new_filename);
+                row.set_name(new_filename);
+                row.set_preference(new_preference);
                 true
             }
             Err(e) => {
@@ -234,15 +248,11 @@ impl Backend for FileSystem {
         BackendRef::FileSystem(self.directory.clone())
     }
 
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.name())
-    }
-
     fn reload(&self) -> Option<Box<dyn Backend>> {
         let directory = &self.directory;
         Some(Box::new(FileSystem {
             directory: directory.into(),
-            store: Self::read_directory(directory).unwrap_or_default(),
+            store: Self::read_directory(directory).unwrap_or_else(|_| FileRow::empty_store()),
         }))
     }
 }

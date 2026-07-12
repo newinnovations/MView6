@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -27,6 +27,8 @@ use std::{
     },
 };
 
+use std::io;
+
 use serde::{Deserialize, Serialize};
 use syntect::{highlighting::ThemeSet, parsing::SyntaxSet};
 
@@ -51,32 +53,35 @@ pub struct Config {
 }
 
 fn pathbuf_to_string(pathbuf: &Path) -> String {
-    pathbuf.to_str().unwrap_or_default().to_string()
+    pathbuf.to_string_lossy().into_owned()
 }
 
 impl ConfigFile {
-    fn config_dir() -> PathBuf {
-        let mut dir = dirs::config_dir().unwrap_or_default();
-        dir.push("mview6");
-        dir
+    fn config_dir() -> Option<PathBuf> {
+        dirs::config_dir().map(|mut dir| {
+            dir.push("mview6");
+            dir
+        })
     }
 
-    fn config_file() -> PathBuf {
-        Self::config_dir().join("mview6.json")
+    pub fn config_file() -> Option<PathBuf> {
+        Self::config_dir().map(|dir| dir.join("mview6.json"))
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        create_dir_all(Self::config_dir())?;
-        let file = File::create(Self::config_file())?;
+        let dir = Self::config_dir().ok_or_else(|| {
+            io::Error::new(io::ErrorKind::NotFound, "config directory unavailable")
+        })?;
+        create_dir_all(&dir)?;
+        let path = dir.join("mview6.json");
+        let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut writer, self)?;
         writer.flush()?;
         Ok(())
     }
-}
 
-impl Default for ConfigFile {
-    fn default() -> Self {
+    fn new_default() -> Self {
         let mut bookmarks = Vec::<Bookmark>::new();
 
         if let Some(dir) = dirs::home_dir() {
@@ -107,36 +112,71 @@ impl Default for ConfigFile {
             });
         }
 
-        let config = Self {
+        Self {
             bookmarks,
             contrast: None,
-        };
+        }
+    }
+}
 
-        match config.save() {
-            Ok(_) => println!("Saved default configuration to {:?}", Self::config_file()),
-            Err(_) => println!(
-                "Failed to save default configuration to {:?}",
-                Self::config_file()
-            ),
-        };
-        config
+/// `Default` is a pure in-memory construction with no I/O side-effects.
+impl Default for ConfigFile {
+    fn default() -> Self {
+        Self::new_default()
     }
 }
 
 fn read_config() -> Result<ConfigFile> {
-    println!("Config file location {:?}", ConfigFile::config_file());
-    let file = File::open(ConfigFile::config_file())?;
+    let path = ConfigFile::config_file()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "config directory unavailable"))?;
+    let file = File::open(&path)?;
     let config: ConfigFile = serde_json::from_reader(file)?;
-    // println!("deserialized = {:?}", config);
     Ok(config)
 }
 
 pub fn config<'a>() -> &'a Config {
     static CONFIG: OnceLock<Config> = OnceLock::new();
-    CONFIG.get_or_init(|| Config {
-        config_file: read_config().unwrap_or_default(),
-        ps: SyntaxSet::load_defaults_nonewlines(),
-        ts: ThemeSet::load_defaults(),
+    CONFIG.get_or_init(|| {
+        let config_file = match ConfigFile::config_file() {
+            None => {
+                eprintln!("Config directory unavailable; using in-memory defaults");
+                ConfigFile::default()
+            }
+            Some(path) => {
+                if path.exists() {
+                    match read_config() {
+                        Ok(cfg) => {
+                            println!("Config file location {:?}", path);
+                            cfg
+                        }
+                        Err(e) => {
+                            // Preserve the original file — do not overwrite a malformed config.
+                            eprintln!(
+                                "Failed to parse config {:?}: {e}; using in-memory defaults (original file preserved)",
+                                path
+                            );
+                            ConfigFile::default()
+                        }
+                    }
+                } else {
+                    // File does not exist yet — create it with defaults.
+                    let cfg = ConfigFile::default();
+                    match cfg.save() {
+                        Ok(_) => println!("Saved default configuration to {:?}", path),
+                        Err(e) => eprintln!(
+                            "Failed to save default configuration to {:?}: {e}",
+                            path
+                        ),
+                    }
+                    cfg
+                }
+            }
+        };
+        Config {
+            config_file,
+            ps: SyntaxSet::load_defaults_nonewlines(),
+            ts: ThemeSet::load_defaults(),
+        }
     })
 }
 

@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,7 +17,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use image::DynamicImage;
 use std::{
     fs,
@@ -27,21 +26,15 @@ use std::{
 };
 
 use crate::{
+    backends::{Backend, ImageParams},
     classification::{FileClassification, FileType},
+    content::Content,
     error::MviewResult,
-    file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor,
-    },
-    image::{
-        draw::draw_error,
-        provider::internal::{InternalImageLoader, InternalReader},
-    },
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
+    image::{draw_error, InternalImageLoader, InternalReader},
     mview6_error,
     profile::performance::Performance,
 };
-
-use super::Backend;
 
 pub struct MarEntry {
     pub offset: u64,
@@ -70,15 +63,15 @@ impl MarEntry {
 
 pub struct MarArchive {
     path: PathBuf,
-    store: Vec<Row>,
+    store: FileStore,
 }
 
 impl MarArchive {
-    pub fn new(filename: &Path) -> Self {
-        MarArchive {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
+        Ok(MarArchive {
             path: filename.into(),
-            store: list_mar(filename).unwrap_or_default(),
-        }
+            store: list_mar(filename)?,
+        })
     }
 
     pub fn get_thumbnail(src: &Reference) -> MviewResult<DynamicImage> {
@@ -104,8 +97,8 @@ impl Backend for MarArchive {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
@@ -117,10 +110,6 @@ impl Backend for MarArchive {
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::MarArchive(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 }
 
@@ -136,8 +125,8 @@ fn extract_mar(filename: &Path, offset: u64) -> MviewResult<Content> {
     image
 }
 
-fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
-    let mut result = Vec::new();
+fn list_mar(mar_file: &Path) -> Result<FileStore> {
+    let store = FileRow::empty_store();
     let fname = std::path::Path::new(mar_file);
     let file = fs::File::open(fname)?;
     let mut reader = BufReader::new(file);
@@ -157,20 +146,20 @@ fn list_mar(mar_file: &Path) -> Result<Vec<Row>> {
     for _ in 0..num_entries {
         let entry = MarEntry::read(&mut reader, buf[3])?;
 
-        let cat = FileClassification::determine(Path::new(&entry.filename), false);
+        let classification = FileClassification::determine(Path::new(&entry.filename), false);
         let file_size = entry.image_size as u64;
 
-        if cat.file_type == FileType::Unsupported {
+        if classification.file_type == FileType::Unsupported {
             continue;
         }
 
-        result.push(Row::new_index(
-            cat,
+        store.append(&FileRow::new_index(
+            classification,
             entry.filename.to_string(),
             file_size,
             entry.date,
             entry.offset,
         ));
     }
-    Ok(result)
+    Ok(store)
 }

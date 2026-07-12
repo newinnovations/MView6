@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -18,18 +18,13 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::{
-    backends::{filesystem::FileSystem, Backend, MarArchive, RarArchive, ZipArchive},
-    classification::file_formats::{ArchiveFormat, FileFormat, ImageFormat},
-    content::{paginated::PaginatedContent, Content},
+    classification::{FileFormat, ImageFormat},
+    content::{paginated::PaginatedContent, preview::Preview, Content},
     error::MviewResult,
-    file_view::model::BackendRef,
     image::{
-        draw::{draw_error, draw_text},
-        provider::{gdk::GdkImageLoader, image_rs::RsImageLoader, internal::InternalImageLoader},
-        view::{data::TransparencyMode, ZoomMode},
+        draw_error, GdkImageLoader, InternalImageLoader, RsImageLoader, TransparencyMode, ZoomMode,
     },
     profile::performance::Performance,
-    util::path_to_extension,
 };
 use resvg::usvg::{self, fontdb::Database, Options, Tree};
 use std::{
@@ -56,14 +51,12 @@ impl ContentLoader {
     ///    - if textual content handle by highlighter with "txt" format
     ///    - handle raw
     pub fn content_from_file(path: &Path) -> Content {
-        if path.is_dir() {
-            let list = FileSystem::new(path).list().clone();
-            return Content::new_list(path, BackendRef::FileSystem(path.into()), list);
-        }
+        let file_format = if path.is_dir() {
+            FileFormat::Folder
+        } else {
+            FileFormat::from_path(path)
+        };
 
-        let ext = path_to_extension(path);
-        let file_format = FileFormat::from_extension(&ext);
-        // dbg!(content_type);
         if file_format != FileFormat::Unknown {
             return Self::load_file(file_format, path);
         }
@@ -73,7 +66,7 @@ impl ContentLoader {
             Err(e) => return draw_error(path, e),
         };
 
-        let file_format = FileFormat::determine(&data);
+        let file_format = FileFormat::detect(&data);
         if file_format != FileFormat::Unknown {
             return Self::load_file(file_format, path);
         }
@@ -96,24 +89,20 @@ impl ContentLoader {
         })
     }
 
-    fn load_file(content_type: FileFormat, path: &Path) -> Content {
-        match content_type {
-            FileFormat::Document(_) => {
-                // draw_text("Document", "PDF/EPUB", Category::Document.colors())
-                Content::new_preview(path, BackendRef::Pdfium(path.into()))
-            }
-            FileFormat::Archive(ArchiveFormat::Mar) => {
-                let list = MarArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::MarArchive(path.into()), list)
-            }
-            FileFormat::Archive(ArchiveFormat::Rar) => {
-                let list = RarArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::RarArchive(path.into()), list)
-            }
-            FileFormat::Archive(ArchiveFormat::Zip) => {
-                let list = ZipArchive::new(path).list().clone();
-                Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
-            }
+    fn load_file(file_format: FileFormat, path: &Path) -> Content {
+        match file_format {
+            // FileFormat::Archive(ArchiveFormat::Mar) => {
+            //     let list = MarArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::MarArchive(path.into()), list)
+            // }
+            // FileFormat::Archive(ArchiveFormat::Rar) => {
+            //     let list = RarArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::RarArchive(path.into()), list)
+            // }
+            // FileFormat::Archive(ArchiveFormat::Zip) => {
+            //     let list = ZipArchive::new(path).list().clone();
+            //     Content::new_list(path, BackendRef::ZipArchive(path.into()), list)
+            // }
             FileFormat::Image(ImageFormat::Svg) => match Self::read_svg(path) {
                 Ok(tree) => Content::new_svg(
                     tree,
@@ -145,11 +134,24 @@ impl ContentLoader {
                     }
                 }
             }
-            FileFormat::Unknown => draw_text(
-                "Unknown",
-                "Content not recognized",
-                crate::classification::FileType::Unsupported.colors(),
-            ),
+            // FileFormat::Video => draw_text(
+            //     "Video",
+            //     "Video file",
+            //     crate::classification::FileType::Unsupported.colors(),
+            // ),
+            // FileFormat::Unknown => draw_text(
+            //     "Unknown",
+            //     "Content not recognized",
+            //     crate::classification::FileType::Unsupported.colors(),
+            // ),
+            _ => {
+                match Preview::new(file_format, path).content() {
+                    Ok(content) => content,
+                    Err(error) => draw_error(path, error),
+                }
+                // draw_text("Document", "PDF/EPUB", Category::Document.colors())
+                // Content::new_preview(path, BackendRef::Pdfium(path.into()))
+            }
         }
     }
 
@@ -159,7 +161,11 @@ impl ContentLoader {
     pub fn content_from_memory(buf: Vec<u8>, path: &Path) -> Content {
         let duration = Performance::start();
 
-        if buf.starts_with(&[0x3c, 0x3f]) || buf.starts_with(&[0x1f, 0x8b]) {
+        // Check if it's an SVG (starts with "<?" or "<s") or a gzipped file (starts with 0x1f 0x8b)
+        if buf.starts_with(&[0x3c, 0x3f])
+            || buf.starts_with(&[0x3c, 0x73])
+            || buf.starts_with(&[0x1f, 0x8b])
+        {
             let svg_options = usvg::Options::default();
             if let Ok(tree) = Tree::from_data(&buf, &svg_options) {
                 duration.elapsed("decode svg (mem)");

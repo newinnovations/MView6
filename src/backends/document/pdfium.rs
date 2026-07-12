@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -29,11 +29,8 @@ use crate::{
     classification::FileType,
     content::Content,
     error::MviewResult,
-    file_view::{
-        model::{BackendRef, ItemRef, Reference, Row},
-        Cursor,
-    },
-    image::{draw::draw_error, provider::surface::SurfaceData, view::Zoom},
+    file_view::{BackendRef, FileRow, FileStore, ItemRef, Reference},
+    image::{draw_error, SurfaceData, Zoom},
     mview6_error,
     profile::performance::Performance,
     rect::{RectD, SizeD, VectorD},
@@ -41,28 +38,28 @@ use crate::{
 
 pub struct DocPdfium {
     path: PathBuf,
-    document: MviewResult<PdfiumDocument>,
-    store: Vec<Row>,
+    document: PdfiumDocument,
+    store: FileStore,
     last_page: i32,
 }
 
 impl DocPdfium {
-    pub fn new(filename: &Path) -> Self {
+    pub fn try_new(filename: &Path) -> MviewResult<Self> {
         let (document, store, last_page) = Self::create_store(filename);
-        DocPdfium {
+        Ok(DocPdfium {
             path: filename.into(),
-            document,
+            document: document?,
             store,
             last_page,
-        }
+        })
     }
 
-    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, Vec<Row>, i32) {
+    fn create_store(filename: &Path) -> (MviewResult<PdfiumDocument>, FileStore, i32) {
         match list_pages(filename) {
             Ok((document, store, last_page)) => (Ok(document), store, last_page),
             Err(e) => {
                 eprintln!("ERROR {e:?}");
-                (Err(e), Default::default(), Default::default())
+                (Err(e), FileRow::empty_store(), Default::default())
             }
         }
     }
@@ -87,34 +84,27 @@ impl Backend for DocPdfium {
         self.path.clone()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
     fn content(&self, item: &ItemRef, params: &ImageParams) -> Content {
-        (|| {
-            let document = self.document.as_ref().map_err(|e| e.to_string())?;
-            page_size(
-                Reference {
-                    backend: BackendRef::Pdfium(self.path.clone()),
-                    item: item.clone(),
-                },
-                document,
-                item.idx() as i32,
-                self.last_page,
-                params.page_mode,
-            )
-            .map_err(|e| e.to_string())
-        })()
+        page_size(
+            Reference {
+                backend: BackendRef::Pdfium(self.path.clone()),
+                item: item.clone(),
+            },
+            &self.document,
+            item.idx() as i32,
+            self.last_page,
+            params.page_mode,
+        )
+        .map_err(|e| e.to_string())
         .unwrap_or_else(|e| draw_error(&self.path, mview6_error!(e)))
     }
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Pdfium(self.path.clone())
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::Index(cursor.index())
     }
 
     fn render(
@@ -124,9 +114,8 @@ impl Backend for DocPdfium {
         zoom: &Zoom,
         viewport: &RectD,
     ) -> Option<SurfaceData> {
-        let document = self.document.as_ref().ok()?;
         render(
-            document,
+            &self.document,
             item.idx() as i32,
             self.last_page,
             page_mode,
@@ -271,6 +260,11 @@ fn render_dual(
         ),
         (Some(pixmap_left), Some(pixmap_right)) => {
             if pixmap_left.height() != pixmap_right.height() {
+                eprintln!(
+                    "Height mismatch in dual page render: left {}px, right {}px",
+                    pixmap_left.height(),
+                    pixmap_right.height()
+                );
                 return mview6_error!("height mismatch").into();
             }
             SurfaceData::from_dual_bgra8(
@@ -297,8 +291,8 @@ fn page_render(
     if intersection.is_empty() {
         Ok(None) // clip intersection is empty
     } else {
-        let width = intersection.width().ceil() as i32;
-        let height = intersection.height().ceil() as i32;
+        let width = intersection.width().round() as i32;
+        let height = intersection.height().round() as i32;
         let config = PdfiumRenderConfig::new()
             .with_size(width, height)
             .with_scale(zoom.scale() as f32)
@@ -307,20 +301,20 @@ fn page_render(
     }
 }
 
-fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, Vec<Row>, i32)> {
+fn list_pages(filename: &Path) -> MviewResult<(PdfiumDocument, FileStore, i32)> {
     let duration = Performance::start();
     let document = PdfiumDocument::new_from_path(filename, None)?;
     let page_count = document.page_count();
-    let mut result = Vec::new();
+    let store = FileRow::empty_store();
     println!("Total pages: {page_count}");
     if page_count > 0 {
-        let cat = FileType::Image.into();
+        let classification = FileType::Image.into();
         for i in 0..page_count {
             let page = format!("Page {0:5}", i + 1);
-            result.push(Row::new_index(cat, page, 0, 0, i as u64));
+            store.append(&FileRow::new_index(classification, page, 0, 0, i as u64));
         }
         duration.elapsed("pdfium list");
-        Ok((document, result, page_count - 1))
+        Ok((document, store, page_count - 1))
     } else {
         mview6_error!("No pages in document").into()
     }

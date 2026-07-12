@@ -1,0 +1,386 @@
+// MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
+//
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
+//
+// This file is part of MView6.
+//
+// MView6 is free software: you can redistribute it and/or modify it under the terms of
+// the GNU Affero General Public License as published by the Free Software Foundation, either
+// version 3 of the License, or (at your option) any later version.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+// IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+// FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+// DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+// BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+use std::{
+    collections::HashSet,
+    rc::Rc,
+    time::{Duration, Instant},
+};
+
+use glib::{clone, subclass::types::ObjectSubclassExt, Propagation};
+use gtk4::{
+    gdk::Key, prelude::*, Box, Button, CheckButton, EventControllerKey, Orientation, ProgressBar,
+    Separator, Window,
+};
+
+use crate::{
+    classification::{FileType, Preference},
+    file_view::Filter,
+    window::MViewWindowImp,
+};
+
+const DIALOG_TIMEOUT: u32 = 3;
+const DIALOG_PROGRESS_INTERVAL: Duration = Duration::from_millis(50);
+
+const C_ITEMS: &[(&str, FileType, Key)] = &[
+    ("Images [i]", FileType::Image, Key::i),
+    ("Videos [v]", FileType::Video, Key::v),
+    ("Documents [d]", FileType::Document, Key::d),
+    ("Folders [f]", FileType::Folder, Key::f),
+    ("Archives [a]", FileType::Archive, Key::a),
+    ("Unsupported content [u]", FileType::Unsupported, Key::u),
+];
+
+const F_ITEMS: &[(&str, Preference, Key)] = &[
+    ("Normal items [n]", Preference::Normal, Key::n),
+    ("Liked items [l]", Preference::Liked, Key::l),
+    ("Disliked items [t]", Preference::Disliked, Key::t),
+];
+
+const A_ITEMS: &[(FileType, Key)] = &[
+    (FileType::Image, Key::I),
+    (FileType::Video, Key::V),
+    (FileType::Document, Key::D),
+    (FileType::Archive, Key::A),
+];
+
+impl MViewWindowImp {
+    pub fn filter_dialog(&self, initial_shortcut: Option<Key>) {
+        let root = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(12)
+            .margin_start(12)
+            .margin_end(12)
+            .margin_top(12)
+            .margin_bottom(12)
+            .build();
+
+        let dialog = Window::builder()
+            .title("Navigation filter")
+            .modal(true)
+            .transient_for(&self.obj().clone())
+            .resizable(false)
+            .child(&root)
+            .build();
+
+        let hbox = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(8) // vertical spacing between rows
+            .build();
+
+        let vbox_checks = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(8)
+            .margin_start(12)
+            .margin_top(6)
+            .margin_bottom(6)
+            .build();
+
+        let mut c_checks = Vec::new();
+        let mut f_checks = Vec::new();
+        if let Filter::Set((c_filter, f_filter)) = &*self.current_filter.borrow() {
+            for (item, content_type, _) in C_ITEMS {
+                let checkbox = CheckButton::with_label(item);
+                checkbox.set_active(c_filter.contains(content_type));
+                if let Some(label) = checkbox.last_child() {
+                    label.set_margin_start(8)
+                }
+                vbox_checks.append(&checkbox);
+                c_checks.push((checkbox, *content_type));
+            }
+            let separator = Separator::new(Orientation::Horizontal);
+            separator.add_css_class("navsep");
+            vbox_checks.append(&separator);
+            for (item, pref_type, _) in F_ITEMS {
+                let checkbox = CheckButton::with_label(item);
+                checkbox.set_active(f_filter.contains(pref_type));
+                if let Some(label) = checkbox.last_child() {
+                    label.set_margin_start(8)
+                }
+                vbox_checks.append(&checkbox);
+                f_checks.push((checkbox, *pref_type));
+            }
+
+            if let Some(keyval) = initial_shortcut {
+                for (content_type, key) in A_ITEMS {
+                    if *key == keyval {
+                        for (cb, ct) in &c_checks {
+                            cb.set_active(*ct == *content_type);
+                        }
+                        for (cb, preference) in &f_checks {
+                            cb.set_active(*preference != Preference::Disliked);
+                        }
+                    }
+                }
+                if keyval == Key::E {
+                    for (cb, _) in &c_checks {
+                        cb.set_active(true);
+                    }
+                    for (cb, _) in &f_checks {
+                        cb.set_active(true);
+                    }
+                }
+            }
+        }
+
+        let vbox_buttons = Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(28)
+            .margin_end(12)
+            .margin_top(6)
+            .build();
+
+        let all_button = Button::with_label("Everything [E]");
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        all_button.connect_clicked(move |_| {
+            for (cb, _) in &cb_clone {
+                cb.set_active(true);
+            }
+            for (cb, _) in &fb_clone {
+                cb.set_active(true);
+            }
+        });
+
+        let images_button = Button::with_label("Only images [I]");
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        images_button.connect_clicked(move |_| {
+            for (cb, ct) in &cb_clone {
+                cb.set_active(*ct == FileType::Image);
+            }
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
+            }
+        });
+
+        let videos_button = Button::with_label("Only videos [V]");
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        videos_button.connect_clicked(move |_| {
+            for (cb, ct) in &cb_clone {
+                cb.set_active(*ct == FileType::Video);
+            }
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
+            }
+        });
+
+        let archives_button = Button::with_label("Only archives [A]");
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        archives_button.connect_clicked(move |_| {
+            for (cb, ct) in &cb_clone {
+                cb.set_active(*ct == FileType::Archive);
+            }
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
+            }
+        });
+
+        let documents_button = Button::with_label("Only documents [D]");
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        documents_button.connect_clicked(move |_| {
+            for (cb, ct) in &cb_clone {
+                cb.set_active(*ct == FileType::Document);
+            }
+            for (cb, preference) in &fb_clone {
+                cb.set_active(*preference != Preference::Disliked);
+            }
+        });
+
+        vbox_buttons.append(&all_button);
+        vbox_buttons.append(&images_button);
+        vbox_buttons.append(&videos_button);
+        vbox_buttons.append(&documents_button);
+        vbox_buttons.append(&archives_button);
+
+        let separator = Separator::new(Orientation::Vertical);
+        separator.add_css_class("navsep");
+        hbox.append(&vbox_buttons);
+        hbox.append(&separator);
+        hbox.append(&vbox_checks);
+        root.append(&hbox);
+
+        let progress = ProgressBar::new();
+        progress.add_css_class("dialog-progress");
+        progress.set_fraction(1.0);
+        progress.set_hexpand(true);
+        root.append(&progress);
+
+        let button_box = Box::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(8)
+            .halign(gtk4::Align::End)
+            .build();
+
+        let cancel_btn = Button::with_label("Cancel");
+        cancel_btn.set_margin_end(8); // space to the right of Cancel
+        cancel_btn.set_margin_bottom(8);
+        button_box.append(&cancel_btn);
+
+        let ok_btn = Button::with_label("OK");
+        ok_btn.set_margin_start(8);
+        ok_btn.set_margin_end(8);
+        ok_btn.set_margin_bottom(8);
+        button_box.append(&ok_btn);
+        root.append(&button_box);
+
+        // Prevent focus outline on the first checkbox by focusing OK when shown
+        let ok_btn_clone = ok_btn.clone();
+        dialog.connect_map(move |_| {
+            ok_btn_clone.grab_focus();
+        });
+
+        let apply_c_checks = c_checks.clone();
+        let apply_f_checks = f_checks.clone();
+        let apply_filter: Rc<dyn Fn()> = Rc::new(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[weak]
+            dialog,
+            move || {
+                let c_selected: HashSet<FileType> = apply_c_checks
+                    .iter()
+                    .filter(|&(cb, _)| cb.is_active())
+                    .map(|(_, content_type)| *content_type)
+                    .collect();
+                let f_selected: HashSet<Preference> = apply_f_checks
+                    .iter()
+                    .filter(|&(cb, _)| cb.is_active())
+                    .map(|(_, preference_type)| *preference_type)
+                    .collect();
+                this.current_filter
+                    .replace(Filter::Set((c_selected, f_selected)));
+                dialog.close();
+            }
+        ));
+
+        cancel_btn.connect_clicked(clone!(
+            #[weak]
+            dialog,
+            move |_| {
+                dialog.close();
+            }
+        ));
+        ok_btn.connect_clicked({
+            let apply_filter = apply_filter.clone();
+            move |_| apply_filter()
+        });
+
+        let cb_clone = c_checks.clone();
+        let fb_clone = f_checks.clone();
+        let key_controller = EventControllerKey::new();
+        {
+            let dialog_clone = dialog.clone();
+            let apply_filter = apply_filter.clone();
+            key_controller.connect_key_pressed(move |_, keyval, _, _| {
+                for (_, content_type, key) in C_ITEMS {
+                    if *key == keyval {
+                        for (cb, cb_content) in &cb_clone {
+                            if *content_type == *cb_content {
+                                cb.set_active(!cb.is_active());
+                                return Propagation::Stop;
+                            }
+                        }
+                    }
+                }
+                for (_, preference, key) in F_ITEMS {
+                    if *key == keyval {
+                        for (cb, cb_preference) in &fb_clone {
+                            if *preference == *cb_preference {
+                                cb.set_active(!cb.is_active());
+                                return Propagation::Stop;
+                            }
+                        }
+                    }
+                }
+                for (content_type, key) in A_ITEMS {
+                    if *key == keyval {
+                        for (cb, ct) in &cb_clone {
+                            cb.set_active(*ct == *content_type);
+                        }
+                        for (cb, preference) in &fb_clone {
+                            cb.set_active(*preference != Preference::Disliked);
+                        }
+                    }
+                }
+                match keyval {
+                    Key::E => {
+                        for (cb, _) in &cb_clone {
+                            cb.set_active(true);
+                        }
+                        for (cb, _) in &fb_clone {
+                            cb.set_active(true);
+                        }
+                        Propagation::Stop
+                    }
+                    Key::Escape | Key::q | Key::Q => {
+                        dialog_clone.close();
+                        Propagation::Stop
+                    }
+                    Key::Return | Key::KP_Enter => {
+                        apply_filter();
+                        Propagation::Stop
+                    }
+                    _ => Propagation::Proceed,
+                }
+            });
+        }
+
+        dialog.add_controller(key_controller);
+
+        if initial_shortcut.is_some() {
+            let started = Instant::now();
+            let timeout = Duration::from_secs(DIALOG_TIMEOUT.into());
+            let apply_filter = apply_filter.clone();
+            glib::timeout_add_local(
+                DIALOG_PROGRESS_INTERVAL,
+                clone!(
+                    #[weak]
+                    dialog,
+                    #[weak]
+                    progress,
+                    #[upgrade_or]
+                    glib::ControlFlow::Break,
+                    move || {
+                        if !dialog.is_visible() {
+                            return glib::ControlFlow::Break;
+                        }
+
+                        let elapsed = started.elapsed();
+                        if elapsed >= timeout {
+                            apply_filter();
+                            glib::ControlFlow::Break
+                        } else {
+                            let remaining = 1.0 - elapsed.as_secs_f64() / timeout.as_secs_f64();
+                            progress.set_fraction(remaining);
+                            glib::ControlFlow::Continue
+                        }
+                    }
+                ),
+            );
+        } else {
+            progress.set_visible(false);
+        }
+
+        dialog.present();
+    }
+}

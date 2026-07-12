@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -26,11 +26,8 @@ use gtk4::prelude::WidgetExt;
 
 use crate::{
     image::{
-        provider::surface::SurfaceData,
-        view::{
-            data::{RenderedImage, QUALITY_LOW},
-            Zoom, QUALITY_HIGH, SIGNAL_SHOWN,
-        },
+        view::{data::QUALITY_LOW, Zoom, QUALITY_HIGH, SIGNAL_SHOWN},
+        RenderedImage, SurfaceData,
     },
     rect::RectD,
     util::remove_source_id,
@@ -111,8 +108,7 @@ impl ImageViewData {
                 && reason != RedrawReason::RenderDone
                 && self.content.needs_render()
             {
-                let a = view.allocation();
-                let viewport = RectD::new(0.0, 0.0, a.width() as f64, a.height() as f64);
+                let viewport = RectD::new(0.0, 0.0, view.width() as f64, view.height() as f64);
                 if let Some(command) = self.content.render(self.zoom.clone(), viewport) {
                     self.rb_send(command);
                     if reason == RedrawReason::ContentPost

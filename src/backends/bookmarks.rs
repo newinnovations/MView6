@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -17,14 +17,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use super::{Content, ImageParams};
 use crate::{
+    backends::{Backend, ImageParams},
     classification::FileType,
     config::config,
-    content::loader::ContentLoader,
+    content::{Content, ContentLoader},
     file_view::{
-        model::{BackendRef, ItemRef, Row},
-        Cursor,
+        Target, {BackendRef, FileRow, FileStore, ItemRef},
     },
 };
 use std::{
@@ -34,10 +33,8 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use super::{Backend, Target};
-
 pub struct Bookmarks {
-    store: Vec<Row>,
+    store: FileStore,
     parent_backend: RefCell<Box<dyn Backend>>,
     parent_target: Target,
 }
@@ -45,14 +42,14 @@ pub struct Bookmarks {
 impl Bookmarks {
     pub fn new(parent_backend: Box<dyn Backend>, parent_target: Target) -> Self {
         Bookmarks {
-            store: Self::read_bookmarks().unwrap_or_default(),
+            store: Self::read_bookmarks().unwrap_or_else(|_| FileRow::empty_store()),
             parent_backend: parent_backend.into(),
             parent_target,
         }
     }
 
-    fn read_bookmarks() -> io::Result<Vec<Row>> {
-        let mut result = Vec::new();
+    fn read_bookmarks() -> io::Result<FileStore> {
+        let store = FileRow::empty_store();
         let config = config();
         for entry in &config.config_file.bookmarks {
             let metadata = match fs::metadata(&entry.folder) {
@@ -69,9 +66,9 @@ impl Bookmarks {
                 0
             };
             let file_size = metadata.len();
-            let cat = FileType::Folder.into();
-            result.push(Row::new_folder_index(
-                cat,
+            let classification = FileType::Folder.into();
+            store.append(&FileRow::new_folder_index(
+                classification,
                 entry.name.clone(),
                 file_size,
                 modified,
@@ -79,7 +76,7 @@ impl Bookmarks {
                 entry.folder.clone(),
             ));
         }
-        Ok(result)
+        Ok(store)
     }
 }
 
@@ -92,12 +89,12 @@ impl Backend for Bookmarks {
         Path::new("bookmarks").into()
     }
 
-    fn list(&self) -> &Vec<Row> {
-        &self.store
+    fn list(&self) -> FileStore {
+        self.store.clone()
     }
 
-    fn enter(&self, cursor: &Cursor) -> Option<Box<dyn Backend>> {
-        Some(<dyn Backend>::new_from_path(Path::new(&cursor.folder())))
+    fn enter(&self, row: &FileRow) -> Option<Box<dyn Backend>> {
+        <dyn Backend>::new_from_path(Path::new(&row.folder())).ok()
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
@@ -110,19 +107,9 @@ impl Backend for Bookmarks {
     fn content(&self, item: &ItemRef, _: &ImageParams) -> Content {
         let path = Path::new(item.str());
         ContentLoader::content_from_file(path)
-        // let cat = if folder_lower.ends_with(".zip") || folder_lower.ends_with(".rar") {
-        //     Category::Archive
-        // } else {
-        //     Category::Folder
-        // };
-        // draw_text(&cat.name(), folder, cat.colors())
     }
 
     fn backend_ref(&self) -> BackendRef {
         BackendRef::Bookmarks
-    }
-
-    fn item_ref(&self, cursor: &Cursor) -> ItemRef {
-        ItemRef::String(cursor.folder())
     }
 }

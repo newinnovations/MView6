@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -19,27 +19,27 @@
 
 use std::time::SystemTime;
 
-use gtk4::ListStore;
+use gtk4::gio;
 use image::DynamicImage;
 
 use crate::{
     backends::Backend,
-    file_view::{model::Entry, Target},
-    image::colors::Color,
+    file_view::{Entry, Target},
+    image::Color,
     rect::PointD,
 };
 
 pub struct TParent {
     pub backend: Box<dyn Backend>,
     pub target: Target,
-    pub focus_pos: i32,
-    pub store: ListStore,
+    pub focus_pos: u32,
+    pub store: gio::ListModel,
 }
 
 #[derive(Debug, Clone)]
 pub struct TCommand {
     pub id: u32,
-    pub page: i32,
+    pub page: u32,
     pub start: SystemTime,
     pub tasks: Vec<TTask>,
     pub todo: usize,
@@ -62,7 +62,7 @@ impl Default for TCommand {
 }
 
 impl TCommand {
-    pub fn new(id: u32, page: i32, tasks: Vec<TTask>, dim: SheetDimensions) -> Self {
+    pub fn new(id: u32, page: u32, tasks: Vec<TTask>, dim: SheetDimensions) -> Self {
         let todo = tasks.len();
         TCommand {
             id,
@@ -91,15 +91,15 @@ impl TCommand {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TTask {
-    pub id: i32,
+    pub id: u32,
     pub size: u32,
-    pub position: (i32, i32),
+    pub position: (u32, u32),
     pub source: Entry,
     pub annotation: Annotation,
 }
 
 impl TTask {
-    pub fn new(id: i32, size: u32, x: i32, y: i32, source: Entry, annotation: Annotation) -> Self {
+    pub fn new(id: u32, size: u32, x: u32, y: u32, source: Entry, annotation: Annotation) -> Self {
         TTask {
             id,
             size,
@@ -166,34 +166,36 @@ pub enum Message {
 
 #[derive(Default, Debug, Clone)]
 pub struct SheetDimensions {
-    pub size: i32,
-    pub width: i32,
-    pub height: i32,
-    pub separator_x: i32,
-    pub separator_y: i32,
-    pub capacity_x: i32,
-    pub capacity_y: i32,
-    pub offset_x: i32,
-    pub offset_y: i32,
+    pub size: u32,
+    pub width: u32,
+    pub height: u32,
+    pub separator_x: u32,
+    pub separator_y: u32,
+    pub capacity_x: u32,
+    pub capacity_y: u32,
+    pub offset_x: u32,
+    pub offset_y: u32,
 }
 
 impl SheetDimensions {
-    pub fn capacity(&self) -> i32 {
+    pub fn capacity(&self) -> u32 {
         self.capacity_x * self.capacity_y
     }
 
     // TODO: change all to Points
-    pub fn rel_position(&self, pos: PointD) -> Option<i32> {
-        let x = (pos.x() as i32 - self.offset_x) / (self.size + self.separator_x);
-        let y = (pos.y() as i32 - self.offset_y) / (self.size + self.separator_y);
-        if x < 0 || y < 0 || x >= self.capacity_x || y >= self.capacity_y {
+    pub fn rel_position(&self, pos: PointD) -> Option<u32> {
+        let x =
+            (pos.x() as i32 - self.offset_x as i32) / (self.size as i32 + self.separator_x as i32);
+        let y =
+            (pos.y() as i32 - self.offset_y as i32) / (self.size as i32 + self.separator_y as i32);
+        if x < 0 || y < 0 || x >= self.capacity_x as i32 || y >= self.capacity_y as i32 {
             None
         } else {
-            Some(y * self.capacity_x + x)
+            Some(y as u32 * self.capacity_x + x as u32)
         }
     }
 
-    pub fn abs_position(&self, page: i32, pos: PointD) -> Option<i32> {
+    pub fn abs_position(&self, page: u32, pos: PointD) -> Option<u32> {
         self.rel_position(pos)
             .map(|rel| page * self.capacity() + rel)
     }
@@ -202,12 +204,12 @@ impl SheetDimensions {
 #[derive(Debug, Clone)]
 pub struct Annotations {
     pub dim: SheetDimensions,
-    pub page: i32,
+    pub page: u32,
     pub annotations: Vec<Annotation>,
 }
 
 impl Annotations {
-    pub fn get(&self, index: Option<i32>) -> Option<&Annotation> {
+    pub fn get(&self, index: Option<u32>) -> Option<&Annotation> {
         self.annotations.get(index? as usize)
     }
 
@@ -216,7 +218,7 @@ impl Annotations {
     //         .filter(|a| a.position.inside(x, y))
     // }
 
-    pub fn index_at(&self, pos: PointD) -> Option<i32> {
+    pub fn index_at(&self, pos: PointD) -> Option<u32> {
         let index = self.dim.rel_position(pos)?;
         let annotation = self.annotations.get(index as usize)?;
         annotation.position.inside(pos).then_some(index)
@@ -241,6 +243,15 @@ impl TRect {
         }
     }
 
+    pub fn new_u32(x: u32, y: u32, width: u32, height: u32) -> Self {
+        TRect {
+            x: x as f64,
+            y: y as f64,
+            width: width as f64,
+            height: height as f64,
+        }
+    }
+
     pub fn inside(&self, pos: PointD) -> bool {
         pos.x() >= self.x
             && pos.y() >= self.y
@@ -251,7 +262,7 @@ impl TRect {
 
 #[derive(Debug, Clone)]
 pub struct Annotation {
-    pub id: i32,
+    pub id: u32,
     pub position: TRect,
     pub entry: Entry,
 }

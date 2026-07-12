@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -170,6 +170,10 @@ fn draw_arrow(cr: &gtk4::cairo::Context, m1: PointD, m2: PointD) {
     let d = m2 - m1;
     let length = d.length();
     let angle = d.angle();
+
+    if length < 0.1 {
+        return; // Too short to draw
+    }
 
     // Normalize direction vector
     let n = d.unscale(length);

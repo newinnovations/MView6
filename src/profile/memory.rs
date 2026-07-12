@@ -1,6 +1,6 @@
 // MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
-// Copyright (c) 2024-2025 Martin van der Werff <github (at) newinnovations.nl>
+// Copyright (c) 2024-2026 Martin van der Werff <github (at) newinnovations.nl>
 //
 // This file is part of MView6.
 //
@@ -97,7 +97,10 @@ pub fn dump_memory_usage() {
 pub fn memory_short() -> String {
     match get_memory_usage() {
         Ok(usage) => {
-            format!("(rss={0}, data={1})", usage.resident_set_size, usage.data)
+            format!(
+                "(rss={0} pages, data={1} pages)",
+                usage.resident_set_size, usage.data
+            )
         }
         Err(_) => String::default(),
     }
