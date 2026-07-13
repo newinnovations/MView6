@@ -566,7 +566,7 @@ impl ObjectImpl for MViewWindowImp {
                     println!("Opening {filename}");
                     // match path::absolute(filename) {
                     match fs::canonicalize(filename) {
-                        Ok(abs_path) => this.navigate_to(&abs_path),
+                        Ok(abs_path) => this.open_file(&abs_path),
                         Err(_) => {
                             this.set_backend(<dyn Backend>::current_dir(), &Target::First, true)
                         }

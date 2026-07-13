@@ -92,7 +92,7 @@ impl MViewWindowImp {
     }
 
     pub(super) fn on_row_activated(&self) {
-        println!("on_row_activated");
+        // println!("on_row_activated");
         self.dir_enter();
     }
 
@@ -121,12 +121,12 @@ impl MViewWindowImp {
         }
     }
 
-    pub fn navigate_to(&self, path: &Path) {
-        println!("navigate_to {}", path.display());
+    pub fn open_file(&self, path: &Path) {
+        // println!("navigate_to {}", path.display());
         let filename = path_to_filename(path);
         let directory = path.parent().unwrap_or_else(|| Path::new(""));
         let category = FileClassification::determine(path, path.is_dir());
-        dbg!(&filename, directory, category);
+        // dbg!(&filename, directory, category);
         match <dyn Backend>::new_from_path(directory) {
             Ok(backend) => {
                 self.open_container.set(category.is_container());

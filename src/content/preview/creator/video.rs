@@ -25,6 +25,7 @@ use std::{
 use crate::{
     content::{PreviewCaption, PreviewContainer, PreviewImage},
     error::MviewResult,
+    mview6_error,
     profile::performance::Performance,
 };
 
@@ -33,7 +34,9 @@ const TOTAL_FRAMES: u32 = 16;
 pub struct VideoPreview {}
 
 impl VideoPreview {
-    pub fn create(path: &Path) -> MviewResult<PreviewContainer> {
+    /// `progress` is called after every frame has been extracted with
+    /// `(frames_done, total_frames)`.
+    pub fn create(path: &Path, progress: &dyn Fn(u32, u32)) -> MviewResult<PreviewContainer> {
         let video_path = path.to_string_lossy().to_string();
 
         // Get video duration
@@ -60,6 +63,7 @@ impl VideoPreview {
             )?;
             images.push(image);
             duration.elapsed(&format!("preview {i} of {TOTAL_FRAMES}"));
+            progress(i, TOTAL_FRAMES);
         }
 
         Ok(PreviewContainer::new(images))
@@ -76,7 +80,18 @@ impl VideoPreview {
                 "default=noprint_wrappers=1:nokey=1",
                 video_path,
             ])
-            .output()?;
+            .output();
+
+        let output = match output {
+            Ok(output) => output,
+            Err(e) => {
+                eprintln!("Failed to execute ffprobe: {}", e);
+                return mview6_error!(
+                    "Failed to execute ffprobe\n\nIs it installed and in your PATH?"
+                )
+                .into();
+            }
+        };
 
         let duration_str = String::from_utf8_lossy(&output.stdout);
         Ok(duration_str.trim().parse().unwrap_or(0.0))
@@ -101,7 +116,18 @@ impl VideoPreview {
             ])
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
-            .output()?;
+            .output();
+
+        let output = match output {
+            Ok(output) => output,
+            Err(e) => {
+                eprintln!("Failed to execute ffmpeg: {}", e);
+                return mview6_error!(
+                    "Failed to execute ffmpeg\n\nIs it installed and in your PATH?"
+                )
+                .into();
+            }
+        };
 
         Ok(output.stdout)
     }

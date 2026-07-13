@@ -114,7 +114,7 @@ impl MViewWindowImp {
 
     pub fn setup_actions(&self) -> SimpleActionGroup {
         let action_group = SimpleActionGroup::new();
-        self.add_action(&action_group, "open", Self::open_file);
+        self.add_action(&action_group, "open", Self::open_file_dialog);
         self.add_action(&action_group, "about", Self::show_about_dialog);
         self.add_action(&action_group, "help", Self::show_help);
         self.add_action(&action_group, "quit", Self::quit);

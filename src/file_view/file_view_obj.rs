@@ -150,6 +150,28 @@ impl FileView {
         real_model.downcast::<gio::ListStore>().ok()
     }
 
+    /// Returns a snapshot of the currently displayed rows in their current (sorted/filtered)
+    /// order, decoupled from the live `SortListModel`/`Sorter`.
+    ///
+    /// The `SortListModel` used to back the file view shares a single `MultiSorter` instance
+    /// across backends. If we handed out the live model instead, later sort changes (e.g. the
+    /// backend-forced re-sort applied when switching to the thumbnail view) would retroactively
+    /// re-order it as well, so consumers that need to keep working with "the order as it was
+    /// right now" (such as the thumbnail view) must use this snapshot instead of `list_model()`.
+    pub fn list_snapshot(&self) -> Option<gio::ListModel> {
+        let base_model = self.list_model()?;
+        let store = FileRow::empty_store();
+        for i in 0..base_model.n_items() {
+            if let Some(row) = base_model
+                .item(i)
+                .and_then(|obj| obj.downcast::<FileRow>().ok())
+            {
+                store.append(&row);
+            }
+        }
+        Some(store.upcast())
+    }
+
     pub fn select_index(&self, index: u32) {
         if let Some(selection_model) = self
             .model()

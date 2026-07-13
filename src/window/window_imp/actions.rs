@@ -35,12 +35,14 @@ use crate::{
     content::{ContentLoader, Preview},
     file_view::{Direction, Target},
     image::ZoomMode,
+    util::{error_dialog, PreviewProgress, ProgressDialog},
+    MviewError,
 };
 
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn open_file(&self) {
+    pub fn open_file_dialog(&self) {
         let dialog = FileDialog::builder()
             .title("Choose a file")
             .accept_label("Open")
@@ -86,7 +88,7 @@ impl MViewWindowImp {
                 move |result| {
                     if let Ok(file) = result {
                         let path = file.path().unwrap_or_default();
-                        this.navigate_to(&path);
+                        this.open_file(&path);
                     }
                 }
             ),
@@ -200,7 +202,7 @@ impl MViewWindowImp {
         if current_backend.is_doc() {
             let path = current_backend.path();
             drop(current_backend);
-            self.navigate_to(&path);
+            self.open_file(&path);
         }
     }
 
@@ -247,7 +249,7 @@ impl MViewWindowImp {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if backend.can_show_thumbnails() {
-            if let Some(store) = w.file_view.list_model() {
+            if let Some(store) = w.file_view.list_snapshot() {
                 let position = if let Some((file_row, pos)) = w.file_view.selected() {
                     let target: Target = backend.reference(&file_row).into();
                     (target, pos)
@@ -269,7 +271,6 @@ impl MViewWindowImp {
                 );
                 let focus_page = thumbnail.focus_page();
                 let thumbnail = <dyn Backend>::thumbnail(thumbnail);
-                // thumbnail.set_sort(&Sort::sort_on_category()); FIXME
                 self.set_backend(thumbnail, &focus_page, false);
                 self.show_info_widget(false);
             }
@@ -308,17 +309,75 @@ impl MViewWindowImp {
 
     pub fn create_preview(&self) {
         let w = self.widgets();
-        if let Some((file_row, _)) = w.file_view.selected() {
-            let backend = self.backend.borrow();
-            if backend.is_filesystem() {
-                let fullpath = backend.path().join(file_row.name());
-                let preview = Preview::new(FileFormat::from_path(&fullpath), &fullpath);
-                if let Err(error) = preview.create() {
-                    eprintln!("Failed to create preview: {error:?}");
-                } else {
-                    self.on_selection_changed();
+        let Some((file_row, _)) = w.file_view.selected() else {
+            return;
+        };
+        let backend = self.backend.borrow();
+        if !backend.is_filesystem() {
+            return;
+        }
+        let fullpath = backend.path().join(file_row.name());
+        drop(backend);
+
+        let preview = Preview::new(FileFormat::from_path(&fullpath), &fullpath);
+
+        let progress = ProgressDialog::new(
+            &*self.obj(),
+            "Creating Preview",
+            &format!("Creating preview for '{}'...", file_row.name()),
+        );
+
+        // Preview creation (decoding video frames / rendering PDF pages) can be
+        // slow, so it is run on a background thread to keep the UI responsive.
+        // Progress and the final result are sent back to the GTK main loop
+        // over an async channel.
+        let (sender, receiver) = async_channel::unbounded();
+        std::thread::spawn(move || {
+            let progress_sender = sender.clone();
+            let result = preview.create(&move |current, total| {
+                let _ = progress_sender.send_blocking(PreviewProgress::Step(current, total));
+            });
+            let _ = sender.send_blocking(PreviewProgress::Done(result));
+        });
+
+        glib::spawn_future_local(clone!(
+            #[weak(rename_to = this)]
+            self,
+            async move {
+                while let Ok(msg) = receiver.recv().await {
+                    match msg {
+                        PreviewProgress::Step(current, total) => {
+                            progress.set_progress(current, total);
+                        }
+                        PreviewProgress::Done(result) => {
+                            progress.close();
+                            match result {
+                                Ok(()) => {
+                                    this.current_selection.replace(None);
+                                    this.on_selection_changed();
+                                }
+                                Err(error) => match error {
+                                    MviewError::App(e) => {
+                                        error_dialog(
+                                            &*this.obj(),
+                                            "Could not create preview",
+                                            e.message(),
+                                        );
+                                    }
+                                    _ => {
+                                        error_dialog(
+                                            &*this.obj(),
+                                            "Could not create preview",
+                                            &format!("{error}"),
+                                        );
+                                    }
+                                },
+                            }
+                            break;
+                        }
+                    }
                 }
             }
-        }
+        ));
     }
 }

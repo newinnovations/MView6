@@ -161,10 +161,12 @@ impl Preview {
         ))
     }
 
-    pub fn create(&self) -> MviewResult<()> {
+    /// `progress` is called after every rendered page/frame with
+    /// `(steps_done, total_steps)`, allowing callers to display progress.
+    pub fn create(&self, progress: &dyn Fn(u32, u32)) -> MviewResult<()> {
         let preview_container = match self.file_format {
-            FileFormat::Video(_) => VideoPreview::create(&self.path)?,
-            FileFormat::Document(DocumentFormat::Pdf) => PdfPreview::create(&self.path)?,
+            FileFormat::Video(_) => VideoPreview::create(&self.path, progress)?,
+            FileFormat::Document(DocumentFormat::Pdf) => PdfPreview::create(&self.path, progress)?,
             _ => return Err(mview6_error!("No preview for this file format")),
         };
         if let Some(preview_dir) = self.preview.parent() {

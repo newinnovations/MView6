@@ -40,6 +40,10 @@ impl AppError {
             line,
         }
     }
+
+    pub fn message(&self) -> &str {
+        &self.msg
+    }
 }
 
 // Implement Display to display the stored file and line

@@ -83,7 +83,7 @@ impl FileType {
             Self::Video => "video",
             Self::Archive => "archive",
             Self::Document => "document",
-            Self::Unsupported => "not supported",
+            Self::Unsupported => "file",
         }
         .into()
     }

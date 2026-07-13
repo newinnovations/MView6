@@ -60,7 +60,7 @@ pub const COMMANDS: &[Command] = &[
     Command {
         name: "Open file",
         shortcut: None,
-        action: |w| w.open_file(),
+        action: |w| w.open_file_dialog(),
     },
     Command {
         name: "PDF backend: MuPDF",

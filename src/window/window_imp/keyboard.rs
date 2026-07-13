@@ -257,7 +257,6 @@ impl MViewWindowImp {
                 self.toggle_zoom();
             }
             Key::minus | Key::KP_Subtract => {
-                // w.file_view.set_unsorted();
                 if let Some((file_row, _)) = w.file_view.selected() {
                     if self
                         .backend
@@ -270,7 +269,6 @@ impl MViewWindowImp {
                 }
             }
             Key::equal | Key::KP_Add => {
-                // w.file_view.set_unsorted();
                 if let Some((file_row, _)) = w.file_view.selected() {
                     if self
                         .backend
@@ -289,42 +287,6 @@ impl MViewWindowImp {
                 w.file_view
                     .navigate_item(Direction::Down, &Filter::Liked, 1);
             }
-            // Key::Up | Key::z => {
-            //     w.file_view.navigate_item(
-            //         Direction::Up,
-            //         &self.current_filter.borrow(),
-            //         self.step_size(),
-            //     );
-            // }
-            // Key::Down | Key::x => {
-            //     w.file_view.navigate_item(
-            //         Direction::Down,
-            //         &self.current_filter.borrow(),
-            //         self.step_size(),
-            //     );
-            // }
-            // Key::Z | Key::Left | Key::KP_4 | Key::KP_Left => {
-            //     self.navigate_page(Direction::Up, self.step_size());
-            // }
-            // Key::X | Key::Right | Key::KP_6 | Key::KP_Right => {
-            //     self.navigate_page(Direction::Down, self.step_size());
-            // }
-            // Key::KP_8 | Key::KP_Up => {
-            //     w.file_view
-            //         .navigate_item(Direction::Up, &self.current_filter.borrow(), 5);
-            // }
-            // Key::KP_2 | Key::KP_Down => {
-            //     w.file_view
-            //         .navigate_item(Direction::Down, &self.current_filter.borrow(), 5);
-            // }
-            // Key::Page_Up => {
-            //     w.file_view
-            //         .navigate_item(Direction::Up, &self.current_filter.borrow(), 25);
-            // }
-            // Key::Page_Down => {
-            //     w.file_view
-            //         .navigate_item(Direction::Down, &self.current_filter.borrow(), 25);
-            // }
             Key::Home => {
                 self.reload(&Target::First, modifiers.contains(ModifierType::SHIFT_MASK));
             }
@@ -336,31 +298,7 @@ impl MViewWindowImp {
             }
             Key::Tab => {
                 self.measure_move_endpoints();
-                // // set reference
-                // let mouse = w.image_view.mouse_position();
-                // let img = w.image_view.zoom().screen_to_image(&mouse);
-                // w.image_view.measure_anchor(img);
-                // // self.measurement_reference.replace(img);
             }
-            // Key::F3 => {
-            //     // measure
-            //     let mouse = w.image_view.mouse_position();
-            //     let img = w.image_view.zoom().screen_to_image(&mouse);
-            //     if let Some(text) = w.image_view.measure_point(img) {
-            //         self.copy_to_clipboard(&text);
-            //     };
-            //     // let reference = self.measurement_reference.get();
-            //     // let delta = img - reference;
-            //     // let distance = img.distance(&reference);
-            //     // let factor = 2.54 / 600.0; // 600 dpi
-            //     // println!(
-            //     //     "dx {:8.3}   dy {:8.3}   dist {:8.3}",
-            //     //     delta.x() * factor,
-            //     //     delta.y() * factor,
-            //     //     distance * factor
-            //     // );
-            //     // dbg!(img, reference, delta);
-            // }
             Key::F6 => {
                 contrast_delta(-1);
                 dbg!(contrast());

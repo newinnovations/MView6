@@ -32,13 +32,17 @@ const TOTAL_PAGES: i32 = 16;
 pub struct PdfPreview {}
 
 impl PdfPreview {
-    pub fn create(path: &Path) -> MviewResult<PreviewContainer> {
+    /// `progress` is called after every page has been rendered with
+    /// `(pages_done, total_pages_to_render)`.
+    pub fn create(path: &Path, progress: &dyn Fn(u32, u32)) -> MviewResult<PreviewContainer> {
         let doc = PdfiumDocument::new_from_path(path, None)?;
 
         let total_pages = doc.page_count();
+        let pages = select_pages(total_pages, TOTAL_PAGES);
+        let total = pages.len() as u32;
 
         let mut images = Vec::new();
-        for page_no in select_pages(total_pages, TOTAL_PAGES) {
+        for (i, page_no) in pages.into_iter().enumerate() {
             let duration = Performance::start();
             let page = doc.page(page_no)?;
 
@@ -56,7 +60,8 @@ impl PdfPreview {
                 },
             )?;
             images.push(image);
-            duration.elapsed(&format!("preview {} of {TOTAL_PAGES}", page_no + 1));
+            duration.elapsed(&format!("page {} ({}/{})", page_no + 1, i + 1, total));
+            progress(i as u32 + 1, total);
         }
 
         Ok(PreviewContainer::new(images))

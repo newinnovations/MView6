@@ -190,3 +190,13 @@ columnview.info-view row {
     background-color: #f1c8a2;
     border: 0;
 }
+
+.dialog-progress text {
+    color: #f1c8a2;
+    margin-bottom: 10px;
+}
+
+.error-dialog-message {
+    font-size: 1.1em;
+    color: #f8e2e2;
+}

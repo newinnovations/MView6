@@ -22,9 +22,7 @@ use crate::{
     classification::{FileClassification, FileType, Preference},
     content::{Content, ContentLoader},
     error::MviewResult,
-    file_view::{
-        Direction, Target, {BackendRef, FileRow, FileStore, ItemRef, Reference},
-    },
+    file_view::{BackendRef, Direction, FileRow, FileStore, ItemRef, Reference, Target},
     image::{InternalImageLoader, RsImageLoader},
     mview6_error,
     util::path_to_filename,
@@ -162,6 +160,11 @@ impl Backend for FileSystem {
                 .spawn();
             if let Err(error) = child {
                 eprintln!("Failed to launch mpv {:?}", error);
+                // error_dialog(
+                //     &*self.obj(),
+                //     "Failed to launch mpv",
+                //     "Is mpv installed and in your PATH?",
+                // );
             };
             None
         } else if file_type == FileType::Folder
