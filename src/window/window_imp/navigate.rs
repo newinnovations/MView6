@@ -27,14 +27,15 @@ use std::{
 use super::MViewWindowImp;
 
 use crate::{
-    backends::{Backend, ImageParams},
+    backends::{Backend, ImageParams, NoneBackend},
     classification::FileClassification,
+    content::Content,
     file_view::{Direction, Filter, Target},
-    util::path_to_filename,
+    util::{path_to_filename, texture_to_surface},
     window::TargetTime,
 };
-use glib::subclass::types::ObjectSubclassExt;
-use gtk4::prelude::WidgetExt;
+use glib::{clone, subclass::types::ObjectSubclassExt};
+use gtk4::{gdk::Clipboard, prelude::WidgetExt};
 
 impl MViewWindowImp {
     pub(super) fn on_selection_changed(&self) {
@@ -89,6 +90,53 @@ impl MViewWindowImp {
                 *self.current_selection.borrow_mut() = Some(file_row);
             }
         }
+    }
+
+    pub(super) fn paste_image_from_clipboard(&self, clipboard: &Clipboard) {
+        clipboard.read_texture_async(
+            None::<&gio::Cancellable>,
+            clone!(
+                #[weak(rename_to = this)]
+                self,
+                move |result| {
+                    match result {
+                        Ok(Some(texture)) => {
+                            println!("Successfully retrieved texture from clipboard!");
+                            let image_surface = match texture_to_surface(&texture) {
+                                Ok(surface) => surface,
+                                Err(err) => {
+                                    eprintln!("Error converting texture to Cairo surface: {}", err);
+                                    return;
+                                }
+                            };
+                            let w = this.widgets();
+                            let new_backend = Box::new(NoneBackend::new());
+                            let backend = this.backend.replace(<dyn Backend>::none());
+                            let target = if let Some((file_row, _)) = w.file_view.selected() {
+                                backend.reference(&file_row).into()
+                            } else {
+                                Target::First
+                            };
+                            new_backend.set_parent(backend, target);
+                            new_backend.set_path(PathBuf::from("clipboard image"));
+                            this.set_backend(new_backend, &Target::First, true);
+                            let content = Content::new_surface(image_surface, None);
+                            w.forward_button_top.set_visible(false);
+                            w.panel.enable_enter(false);
+                            w.info_view.update(&content);
+                            w.image_view.set_content(content);
+                            *this.current_selection.borrow_mut() = None;
+                        }
+                        Ok(None) => {
+                            eprintln!("Clipboard does not contain any image/texture format.");
+                        }
+                        Err(err) => {
+                            eprintln!("Error reading texture from clipboard: {}", err);
+                        }
+                    }
+                }
+            ),
+        );
     }
 
     pub(super) fn on_row_activated(&self) {

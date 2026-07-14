@@ -19,13 +19,13 @@
 
 use cairo::{Context, Filter, Format, ImageSurface, Matrix};
 use gdk_pixbuf::Pixbuf;
-use glib::object::Cast;
 use gtk4::gdk::{self, prelude::GdkCairoContextExt};
 use std::cmp::max;
 
 use crate::{
     image::{animation::AnimationImage, view::Zoom},
     rect::{SizeD, VectorD},
+    util::surface_to_texture,
 };
 
 #[derive(Debug, Clone)]
@@ -85,8 +85,12 @@ impl SingleImage {
         Self { surface }
     }
 
-    pub fn surface(self) -> ImageSurface {
+    pub fn take_surface(self) -> ImageSurface {
         self.surface
+    }
+
+    pub fn surface(&self) -> &ImageSurface {
+        &self.surface
     }
 
     pub fn draw(&self, context: &Context, quality: Filter) {
@@ -116,47 +120,8 @@ impl SingleImage {
         }
     }
 
-    // Check endianness: Cairo ARGB32 often maps to BGRA in GDK memory
     pub fn texture(&self) -> Option<gdk::Texture> {
-        println!("Cairo format: {:?}", self.surface.format());
-        let format = match self.surface.format() {
-            Format::ARgb32 => gdk::MemoryFormat::B8g8r8a8,
-            Format::Rgb24 => gdk::MemoryFormat::B8g8r8x8,
-            _ => {
-                eprintln!("Unsupported Cairo format: {:?}", self.surface.format());
-                return None;
-            }
-        };
-
-        let width = self.surface.width();
-        let height = self.surface.height();
-        let stride = self.surface.stride();
-
-        let data = self.get_surface_as_bytes();
-
-        let texture = gdk::MemoryTexture::new(width, height, format, &data, stride as usize);
-        Some(texture.upcast::<gdk::Texture>())
-    }
-
-    fn get_surface_as_bytes(&self) -> glib::Bytes {
-        // Make sure Cairo flushes all pending drawing operations to memory
-        self.surface.flush();
-
-        let height = self.surface.height();
-        let stride = self.surface.stride() as usize;
-
-        // safety: We are creating a slice from the raw pointer returned by Cairo. We ensure that the pointer is valid and that we
-        // do not exceed the allocated memory for the surface. The lifetime of the slice is tied to the lifetime of the surface,
-        // which is guaranteed to be valid during this operation.
-        unsafe {
-            // Get the raw C pointer to the pixel buffer
-            let raw_ptr = cairo::ffi::cairo_image_surface_get_data(self.surface.to_raw_none());
-            let total_size = stride * (height as usize);
-
-            // Convert the raw pointer to a temporary Rust slice and clone to GBytes
-            let slice = std::slice::from_raw_parts(raw_ptr, total_size);
-            glib::Bytes::from(slice)
-        }
+        surface_to_texture(&self.surface)
     }
 }
 

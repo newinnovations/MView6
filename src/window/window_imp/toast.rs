@@ -31,7 +31,7 @@ use gtk4::{
 
 use crate::util::remove_source_id;
 
-const TOAST_TIMEOUT: u32 = 5;
+const TOAST_TIMEOUT: u32 = 3; // seconds
 const TOAST_PROGRESS_INTERVAL: Duration = Duration::from_millis(50);
 const TOAST_TRANSITION: u32 = 200;
 

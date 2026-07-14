@@ -17,9 +17,11 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::fs::File;
+
 use super::MViewWindowImp;
 
-use glib::subclass::types::ObjectSubclassExt;
+use glib::subclass::types::{ObjectSubclassExt, ObjectSubclassIsExt};
 use gtk4::{
     gdk::{Key, ModifierType},
     prelude::{GtkWindowExt, WidgetExt},
@@ -31,6 +33,7 @@ use crate::{
     content::{Content, ContentData},
     file_view::{Column, Direction, Filter, Target},
     image::ZoomMode,
+    util::error_dialog,
     window::CommandPalette,
 };
 
@@ -192,13 +195,27 @@ impl MViewWindowImp {
                     );
                 }
             }
+            Key::C => {
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    if let Some(clipboard) = self.clipboard.borrow().as_ref() {
+                        w.image_view.copy_visible_to_clipboard(clipboard);
+                    }
+                }
+            }
             Key::c => {
                 if modifiers.contains(ModifierType::CONTROL_MASK) {
                     if let Some(clipboard) = self.clipboard.borrow().as_ref() {
-                        w.image_view.copy_to_clipboard(clipboard);
+                        w.image_view.copy_image_to_clipboard(clipboard);
                     }
                 } else {
                     self.create_preview();
+                }
+            }
+            Key::v => {
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    if let Some(clipboard) = self.clipboard.borrow().as_ref() {
+                        self.paste_image_from_clipboard(clipboard);
+                    }
                 }
             }
             Key::t => {
@@ -284,8 +301,42 @@ impl MViewWindowImp {
                 w.file_view.navigate_item(Direction::Up, &Filter::Liked, 1);
             }
             Key::s => {
-                w.file_view
-                    .navigate_item(Direction::Down, &Filter::Liked, 1);
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    // Ctrl+S: save full raster image data to a file (only supported for raster images)
+                    self.save_raster_data_to_file();
+                    // // self.save_image_dialog();
+                    // let _surface = match w.image_view.imp().visible_to_surface() {
+                    //     Ok(surface) => surface,
+                    //     Err(e) => {
+                    //         error_dialog(
+                    //             &*self.obj(),
+                    //             "Error",
+                    //             &format!("Failed to get visible surface: {}", e),
+                    //         );
+                    //         return;
+                    //     }
+                    // };
+                } else {
+                    w.file_view
+                        .navigate_item(Direction::Down, &Filter::Liked, 1);
+                }
+            }
+            Key::S => {
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    // Ctrl+Shift+S: save visible area on screen to a file
+                    self.save_visible_area_to_file();
+                    // let _surface = match w.image_view.imp().visible_to_surface() {
+                    //     Ok(surface) => surface,
+                    //     Err(e) => {
+                    //         error_dialog(
+                    //             &*self.obj(),
+                    //             "Error",
+                    //             &format!("Failed to get visible surface: {}", e),
+                    //         );
+                    //         return;
+                    //     }
+                    // };
+                }
             }
             Key::Home => {
                 self.reload(&Target::First, modifiers.contains(ModifierType::SHIFT_MASK));
@@ -355,8 +406,8 @@ impl MViewWindowImp {
                                 (image1.data, image2.data)
                             {
                                 let i2 = Content::new_dual_surface(
-                                    Some(single1.surface()),
-                                    Some(single2.surface()),
+                                    Some(single1.take_surface()),
+                                    Some(single2.take_surface()),
                                     None,
                                 );
                                 w.info_view.update(&i2);
@@ -364,6 +415,37 @@ impl MViewWindowImp {
                             }
                         }
                     };
+                }
+            }
+            Key::g => {
+                let surface = match w.image_view.imp().visible_to_surface() {
+                    Ok(surface) => surface,
+                    Err(e) => {
+                        error_dialog(
+                            &*self.obj(),
+                            "Error",
+                            &format!("Failed to get visible surface: {}", e),
+                        );
+                        return;
+                    }
+                };
+                let mut file = match File::create("/tmp/surface.png") {
+                    Ok(file) => file,
+                    Err(e) => {
+                        error_dialog(
+                            &*self.obj(),
+                            "Error",
+                            &format!("Failed to create file: {}", e),
+                        );
+                        return;
+                    }
+                };
+                if let Err(e) = surface.write_to_png(&mut file) {
+                    error_dialog(
+                        &*self.obj(),
+                        "Error",
+                        &format!("Failed to write PNG: {}", e),
+                    );
                 }
             }
             _ => (),

@@ -24,6 +24,7 @@ mod delete;
 mod dependencies;
 mod filter;
 mod keyboard;
+mod load_save;
 mod menu;
 mod mouse;
 mod navigate;
@@ -54,6 +55,7 @@ use crate::{
         RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage, RenderThread,
         RenderThreadSender,
     },
+    util::error_dialog,
     window::{
         window_imp::{dependencies::check_dependencies, panel::Panel, toast::ToastOverlay},
         MViewWindow,
@@ -563,11 +565,14 @@ impl ObjectImpl for MViewWindowImp {
                 check_dependencies(&this.obj(), false);
                 let args = crate::ARGS.get().expect("ARGS not set");
                 if let Some(filename) = &args.filename {
-                    println!("Opening {filename}");
-                    // match path::absolute(filename) {
                     match fs::canonicalize(filename) {
                         Ok(abs_path) => this.open_file(&abs_path),
-                        Err(_) => {
+                        Err(e) => {
+                            error_dialog(
+                                &*this.obj(),
+                                "Failed to open file",
+                                &format!("Could not open: {filename}\n\n{e}"),
+                            );
                             this.set_backend(<dyn Backend>::current_dir(), &Target::First, true)
                         }
                     }
@@ -584,13 +589,11 @@ impl ObjectImpl for MViewWindowImp {
             #[upgrade_or]
             Propagation::Proceed,
             move |_| {
-                println!("Closing");
+                println!("Closing MView6");
                 this.save_navigation();
                 Propagation::Proceed
             }
         ));
-
-        // println!("MViewWindow: constructed");
     }
 }
 

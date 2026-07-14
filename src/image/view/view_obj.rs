@@ -19,6 +19,7 @@
 
 use std::time::SystemTime;
 
+use cairo::ImageSurface;
 use gdk_pixbuf::Pixbuf;
 use gio::Menu;
 use glib::{object::Cast, subclass::types::ObjectSubclassIsExt};
@@ -44,6 +45,7 @@ use crate::{
         SurfaceData,
     },
     rect::{PointD, RectD, SizeD, SizeI},
+    util::surface_to_texture,
     window::MViewWidgets,
 };
 
@@ -268,7 +270,7 @@ impl ImageView {
     }
 
     pub fn on_sort_changed(&self, new_sort: &str) {
-        dbg!(new_sort);
+        // dbg!(new_sort);
         let mut p = self.imp().data.borrow_mut();
         if p.content.sort(new_sort) {
             p.redraw(RedrawReason::SortChanged);
@@ -309,9 +311,30 @@ impl ImageView {
         self.add_controller(gesture);
     }
 
-    pub fn copy_to_clipboard(&self, clipboard: &Clipboard) {
+    pub fn copy_image_to_clipboard(&self, clipboard: &Clipboard) {
         let p = self.imp().data.borrow();
         p.content.copy_to_clipboard(clipboard);
+    }
+
+    pub fn copy_visible_to_clipboard(&self, clipboard: &Clipboard) {
+        let surface = match self.imp().visible_to_surface() {
+            Ok(surface) => surface,
+            Err(e) => {
+                eprintln!("Failed to get visible surface: {}", e);
+                return;
+            }
+        };
+        let texture = surface_to_texture(&surface);
+        if let Some(texture) = texture {
+            clipboard.set_texture(&texture);
+        } else {
+            eprintln!("Failed to create texture from visible surface");
+        }
+    }
+
+    pub fn get_surface(&self) -> Option<ImageSurface> {
+        let p = self.imp().data.borrow();
+        p.content.get_surface().cloned()
     }
 
     #[allow(dead_code)]

@@ -17,26 +17,41 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::PathBuf;
+use std::{cell::RefCell, path::PathBuf};
 
 use crate::{
-    backends::ImageParams,
+    backends::{Backend, ImageParams},
     content::Content,
     file_view::{BackendRef, FileRow, FileStore, ItemRef, Target},
 };
 
-use super::Backend;
+struct Parent {
+    backend: Box<dyn Backend>,
+    target: Target,
+}
 
-#[derive(Clone)]
 pub struct NoneBackend {
     store: FileStore,
+    parent: RefCell<Option<Parent>>,
+    path: RefCell<PathBuf>,
 }
 
 impl NoneBackend {
     pub fn new() -> Self {
         NoneBackend {
             store: FileRow::empty_store(),
+            parent: RefCell::new(None),
+            path: RefCell::new(PathBuf::from("no-file")),
         }
+    }
+
+    pub fn set_parent(&self, backend: Box<dyn Backend>, target: Target) {
+        let parent = Parent { backend, target };
+        *self.parent.borrow_mut() = Some(parent);
+    }
+
+    pub fn set_path(&self, path: PathBuf) {
+        *self.path.borrow_mut() = path;
     }
 }
 
@@ -48,11 +63,11 @@ impl Default for NoneBackend {
 
 impl Backend for NoneBackend {
     fn class_name(&self) -> &str {
-        "Invalid"
+        "NoneBackend"
     }
 
     fn path(&self) -> PathBuf {
-        "invalid".into()
+        self.path.borrow().clone()
     }
 
     fn list(&self) -> FileStore {
@@ -60,7 +75,10 @@ impl Backend for NoneBackend {
     }
 
     fn leave(&self) -> Option<(Box<dyn Backend>, Target)> {
-        None
+        self.parent
+            .borrow_mut()
+            .take()
+            .map(|parent| (parent.backend, parent.target))
     }
 
     fn content(&self, _: &ItemRef, _: &ImageParams) -> Content {

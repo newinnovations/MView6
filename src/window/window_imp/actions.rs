@@ -18,11 +18,10 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use chrono::Datelike;
-use gio::prelude::FileExt;
 use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::{
     prelude::{GtkWindowExt, WidgetExt},
-    AboutDialog, FileDialog, FileFilter, License,
+    AboutDialog, License,
 };
 
 use crate::{
@@ -42,59 +41,6 @@ use crate::{
 use super::MViewWindowImp;
 
 impl MViewWindowImp {
-    pub fn open_file_dialog(&self) {
-        let dialog = FileDialog::builder()
-            .title("Choose a file")
-            .accept_label("Open")
-            .modal(true)
-            .build();
-
-        let all_files = FileFilter::new();
-        all_files.set_name(Some("All Files"));
-        all_files.add_pattern("*");
-
-        let text_files = FileFilter::new();
-        text_files.set_name(Some("Supported Files"));
-        text_files.add_pattern("*.jpg");
-        text_files.add_pattern("*.jpeg");
-        text_files.add_pattern("*.jfif");
-        text_files.add_pattern("*.gif");
-        text_files.add_pattern("*.png");
-        text_files.add_pattern("*.svg");
-        text_files.add_pattern("*.svgz");
-        text_files.add_pattern("*.webp");
-        text_files.add_pattern("*.avif");
-        text_files.add_pattern("*.heic");
-        text_files.add_pattern("*.pcx");
-        text_files.add_pattern("*.zip");
-        text_files.add_pattern("*.mar");
-        text_files.add_pattern("*.rar");
-        text_files.add_pattern("*.pdf");
-        text_files.add_pattern("*.epub");
-        text_files.add_pattern("*.xps");
-
-        let filters = gio::ListStore::new::<FileFilter>();
-        filters.append(&text_files);
-        filters.append(&all_files);
-        dialog.set_filters(Some(&filters));
-        dialog.set_default_filter(Some(&text_files));
-
-        dialog.open(
-            Some(&self.obj().clone()),
-            None::<&gio::Cancellable>,
-            clone!(
-                #[weak(rename_to = this)]
-                self,
-                move |result| {
-                    if let Ok(file) = result {
-                        let path = file.path().unwrap_or_default();
-                        this.open_file(&path);
-                    }
-                }
-            ),
-        );
-    }
-
     pub fn show_about_dialog(&self) {
         let dialog = AboutDialog::builder()
             .transient_for(&self.obj().clone())

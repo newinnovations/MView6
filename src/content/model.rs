@@ -300,6 +300,10 @@ impl Content {
         self.id
     }
 
+    pub fn is_none(&self) -> bool {
+        matches!(self.data, ContentData::None)
+    }
+
     pub fn size(&self) -> SizeD {
         match &self.data {
             ContentData::None => Default::default(),

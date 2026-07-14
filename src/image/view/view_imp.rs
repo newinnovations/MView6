@@ -27,6 +27,7 @@ use super::{data::ImageViewData, ImageView, ViewCursor};
 use crate::{
     classification::Preference,
     content::Content,
+    error::MviewResult,
     image::{
         colors::{CairoColorExt, Color},
         draw::transparency_background,
@@ -40,7 +41,7 @@ use crate::{
     rect::{PointD, RectD, SizeI},
     util::remove_source_id,
 };
-use cairo::{Context, Extend, FillRule, SurfacePattern};
+use cairo::{Context, Extend, FillRule, ImageSurface, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
 use gtk4::{
@@ -192,6 +193,27 @@ impl ImageViewImp {
             let _ = context.restore();
             self.measure_tool.draw(context, z, &self.mouse_position());
         }
+    }
+
+    pub fn visible_to_surface(&self) -> MviewResult<ImageSurface> {
+        let p = self.data.borrow();
+        let image = p.image();
+        let size = WINDOW_SIZE.get();
+        let viewport = RectD::new(0.0, 0.0, size.width() as f64, size.height() as f64);
+        let intersect = p.zoom.intersection_screen_coord(&viewport);
+        let surface = cairo::ImageSurface::create(
+            cairo::Format::ARgb32,
+            intersect.width() as i32,
+            intersect.height() as i32,
+        )?;
+        let context = Context::new(&surface)?;
+        let mut matrix = image.transform_matrix(&p.zoom);
+        matrix.set_x0(matrix.x0().min(0.0));
+        matrix.set_y0(matrix.y0().min(0.0));
+        context.transform(matrix);
+        image.draw(&context, p.quality);
+        self.draw_annotations(&context);
+        Ok(surface)
     }
 
     fn draw_annotations(&self, context: &Context) {

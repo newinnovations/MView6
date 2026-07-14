@@ -108,6 +108,9 @@ impl Default for ImageViewData {
 
 impl ImageViewData {
     pub fn apply_zoom(&mut self) {
+        if self.content.is_none() {
+            return;
+        }
         if let Some(view) = &self.view {
             // * allocation is relative to the parent window, allocation.x() and
             //   allocation.y() might not be 0 depending on the presence of other

@@ -19,8 +19,14 @@
 
 use std::path::{Path, PathBuf};
 
-use glib::{ffi::g_source_remove, object::IsA, result_from_gboolean, BoolError, SourceId};
+use cairo::{Format, ImageSurface};
+use glib::{
+    ffi::g_source_remove,
+    object::{Cast, IsA},
+    result_from_gboolean, BoolError, SourceId,
+};
 use gtk4::{
+    gdk::{self, prelude::TextureExt},
     prelude::{BoxExt, ButtonExt, GtkWindowExt, WidgetExt},
     Orientation, Window,
 };
@@ -212,6 +218,78 @@ pub fn error_dialog(parent_window: &impl IsA<gtk4::Window>, title: &str, message
 
     // 6. Render it on-screen
     dialog.present();
+}
+
+// CAIRO_FORMAT_ARGB32: each pixel is a 32-bit quantity, with alpha in the upper 8 bits, then red, then green, then blue.
+// The 32-bit quantities are stored native-endian.
+// Pre-multiplied alpha is used. (That is, 50% transparent red is 0x80800000, not 0x80ff0000.)
+pub fn surface_to_texture(surface: &ImageSurface) -> Option<gdk::Texture> {
+    println!("Cairo format: {:?}", surface.format());
+    let format = match surface.format() {
+        Format::ARgb32 => gdk::MemoryFormat::B8g8r8a8Premultiplied,
+        Format::Rgb24 => gdk::MemoryFormat::B8g8r8x8,
+        _ => {
+            eprintln!("Unsupported Cairo format: {:?}", surface.format());
+            return None;
+        }
+    };
+
+    let width = surface.width();
+    let height = surface.height();
+    let stride = surface.stride();
+
+    let data = get_surface_as_bytes(surface);
+
+    let texture = gdk::MemoryTexture::new(width, height, format, &data, stride as usize);
+    Some(texture.upcast::<gdk::Texture>())
+}
+
+fn get_surface_as_bytes(surface: &ImageSurface) -> glib::Bytes {
+    // Make sure Cairo flushes all pending drawing operations to memory
+    surface.flush();
+
+    let height = surface.height();
+    let stride = surface.stride() as usize;
+
+    // safety: We are creating a slice from the raw pointer returned by Cairo. We ensure that the pointer is valid and that we
+    // do not exceed the allocated memory for the surface. The lifetime of the slice is tied to the lifetime of the surface,
+    // which is guaranteed to be valid during this operation.
+    unsafe {
+        // Get the raw C pointer to the pixel buffer
+        let raw_ptr = cairo::ffi::cairo_image_surface_get_data(surface.to_raw_none());
+        let total_size = stride * (height as usize);
+
+        // Convert the raw pointer to a temporary Rust slice and clone to GBytes
+        let slice = std::slice::from_raw_parts(raw_ptr, total_size);
+        glib::Bytes::from(slice)
+    }
+}
+
+pub fn texture_to_surface(texture: &gdk::Texture) -> Result<ImageSurface, glib::Error> {
+    let width = texture.width();
+    let height = texture.height();
+
+    // 1. Create a mutable instance of the downloader
+    let mut downloader = gdk::TextureDownloader::new(texture);
+
+    // 2. Set the target memory format to match Cairo's ARGB layout
+    downloader.set_format(gdk::MemoryFormat::B8g8r8a8Premultiplied);
+
+    // 3. Extract the bytes from the GPU
+    let (pixel_bytes, stride) = downloader.download_bytes();
+
+    // 4. Create the Cairo ImageSurface using the raw underlying data
+    // We convert the glib::Bytes into an owned or safely managed slice via full copy
+    let surface = ImageSurface::create_for_data(
+        pixel_bytes.to_vec(), // Transfers pixel memory ownership directly to Cairo
+        cairo::Format::ARgb32,
+        width,
+        height,
+        stride as i32,
+    )
+    .expect("Failed to construct Cairo ImageSurface from raw texture buffer");
+
+    Ok(surface)
 }
 
 #[cfg(test)]

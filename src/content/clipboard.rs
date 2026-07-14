@@ -17,23 +17,17 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use cairo::ImageSurface;
 use glib::value::ToValue;
-use gtk4::gdk::{Clipboard, ContentProvider};
+use gtk4::gdk::{Clipboard, ContentProvider, Texture};
 
 use crate::content::{Content, ContentData};
 
 impl Content {
     pub fn copy_to_clipboard(&self, clipboard: &Clipboard) {
-        let texture = if let ContentData::Single(single) = &self.data {
-            single.texture()
-        } else {
-            println!("Texture not available");
-            None
-        };
-
         let mut providers = Vec::new();
 
-        if let Some(texture) = texture {
+        if let Some(texture) = self.get_texture() {
             let image_provider = ContentProvider::for_value(&texture.to_value());
             providers.push(image_provider);
         }
@@ -59,6 +53,22 @@ impl Content {
             } else {
                 println!("Content copied to clipboard successfully");
             }
+        }
+    }
+
+    pub fn get_texture(&self) -> Option<Texture> {
+        if let ContentData::Single(single) = &self.data {
+            single.texture()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_surface(&self) -> Option<&ImageSurface> {
+        if let ContentData::Single(single) = &self.data {
+            Some(single.surface())
+        } else {
+            None
         }
     }
 }
