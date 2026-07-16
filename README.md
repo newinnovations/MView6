@@ -13,133 +13,61 @@
 [release-badge]: https://img.shields.io/github/v/release/newinnovations/MView6?logo=github
 [release-url]: https://github.com/newinnovations/MView6/releases
 
-**A high-performance PDF and photo viewer built with Rust and GTK4**
+**High-performance PDF and photo viewer built with Rust and GTK4**
 
-MView6 is designed for people who work with large photo and document collections.
-It provides seamless browsing across directories and archives, combining powerful features with an intuitive interface optimized for efficient operation.
-Built on modern, performance-focused technologies such as Rust and GTK4.
+MView6 helps you browse large folders of images, PDFs, e-books, videos, and archives without getting in your way. Open a folder, ZIP, RAR, PDF, or image, then move through everything quickly with the keyboard, mouse, thumbnails, or slideshow mode. Built on modern, performance-focused technologies such as Rust and GTK4.
+
+![MView6 browsing photos inside an archive](./doc/images/mview6.png)
+
+Browse the [gallery](doc/GALLERY.md) for more screenshots and see MView6 in action.
 
 ## Key Features
 
-### Archive Integration
+| Category                    | Highlights                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Browse folders and archives | Open ZIP and RAR files without extracting them first.<br>Move between folders, archives, images, documents, and videos from one file list.<br>Jump between nearby folders or archives while keeping your place.                                                                                                                                                         |
+| View images and documents   | Supports PDF, EPUB, JPEG, PNG, SVG, HEIC, AVIF, animated GIF/WEBP, and more.<br>Choose fit-to-window, fill-window, maximum zoom, or actual-size viewing.<br>Read PDFs and e-books one page at a time or in a two-page layout.<br>Rotate images and pages without changing the original file.<br>Show photo details such as camera settings and GPS data when available. |
+| Text and binary files       | View text files with syntax highlighting.<br>Inspect binary files with the hexdump facility.                                                                                                                                                                                                                                                                            |
+| Move quickly                | Use keyboard shortcuts for fast browsing.<br>Zoom with the mouse wheel and drag to pan.<br>Open thumbnails to scan a whole folder visually.<br>Keep your browsing position as you move through folders and archives.                                                                                                                                                    |
+| Organize and inspect        | Mark images as liked or disliked.<br>Sort files by type, name, size, or date.<br>Copy images, save PNG exports, create previews or contact sheets for video, archives and documents.<br>Delete files or move files to trash.<br>Measure distances directly on images and documents.                                                                                     |
 
-- Native support for ZIP and RAR archives - view contents without extraction
-- Seamless navigation between directories and compressed files
-- Maintains viewing context when switching between different sources
+## Documentation & User Guide
 
-### Image & Document Handling
+Start here when you want to learn a specific part of MView6, or browse the full [documentation index](doc/README.md):
 
-- Comprehensive image and document format support including
-  - PDF, EPUB
-  - JPEG, PNG, SVG, HEIC, AVIF
-  - Animated GIF and WEBP
-  - ... and more
-- Advanced zoom controls including max-scale, fit-to-window and actual size
-- Dual-page PDF view mode for reading books and magazines
-- Image and document rotation with 90-degree increments
-- Complete EXIF metadata display including camera settings and GPS data
-
-### Navigation & Interface
-
-- Full keyboard navigation
-- Intuitive mouse controls with scroll-wheel zooming and drag panning
-- Multi-size thumbnail view for quick collection overview
-- Keeps track of navigation positions across directory changes
-
-### Organization Tools
-
-- Tagging images as `liked` or `disliked` (deletion candidates)
-- Sorting options on type, status, name and data
-- Thumbnail presentation
+- [Navigation](doc/NAVIGATION.md) — the most useful keys, mouse controls, zoom options, sorting, and thumbnails.
+- [Saving, Clipboard & File Management](doc/SAVING_AND_CLIPBOARD.md) — copying, pasting, saving as PNG files, creating previews/contact sheets, and deleting safely.
+- [Measurement Tool](doc/MEASUREMENT_TOOL.md) — measuring pixel or physical distances on images and documents.
+- [Command Palette & Slideshow](doc/COMMAND_PALETTE_AND_SLIDESHOW.md) — finding commands quickly and playing a folder as a slideshow.
+- [Command Line Usage](doc/CLI_USAGE.md) — opening MView6 from a terminal with a file, folder, sort order, or filter.
 
 ## Installation
 
-### Pre-built Binaries
+### Windows
 
-#### Windows
+Download the latest `.msi` installer from the [releases page](https://github.com/newinnovations/MView6/releases) and run it.
 
-1. Download the latest `.msi` installer from the [releases page](https://github.com/newinnovations/MView6/releases)
-2. Run the installer by double-clicking the downloaded file
+> [!WARNING]
+> The installer is currently unsigned, so Windows may show a security warning. See the [Installation guide](doc/INSTALLATION.md) for details on why this happens and how to proceed.
 
-**Important:** The Windows installer is currently unsigned. You may see a security warning when running the installer.
-This is expected and safe, the code is compiled and the installer is automatically created by Github using Github Actions.
-The warning appears because we haven't purchased a code signing certificate.
-To proceed:
+### Ubuntu/Debian
 
-- If you see "Windows protected your PC", click **More info** then **Run anyway**
-- Some antivirus software may flag unsigned executables - this is a false positive
+Download the latest `.deb` package from the [releases page](https://github.com/newinnovations/MView6/releases) and install it:
 
-#### Ubuntu/Debian
-
-1. Download the latest `.deb` package from the [releases page](https://github.com/newinnovations/MView6/releases)
-2. Install using your package manager:
-
-   ```bash
-   sudo dpkg -i mview6_*.deb
-   sudo apt-get install -f  # Install any missing dependencies
-   ```
-
-Alternatively, you can double-click the `.deb` file to install through your desktop environment's package installer.
+```bash
+sudo dpkg -i mview6_*.deb
+sudo apt-get install -f  # Install any missing dependencies
+```
 
 ### Building from Source
-
-### Prerequisites
-
-- Rust (latest stable version)
-- GTK4 development libraries
-- Additional system dependencies may be required
-
-#### Build and Install
 
 ```bash
 git clone https://github.com/newinnovations/MView6.git
 cd MView6
-cargo build --release
-cargo install --path .
+cargo run --release
 ```
 
-The binary will be installed to `~/.cargo/bin/mview6` (ensure this directory is in your PATH).
-
-### System Requirements
-
-- **Windows:** Windows 10 or later
-- **Linux:** GTK4 support (most modern distributions)
-- **Memory:** 512MB RAM minimum, 2GB recommended for large documents
-- **Storage:** 50MB for installation
-
-### Troubleshooting
-
-#### Windows
-
-- If the installer fails to run, try running as administrator
-- Some antivirus software may quarantine the installer - add an exception if needed
-
-#### Linux
-
-- If you encounter missing dependencies after installing the `.deb` package, run `sudo apt-get install -f`
-- For other distributions, you may need to build from source
-
-#### General
-
-- Ensure your system has adequate graphics drivers for optimal performance
-- For issues with specific file formats, check that you have the latest version installed
-
-## Screenshots
-
-![MView6 screenshot](./doc/mview6.png)
-![MView6 PDF viewer](./doc/mview6-pdf.png)
-![MView6 image information](./doc/mview6-exif.png)
-![MView6 thumbnails](./doc/mview6-thumbnails.png)
-
-## Use Cases
-
-**Document Reading** - Read PDFs, digital magazines, and e-books with single and dual-page layout.
-
-**Research and Reference** - Browse image collections for academic, creative, or professional reference.
-
-**Photography Workflow** - Review and organize large photo collections with metadata analysis.
-
-**Digital Asset Management** - Navigate complex directory structures and archived assets.
+For system requirements, dependency installation, and troubleshooting, see the full [Installation guide](doc/INSTALLATION.md).
 
 ## Contributing
 

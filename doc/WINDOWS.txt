@@ -1,0 +1,17 @@
+MView6 for Windows
+------------------
+
+The Windows files are currently unsigned. Because of that, Windows may warn you before running them.
+
+The files are built automatically by GitHub Actions from the project source code.
+Only install them if you trust this project and the release you downloaded.
+
+If Windows blocks the downloaded ZIP file, you can remove the block in PowerShell before unzipping:
+
+   Unblock-File mview6-windows.zip
+
+You can check whether Windows marked the file as downloaded from the internet with:
+
+   Get-Content -Path .\mview6-windows.zip -Stream Zone.Identifier
+
+If you already unblocked the file, this command may show an error because the Zone.Identifier stream has been removed.
