@@ -44,15 +44,17 @@ Use these values with `--sort` or `-s`:
 
 ### Filter options
 
+The Filter determines which files you can select using keyboard navigation. To temporarily bypass the filter, hold `Shift` while navigating. For advanced filter control, press `Shift + F` in the application.
+
 Use these values with `--filter` or `-f`:
 
-| Value      | Filtered Type | Description                                                                              |
-| ---------- | ------------- | ---------------------------------------------------------------------------------------- |
-| `all`      | Everything    | Show all supported file formats.                                                         |
-| `image`    | Images        | Show static and animated image files, such as JPEG, PNG, GIF, SVG, WEBP, AVIF, and HEIC. |
-| `video`    | Videos        | Show supported video files.                                                              |
-| `document` | Documents     | Show document files, such as PDF, EPUB, and XPS.                                         |
-| `archive`  | Archives      | Show ZIP and RAR archives.                                                               |
+| Value      | Filtered Type | Description                                                                         |
+| ---------- | ------------- | ----------------------------------------------------------------------------------- |
+| `all`      | Everything    | All files (default).                                                                |
+| `image`    | Images        | Static and animated image files, such as JPEG, PNG, GIF, SVG, WEBP, AVIF, and HEIC. |
+| `video`    | Videos        | Video files.                                                                        |
+| `document` | Documents     | Document files, such as PDF and EPUB.                                               |
+| `archive`  | Archives      | ZIP and RAR archives.                                                               |
 
 ---
 

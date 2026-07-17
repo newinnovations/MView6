@@ -15,3 +15,10 @@ You can check whether Windows marked the file as downloaded from the internet wi
    Get-Content -Path .\mview6-windows.zip -Stream Zone.Identifier
 
 If you already unblocked the file, this command may show an error because the Zone.Identifier stream has been removed.
+
+If you downloaded the .msi file from github, try to install it using PowerShell as administrator
+
+   Unblock-File .\mview6_2026.7.13.msi
+   .\mview6_2026.7.13.msi
+
+(replace with the actual version)

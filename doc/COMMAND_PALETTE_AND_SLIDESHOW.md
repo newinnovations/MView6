@@ -22,7 +22,7 @@ You can use it for actions such as:
 
 Slideshow mode moves through the current folder or archive automatically.
 
-Start or stop it from the Command Palette by searching for "Start slideshow" or "Stop slideshow". You can also use the main application menu.
+Start or stop it from the Command Palette by searching for "Start slideshow" or "Stop slideshow". You can also use the main application menu, or the navigation pad.
 
 You can choose how long each item stays on screen:
 

@@ -11,7 +11,7 @@ Detailed installation steps, system requirements, and troubleshooting for all pl
 1. Download the latest `.msi` installer from the [releases page](https://github.com/newinnovations/MView6/releases).
 2. Double-click the downloaded file and follow the installer.
 
-> [!WARNING]
+> [!NOTE]
 > The Windows installer is currently unsigned, so you may see a security warning when running it.
 > This is expected: the code is compiled and the installer is automatically created by GitHub using GitHub Actions.
 > The warning appears because we haven't purchased a code signing certificate.
@@ -78,7 +78,11 @@ The binary will be installed to `~/.cargo/bin/mview6`. Make sure that directory 
 ### Windows
 
 > [!TIP]
-> - If the installer does not run, try running it as administrator.
+> - If the installer does not run, try running it from PowerShell as administrator.
+> ```text
+> Unblock-File .\mview6_2026.7.13.msi
+> .\mview6_2026.7.13.msi
+> ```
 > - If antivirus software quarantines the installer, add an exception if you trust the download.
 
 ### Linux

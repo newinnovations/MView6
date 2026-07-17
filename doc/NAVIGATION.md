@@ -27,15 +27,17 @@ Press `h` to show help inside the app. Press `h` again to switch to the second h
 | `w`                                                   | previous page (inside multi-page text files only)                 |
 | `e`                                                   | next page (inside multi-page text files only)                     |
 
+The Filter determines which files you can select using keyboard navigation. To temporarily bypass the filter, hold `Shift` while navigating. For advanced filter control, press `Shift + F`.
+
 ### Modifier keys
 
 The move keys above (except `a`, `s`, `w`, `e`, `enter`, and `backspace`) can be combined with modifiers:
 
 | Modifier | Effect                                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------ |
-| `ctrl`   | move further: 5× the normal step for `z`/`x`/arrow keys; 50 images (instead of 20) for `page up`/`page down` |
-| `shift`  | ignore the active filter while moving                                                                        |
-| `alt`    | hop to the previous/next folder/archive/document instead of moving within it (explanation below)             |
+| `Ctrl`   | move further: 5× the normal step for `z`/`x`/arrow keys; 50 images (instead of 20) for `page up`/`page down` |
+| `Shift`  | ignore the active filter while moving                                                                        |
+| `Alt`    | hop to the previous/next folder/archive/document instead of moving within it (explanation below)             |
 |          |                                                                                                              |
 
 ---
@@ -98,10 +100,10 @@ Bookmarks are stored in `$HOME/.config/mview/mview6.json`. Example:
 
 Rotation only changes what you see in MView6. It does not change the file on disk.
 
-| Key(s)    | Function               |
-| --------- | ---------------------- |
-| `r`       | rotate clockwise      |
-| `shift r` | rotate anticlockwise  |
+| Key(s)    | Function             |
+| --------- | -------------------- |
+| `r`       | rotate clockwise     |
+| `shift r` | rotate anticlockwise |
 
 ## Zoom
 
@@ -154,14 +156,14 @@ For details on configuration and slideshow settings, see [Command Palette & Slid
 
 Copy images, paste images, save PNG files, and generate previews.
 
-| Key(s)             | Function                                              |
-| ------------------ | ----------------------------------------------------- |
-| `Ctrl + C`         | Copy whole loaded image to clipboard                  |
-| `Ctrl + Shift + C` | Copy current visible canvas area to clipboard         |
-| `Ctrl + V`         | Paste image from clipboard                            |
-| `Ctrl + S`         | Save original raster image data to a file             |
-| `Ctrl + Shift + S` | Save visible canvas area to a file                    |
-| `c` (without Ctrl) | Generate/cache preview for large image, PDF, or video |
+| Key(s)             | Function                                          |
+| ------------------ | ------------------------------------------------- |
+| `Ctrl + C`         | Copy whole loaded image to clipboard              |
+| `Ctrl + Shift + C` | Copy current visible canvas area to clipboard     |
+| `Ctrl + V`         | Paste image from clipboard                        |
+| `Ctrl + S`         | Save original raster image data to a file         |
+| `Ctrl + Shift + S` | Save visible canvas area to a file                |
+| `c` (without Ctrl) | Generate/cache preview for archives, PDF or video |
 
 For more details on deletion, trashing, and clipboard options, see [Saving, Clipboard & File Management](SAVING_AND_CLIPBOARD.md).
 

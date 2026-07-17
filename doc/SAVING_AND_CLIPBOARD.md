@@ -25,11 +25,20 @@ You can save exported images through the normal file save dialog. Exports are cu
 
 ---
 
-## Create previews for faster loading
+## Create previews for improved browsing experience
 
-Very large images, PDFs, and videos can take a moment to render the first time. You can create a cached preview so they open faster later.
+While browsing, MView6 shows generic placeholders for archives, documents, and videos. Normally, you have to open these files to see what is inside. For example, a video file without a preview looks like this:
 
-Select a file in the file list and press `c` without Ctrl. MView6 creates the preview in the background and shows progress while it works.
+![MView6 video regular](./images/mview6-video-regular.png)
+
+Previews let you peek inside a file without opening it:
+
+![MView6 video preview](./images/mview6-video-preview.png)
+
+To generate a preview, select a file in the list and press `c` (without `Ctrl`). MView6 will create the preview in the background and display its progress.
+
+> [!NOTE]
+> Video previews require `ffprobe` and `ffmpeg` to be installed and available in `PATH`
 
 ---
 

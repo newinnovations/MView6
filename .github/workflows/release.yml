@@ -159,7 +159,7 @@ jobs:
           light mview6.wixobj -out mview6_${{ steps.date.outputs.version }}.msi
           rm -f *.wixpdb
           bash -c "echo .\\\\bin\\\\MView6.exe > mview6-windows/mview6.cmd"
-          cp doc/README-WINDOWS.txt mview6-windows/.
+          cp doc/WINDOWS.txt mview6-windows/.
           7z a mview6_${{ steps.date.outputs.version }}_windows.zip mview6-windows/
 
       - name: Upload artifacts

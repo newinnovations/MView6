@@ -47,7 +47,7 @@ Start here when you want to learn a specific part of MView6, or browse the full 
 
 Download the latest `.msi` installer from the [releases page](https://github.com/newinnovations/MView6/releases) and run it.
 
-> [!WARNING]
+> [!NOTE]
 > The installer is currently unsigned, so Windows may show a security warning. See the [Installation guide](doc/INSTALLATION.md) for details on why this happens and how to proceed.
 
 ### Ubuntu/Debian

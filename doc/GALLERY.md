@@ -6,7 +6,7 @@ See MView6 in action
 
 ## Browse photos inside archives
 
-- Press `ENTER` to open documents when selected or double click in the file browser
+- Press `ENTER` to open archives when selected or double click in the file browser
 
 ![MView6 browse archives](./images/mview6.png)
 
@@ -36,15 +36,15 @@ See MView6 in action
 
 ## Previews / contact sheets
 
-- Press `c` to create preview (needs `ffmpeg` installed for video)
+- Press `c` to create preview (needs `ffprobe` and `ffmpeg` installed and in `PATH` for video)
 - Previews replace the regular placeholders while browsing
-- Press `ENTER` to open video player (needs `mpv` installed)
+- Press `ENTER` to open video player (needs `mpv` installed and in `PATH`)
 
-### Regular view (without preview)
+While browsing, MView6 shows generic placeholders for archives, documents, and videos. Normally, you have to open these files to see what is inside. For example, a video file without a preview looks like this:
 
 ![MView6 video regular](./images/mview6-video-regular.png)
 
-### With preview
+Previews let you peek inside a file without opening it:
 
 ![MView6 video preview](./images/mview6-video-preview.png)
 
