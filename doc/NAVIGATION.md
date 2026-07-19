@@ -20,8 +20,8 @@ Press `h` to show help inside the app. Press `h` again to switch to the second h
 | `page down`                                           | next 20 images                                                    |
 | `a`                                                   | previous __liked__ image                                          |
 | `s`                                                   | next __liked__ image                                              |
-| `numpad 7` _or_ `numpad home`                         | hop to previous folder/archive/document (explanation below)       |
-| `numpad 9` _or_ `numpad page up`                      | hop to next folder/archive/document                               |
+| `numpad 7` _or_ `numpad home`                         | "hop" to previous folder/archive/document (explanation below)     |
+| `numpad 9` _or_ `numpad page up`                      | "hop" to next folder/archive/document                             |
 | `enter` _or_ `numpad enter`                           | enter (open) folder/archive/document                              |
 | `backspace` _or_ `numpad decimal/del`                 | leave (close) folder/archive/document and return to parent folder |
 | `w`                                                   | previous page (inside multi-page text files only)                 |
@@ -37,14 +37,13 @@ The move keys above (except `a`, `s`, `w`, `e`, `enter`, and `backspace`) can be
 | -------- | ------------------------------------------------------------------------------------------------------------ |
 | `Ctrl`   | move further: 5× the normal step for `z`/`x`/arrow keys; 50 images (instead of 20) for `page up`/`page down` |
 | `Shift`  | ignore the active filter while moving                                                                        |
-| `Alt`    | hop to the previous/next folder/archive/document instead of moving within it (explanation below)             |
-|          |                                                                                                              |
+| `Alt`    | "hop" to the previous/next folder/archive/document in parent folder (explanation below)                      |
 
 ---
 
 ### Hopping: what does "hop" mean?
 
-If a folder contains several subfolders, archives or documents, hopping lets you jump from the one you are viewing to the previous or next one. You do not have to close the current folder or archive, move in the parent folder, and open the next one manually.
+If a folder contains multiple subfolders, archives, or documents, hopping lets you jump directly to the previous or next item. You no longer need to return to the parent folder to open them manually.
 
 ## Sort the file list
 

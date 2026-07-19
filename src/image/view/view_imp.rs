@@ -208,8 +208,11 @@ impl ImageViewImp {
         )?;
         let context = Context::new(&surface)?;
         let mut matrix = image.transform_matrix(&p.zoom);
-        matrix.set_x0(matrix.x0().min(0.0));
-        matrix.set_y0(matrix.y0().min(0.0));
+        // Re-base the translation so the surface's (0, 0) corresponds to the
+        // intersection's top-left corner in screen coordinates. The rotation/scale
+        // part of the matrix is left untouched, so this works for any rotation
+        matrix.set_x0(matrix.x0() - intersect.x0);
+        matrix.set_y0(matrix.y0() - intersect.y0);
         context.transform(matrix);
         image.draw(&context, p.quality);
         self.draw_annotations(&context);

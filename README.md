@@ -19,6 +19,8 @@ MView6 helps you browse large folders of images, PDFs, e-books, videos, and arch
 
 ![MView6 browsing photos inside an archive](./doc/images/mview6.png)
 
+## Gallery
+
 Browse the [gallery](doc/GALLERY.md) for more screenshots and see MView6 in action.
 
 ## Key Features
