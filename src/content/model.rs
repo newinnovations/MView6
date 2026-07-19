@@ -435,5 +435,23 @@ impl Content {
         false
     }
 
+    pub fn rotation(&self) -> i32 {
+        if let Some(exif) = &self.exif {
+            if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
+                if let exif::Value::Short(ref vec) = field.value {
+                    if let Some(&orientation) = vec.first() {
+                        return match orientation {
+                            3 => 180,
+                            6 => 90,
+                            8 => 270,
+                            _ => 0,
+                        };
+                    }
+                }
+            }
+        }
+        0
+    }
+
     content_getter!(animation, animation_mut, Animation, AnimationImage);
 }

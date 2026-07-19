@@ -91,8 +91,9 @@ impl ImageView {
         let mut p = imp.data.borrow_mut();
         imp.cancel_animation();
         imp.measure_tool.reset();
+        let rotation = content.rotation();
         p.content = content;
-        p.zoom.set_rotation(0);
+        p.zoom.set_rotation(rotation);
         p.zoom_overlay = None;
         p.annotations = None;
         p.hover = None;
@@ -101,6 +102,7 @@ impl ImageView {
 
     pub fn set_content_post(&self, annotations: Option<Annotations>) {
         let mut p = self.imp().data.borrow_mut();
+        println!("Rotation: {}", p.content.rotation());
         p.annotations = annotations;
         self.imp().schedule_animation(&p.content, SystemTime::now());
         p.apply_zoom();
@@ -186,19 +188,6 @@ impl ImageView {
     }
 
     // Measurements
-
-    // pub fn measure_anchor(&self, anchor: PointD) {
-    //     let imp = self.imp();
-    //     imp.measure_tool.set_anchor(anchor);
-    //     imp.data.borrow_mut().redraw(RedrawReason::Measurement);
-    // }
-
-    // pub fn measure_point(&self, point: PointD) -> Option<String> {
-    //     let imp = self.imp();
-    //     imp.measure_tool.set_point(point);
-    //     imp.data.borrow_mut().redraw(RedrawReason::Measurement);
-    //     imp.measure_tool.clipboard_text()
-    // }
 
     pub fn measure_enable(&self, enabled: bool) {
         let imp = self.imp();
