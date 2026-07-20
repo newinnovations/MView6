@@ -102,7 +102,7 @@ impl ImageView {
 
     pub fn set_content_post(&self, annotations: Option<Annotations>) {
         let mut p = self.imp().data.borrow_mut();
-        println!("Rotation: {}", p.content.rotation());
+        // println!("Rotation: {}", p.content.rotation());
         p.annotations = annotations;
         self.imp().schedule_animation(&p.content, SystemTime::now());
         p.apply_zoom();

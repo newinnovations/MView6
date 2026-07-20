@@ -441,9 +441,9 @@ impl Content {
                 if let exif::Value::Short(ref vec) = field.value {
                     if let Some(&orientation) = vec.first() {
                         return match orientation {
-                            3 => 180,
-                            6 => 90,
-                            8 => 270,
+                            3 | 4 => 180,
+                            5 | 6 => 90,
+                            7 | 8 => 270,
                             _ => 0,
                         };
                     }
