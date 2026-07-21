@@ -242,18 +242,36 @@ fn render_dual(
 
     let page_left = document.load_page(index)?;
     let size_left = page_size_as_rect(&page_left)?;
-    let mut zoom_left = zoom.clone();
-    zoom_left.set_image_size(size_left);
-    let pixmap_left = page_render(&page_left, &zoom_left, viewport)?;
 
     let page_right = document.load_page(index + 1)?;
     let size_right = page_size_as_rect(&page_right)?;
     let scale_right = size_left.height() / size_right.height();
-    let mut zoom_right = zoom.clone();
-    zoom_right.set_image_size(size_right);
-    zoom_right.set_zoom_factor(zoom.scale() * scale_right);
-    zoom_right.set_origin(zoom.image_to_screen(&VectorD::new(size_left.width(), 0.0)));
-    let pixmap_right = page_render(&page_right, &zoom_right, viewport)?;
+
+    // Determine, in natural (unmirrored, un-split) spread-image coordinates, which part
+    // of the dual-page spread is visible. This must be done once at the full-spread level
+    // (using `zoom`'s own image_size, which covers both pages) because the mirror
+    // reflection depends on the *total* spread width. Splitting first and letting each
+    // page's own (smaller) Zoom clone re-derive the reflection independently -- as used to
+    // be done here -- uses the wrong mirror axis per page, which only shows up once the
+    // viewport doesn't cover the full spread (i.e. when zoomed in or panned), causing the
+    // pages to shift/overlap instead of clipping correctly.
+    let crop = zoom.intersection_image_coord(viewport);
+
+    let crop_left = crop.intersect(&RectD::new_from_size(size_left));
+
+    let right_rect = RectD::new(
+        size_left.width(),
+        0.0,
+        size_left.width() + scale_right * size_right.width(),
+        size_left.height(),
+    );
+    let crop_right = crop
+        .intersect(&right_rect)
+        .translate(VectorD::new(-size_left.width(), 0.0))
+        .scale(1.0 / scale_right);
+
+    let pixmap_left = page_render_crop(&page_left, &crop_left, zoom.scale())?;
+    let pixmap_right = page_render_crop(&page_right, &crop_right, zoom.scale() * scale_right)?;
 
     let surface = match (pixmap_left, pixmap_right) {
         (None, None) => return mview6_error!("empty clip").into(),
@@ -313,6 +331,32 @@ fn page_render(page: &Page, zoom: &Zoom, viewport: &RectD) -> MviewResult<Option
 
         let device = Device::from_pixmap(&pixmap)?;
         let matrix = Matrix::new_scale(zoom.scale() as f32, zoom.scale() as f32);
+        page.run_contents(&device, &matrix)?;
+        Ok(Some(pixmap))
+    }
+}
+
+/// Renders `page` for a crop that has already been computed (in the page's own,
+/// unrotated/unmirrored image coordinates) by the caller, together with the scale to
+/// render it at.
+///
+/// Used by [`render_dual`] instead of [`page_render`], because dual-page mirroring must be
+/// resolved once for the whole spread (see comment in [`render_dual`]), so by the time we
+/// get here the per-page crop is already correct and needs no further mirror handling.
+fn page_render_crop(page: &Page, crop: &RectD, scale: f64) -> MviewResult<Option<mupdf::Pixmap>> {
+    let intersect = crop.scale(scale);
+
+    let (x0, y0, x1, y1) = intersect.round();
+    let intersect_i = IRect::new(x0, y0, x1, y1);
+
+    if intersect_i.is_empty() {
+        Ok(None) // clip intersection is empty
+    } else {
+        let mut pixmap = Pixmap::new_with_rect(&Colorspace::device_rgb(), intersect_i, false)?;
+        pixmap.clear_with(0xff)?;
+
+        let device = Device::from_pixmap(&pixmap)?;
+        let matrix = Matrix::new_scale(scale as f32, scale as f32);
         page.run_contents(&device, &matrix)?;
         Ok(Some(pixmap))
     }

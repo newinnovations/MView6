@@ -17,7 +17,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::cell::OnceCell;
+use std::cell::{OnceCell, RefCell};
 
 use glib::subclass::{
     object::{ObjectImpl, ObjectImplExt},
@@ -79,6 +79,10 @@ use super::InfoView;
 #[derive(Debug, Default)]
 pub struct InfoViewImp {
     pub(super) column_view: OnceCell<ColumnView>,
+    // Kept around so rotation/mirror can be refreshed in place (see InfoView::update_transform)
+    // instead of rebuilding the whole ListStore whenever the rotation or mirror state changes.
+    pub(super) rotation_row: RefCell<Option<InfoRow>>,
+    pub(super) mirror_row: RefCell<Option<InfoRow>>,
 }
 
 #[glib::object_subclass]
@@ -128,11 +132,15 @@ impl ObjectImpl for InfoViewImp {
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Label>().ok())
                 .unwrap();
-            let row = list_item
-                .item()
-                .and_then(|obj| obj.downcast::<InfoRow>().ok())
-                .unwrap();
-            label.set_text(&row.key());
+            // Bind the label text to the InfoRow "key" property via the list item's
+            // "item" property. As the expression watches list_item::item, it
+            // automatically re-binds when the item is recycled, and it also picks up
+            // property changes on the InfoRow itself (e.g. when we update rotation or
+            // mirror in place), without needing to rebuild the whole ListStore.
+            list_item
+                .property_expression("item")
+                .chain_property::<InfoRow>("key")
+                .bind(&label, "label", gtk4::Widget::NONE);
         });
 
         let col_key = ColumnViewColumn::new(Some("Key"), Some(factory_key.clone()));
@@ -162,11 +170,13 @@ impl ObjectImpl for InfoViewImp {
                 .child()
                 .and_then(|w| w.downcast::<gtk4::Label>().ok())
                 .unwrap();
-            let row = list_item
-                .item()
-                .and_then(|obj| obj.downcast::<InfoRow>().ok())
-                .unwrap();
-            label.set_text(&row.value());
+            // See factory_key above: binding to the "value" property lets us update
+            // e.g. the rotation/mirror rows in place (InfoRow::set_value) and have the
+            // label refresh automatically, without rebuilding the ListStore.
+            list_item
+                .property_expression("item")
+                .chain_property::<InfoRow>("value")
+                .bind(&label, "label", gtk4::Widget::NONE);
         });
 
         let col_value = ColumnViewColumn::new(Some("Value"), Some(factory_value.clone()));

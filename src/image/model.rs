@@ -71,7 +71,26 @@ impl RenderedImage {
         let mut zoom = self.orig_image_zoom.clone();
         zoom.set_origin(new_origin);
         zoom.set_zoom_factor(scale);
-        zoom.transform_matrix()
+
+        // The rendered surface is an unrotated, unmirrored crop of the original content,
+        // positioned via `new_origin` (which already accounts for mirroring, since it is
+        // derived from `self.origin`, computed with `Zoom::top_left` at render time).
+        //
+        // The full-image mirror formula in `Zoom::transform_matrix` depends on the full
+        // content size (for its screen-space mirror-axis shift), which would be wrong here
+        // since we are positioning a differently-sized crop. Instead, compute a mirror-free
+        // (rotation + scale + translate) matrix, which is origin-preserving, and then -- if
+        // the original zoom was mirrored -- reuse `Zoom::reflect_matrix_x` to reflect the
+        // screen-x axis about the already correctly placed local origin (no extra
+        // translation needed, unlike the full-image case).
+        let mirrored = zoom.is_mirrored();
+        zoom.set_mirror(false);
+        let matrix = zoom.transform_matrix();
+        if mirrored {
+            Zoom::reflect_matrix_x(matrix)
+        } else {
+            matrix
+        }
     }
 }
 

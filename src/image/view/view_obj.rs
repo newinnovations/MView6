@@ -91,9 +91,11 @@ impl ImageView {
         let mut p = imp.data.borrow_mut();
         imp.cancel_animation();
         imp.measure_tool.reset();
-        let rotation = content.rotation();
+        let rotation = content.exif_rotation();
+        let mirror = content.exif_mirror();
         p.content = content;
         p.zoom.set_rotation(rotation);
+        p.zoom.set_mirror(mirror);
         p.zoom_overlay = None;
         p.annotations = None;
         p.hover = None;
@@ -238,6 +240,21 @@ impl ImageView {
         p.apply_zoom();
         p.zoom_overlay = None;
         p.redraw(RedrawReason::RotationChanged);
+    }
+
+    pub fn mirror(&self) {
+        let mut p = self.imp().data.borrow_mut();
+        p.zoom.toggle_mirror();
+        p.zoom_overlay = None;
+        p.redraw(RedrawReason::MirrorChanged);
+    }
+
+    pub fn is_mirrored(&self) -> bool {
+        self.imp().data.borrow().zoom.is_mirrored()
+    }
+
+    pub fn rotation(&self) -> i32 {
+        self.imp().data.borrow().zoom.rotation()
     }
 
     pub fn has_tag(&self, tag: &str) -> bool {

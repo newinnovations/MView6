@@ -48,13 +48,14 @@ pub enum RedrawReason {
     InteractiveDrag = 4,
     InteractiveZoom = 5,
     Measurement = 6,
-    PageChanged = 7,
-    RenderDone = 8,
-    RotationChanged = 9,
-    SortChanged = 10,
-    ThumbnailSheetUpdated = 11,
-    TransparencyBackgroundChanged = 12,
-    ZoomSettingChanged = 13,
+    MirrorChanged = 7,
+    PageChanged = 8,
+    RenderDone = 9,
+    RotationChanged = 10,
+    SortChanged = 11,
+    ThumbnailSheetUpdated = 12,
+    TransparencyBackgroundChanged = 13,
+    ZoomSettingChanged = 14,
 }
 
 impl RedrawReason {
@@ -87,13 +88,14 @@ impl From<i32> for RedrawReason {
             4 => RedrawReason::InteractiveDrag,
             5 => RedrawReason::InteractiveZoom,
             6 => RedrawReason::Measurement,
-            7 => RedrawReason::PageChanged,
-            8 => RedrawReason::RenderDone,
-            9 => RedrawReason::RotationChanged,
-            10 => RedrawReason::SortChanged,
-            11 => RedrawReason::ThumbnailSheetUpdated,
-            12 => RedrawReason::TransparencyBackgroundChanged,
-            13 => RedrawReason::ZoomSettingChanged,
+            7 => RedrawReason::MirrorChanged,
+            8 => RedrawReason::PageChanged,
+            9 => RedrawReason::RenderDone,
+            10 => RedrawReason::RotationChanged,
+            11 => RedrawReason::SortChanged,
+            12 => RedrawReason::ThumbnailSheetUpdated,
+            13 => RedrawReason::TransparencyBackgroundChanged,
+            14 => RedrawReason::ZoomSettingChanged,
             _ => RedrawReason::Unknown,
         }
     }
@@ -114,6 +116,7 @@ impl ImageViewData {
                     if reason == RedrawReason::ContentPost
                         || reason == RedrawReason::PageChanged
                         || reason == RedrawReason::RotationChanged
+                        || reason == RedrawReason::MirrorChanged
                     {
                         return; // postpone actual redraw, because nothing to show
                                 // TO CONSIDER
@@ -216,6 +219,7 @@ mod tests {
             RedrawReason::ContentPost,
             RedrawReason::InteractiveDrag,
             RedrawReason::InteractiveZoom,
+            RedrawReason::MirrorChanged,
             RedrawReason::PageChanged,
             RedrawReason::RenderDone,
             RedrawReason::RotationChanged,

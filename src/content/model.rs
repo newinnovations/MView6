@@ -435,7 +435,7 @@ impl Content {
         false
     }
 
-    pub fn rotation(&self) -> i32 {
+    pub fn exif_rotation(&self) -> i32 {
         if let Some(exif) = &self.exif {
             if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
                 if let exif::Value::Short(ref vec) = field.value {
@@ -451,6 +451,19 @@ impl Content {
             }
         }
         0
+    }
+
+    pub fn exif_mirror(&self) -> bool {
+        if let Some(exif) = &self.exif {
+            if let Some(field) = exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY) {
+                if let exif::Value::Short(ref vec) = field.value {
+                    if let Some(&orientation) = vec.first() {
+                        return matches!(orientation, 2 | 4 | 5 | 7);
+                    }
+                }
+            }
+        }
+        false
     }
 
     content_getter!(animation, animation_mut, Animation, AnimationImage);

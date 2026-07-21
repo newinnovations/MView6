@@ -52,6 +52,18 @@ impl InfoView {
             if image.has_alpha() { "yes" } else { "no" },
         ));
 
+        // Rotation and mirror state live in the ImageView/Zoom, not in Content, so they
+        // start out as placeholders here and are set to their real values right after by
+        // update_transform(). We keep a reference to these two rows so that later changes
+        // to rotation/mirror (e.g. from keyboard shortcuts) can update them in place via
+        // InfoRow's properties, instead of rebuilding this whole ListStore.
+        let rotation_row = InfoRow::new("rotation", "0°");
+        let mirror_row = InfoRow::new("mirrored", "no");
+        store.append(&rotation_row);
+        store.append(&mirror_row);
+        self.imp().rotation_row.replace(Some(rotation_row));
+        self.imp().mirror_row.replace(Some(mirror_row));
+
         match &image.exif {
             Some(exif) => {
                 for f in exif.fields() {
@@ -74,5 +86,18 @@ impl InfoView {
         }
         let selection_model = gtk4::SingleSelection::new(Some(store));
         self.column_view().set_model(Some(&selection_model));
+    }
+
+    /// Update the rotation/mirror rows in place. This is cheap: it only sets two
+    /// properties on the existing InfoRow objects (which the ColumnView labels are bound
+    /// to via property expressions), so it avoids rebuilding the whole ListStore every
+    /// time the user rotates or mirrors the image.
+    pub fn update_transform(&self, rotation: i32, mirrored: bool) {
+        if let Some(row) = self.imp().rotation_row.borrow().as_ref() {
+            row.set_value(format!("{}°", rotation));
+        }
+        if let Some(row) = self.imp().mirror_row.borrow().as_ref() {
+            row.set_value(if mirrored { "yes" } else { "no" });
+        }
     }
 }

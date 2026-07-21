@@ -126,6 +126,8 @@ pub struct Zoom {
     scale: f64,
     /// Rotation angle in degrees (0, 90, 180, 270)
     rotation: i32,
+    /// Whether the image is mirrored (flipped left/right) before rotation is applied
+    mirror: bool,
     /// Offset of the image's origin in the viewport (screen coords)
     offset: VectorD,
     /// Original image dimensions (width, height) before any transformations
@@ -138,6 +140,7 @@ impl Default for Zoom {
         Self {
             scale: 1.0,
             rotation: Default::default(),
+            mirror: false,
             offset: Default::default(),
             image_size: Default::default(),
         }
@@ -263,11 +266,40 @@ impl Zoom {
         rounded.rem_euclid(360)
     }
 
+    /// Returns the current rotation angle in degrees (0, 90, 180, 270)
+    pub fn rotation(&self) -> i32 {
+        self.rotation
+    }
+
+    /// Sets whether the image is mirrored (flipped left/right)
+    ///
+    /// The mirror is applied in the image's own (unrotated) coordinate space,
+    /// before rotation, so that "left" and "right" always refer to what the
+    /// viewer currently sees regardless of rotation.
+    ///
+    /// # Arguments
+    /// * `mirror` - `true` to flip the image horizontally, `false` for normal orientation
+    pub fn set_mirror(&mut self, mirror: bool) {
+        self.mirror = mirror;
+    }
+
+    /// Toggles the mirror (horizontal flip) state
+    pub fn toggle_mirror(&mut self) {
+        self.mirror = !self.mirror;
+    }
+
+    /// Returns whether the image is currently mirrored (flipped left/right)
+    pub fn is_mirrored(&self) -> bool {
+        self.mirror
+    }
+
     /// Creates a Cairo transformation matrix for rendering the image
     ///
     /// This matrix combines:
     /// - Scaling (zoom factor)
     /// - Rotation (in 90-degree increments)
+    /// - Mirroring (horizontal flip, applied in screen space after rotation,
+    ///   so it always flips left/right as seen on screen regardless of rotation)
     /// - Translation (positioning offsets)
     ///
     /// The matrix transforms from image coordinates to screen coordinates.
@@ -275,40 +307,55 @@ impl Zoom {
     /// # Returns
     /// * `Matrix` - Cairo transformation matrix ready for rendering operations
     pub fn transform_matrix(&self) -> Matrix {
-        match self.rotation % 360 {
-            90 => Matrix::new(
-                0.0,
-                self.scale,
-                -self.scale,
-                0.0,
-                self.offset.x(),
-                self.offset.y(),
-            ),
-            180 => Matrix::new(
-                -self.scale,
-                0.0,
-                0.0,
-                -self.scale,
-                self.offset.x(),
-                self.offset.y(),
-            ),
-            270 => Matrix::new(
-                0.0,
-                -self.scale,
-                self.scale,
-                0.0,
-                self.offset.x(),
-                self.offset.y(),
-            ),
-            _ => Matrix::new(
-                self.scale,
-                0.0,
-                0.0,
-                self.scale,
-                self.offset.x(),
-                self.offset.y(),
-            ),
+        let (a, b, c, d) = match self.rotation % 360 {
+            90 => (0.0, self.scale, -self.scale, 0.0),
+            180 => (-self.scale, 0.0, 0.0, -self.scale),
+            270 => (0.0, -self.scale, self.scale, 0.0),
+            _ => (self.scale, 0.0, 0.0, self.scale),
+        };
+        let (e, f) = (self.offset.x(), self.offset.y());
+        let matrix = Matrix::new(a, b, c, d, e, f);
+
+        if self.mirror {
+            // Mirroring flips the on-screen x-coordinate after rotation has
+            // been applied, so it always mirrors left/right as displayed,
+            // regardless of the current rotation. `reflect_matrix_x` negates
+            // the row of the matrix that produces the screen x-coordinate
+            // (a, c); the added `mirror_shift()` compensates the translation
+            // so the overall on-screen bounding box stays the same.
+            let shift = self.mirror_shift();
+            let reflected = Self::reflect_matrix_x(matrix);
+            Matrix::new(
+                reflected.xx(),
+                reflected.yx(),
+                reflected.xy(),
+                reflected.yy(),
+                reflected.x0() + shift,
+                reflected.y0(),
+            )
+        } else {
+            matrix
         }
+    }
+
+    /// Reflects the on-screen x-axis of a Cairo matrix, leaving its
+    /// translation untouched.
+    ///
+    /// This negates the components of the matrix that produce the screen
+    /// x-coordinate (`xx` and `xy`), flipping left/right as displayed while
+    /// keeping the rest of the transform (rotation, scale, y-axis and
+    /// translation) unchanged. Callers that need the on-screen bounding box
+    /// to stay anchored in place must add their own translation correction,
+    /// since a pure reflection about x=0 otherwise moves the image.
+    pub fn reflect_matrix_x(matrix: Matrix) -> Matrix {
+        Matrix::new(
+            -matrix.xx(),
+            matrix.yx(),
+            -matrix.xy(),
+            matrix.yy(),
+            matrix.x0(),
+            matrix.y0(),
+        )
     }
 
     /// Returns the top-left corner of the image in screen coordinates after rotation.
@@ -338,12 +385,46 @@ impl Zoom {
     /// # Returns
     /// The coordinates of the visual top-left corner in screen space.
     pub fn top_left(&self, rect: &RectD) -> VectorD {
+        // Mirroring flips left/right on screen, which simply swaps which
+        // x-coordinate (x0 or x1) of `rect` corresponds to the raw image
+        // origin, independent of rotation.
+        let (x0, x1) = if self.mirror {
+            (rect.x1, rect.x0)
+        } else {
+            (rect.x0, rect.x1)
+        };
         match self.rotation % 360 {
-            270 => VectorD::new(rect.x0, rect.y1), // Bottom-left
-            180 => VectorD::new(rect.x1, rect.y1), // Bottom-right
-            90 => VectorD::new(rect.x1, rect.y0),  // Top-right
-            _ => VectorD::new(rect.x0, rect.y0),   // Original top-left
+            270 => VectorD::new(x0, rect.y1), // Bottom-left
+            180 => VectorD::new(x1, rect.y1), // Bottom-right
+            90 => VectorD::new(x1, rect.y0),  // Top-right
+            _ => VectorD::new(x0, rect.y0),   // Original top-left
         }
+    }
+
+    /// Returns the sum (x0 + x1) of the unscaled, rotated image bounding box.
+    ///
+    /// Used to mirror a point/rect within the current rotated bounding box:
+    /// reflecting `x` about this axis (`shift - x`, once scaled) flips the
+    /// on-screen x-coordinate while leaving the bounding box unchanged.
+    fn mirror_axis_sum(&self) -> f64 {
+        let rect = self.image_rect_rotated();
+        rect.x0 + rect.x1
+    }
+
+    /// Returns the scaled mirror axis, i.e. the value `x` must be reflected
+    /// about (`shift - x`) to flip the on-screen x-coordinate while leaving
+    /// the rotated, scaled bounding box anchored in place.
+    ///
+    /// Shared by every mirror-aware coordinate conversion below, so the
+    /// reflection formula only needs to be derived and verified once.
+    fn mirror_shift(&self) -> f64 {
+        self.scale * self.mirror_axis_sum()
+    }
+
+    /// Reflects a single on-screen x-coordinate about [`Self::mirror_shift`],
+    /// in rotated/scaled (pre-translation) space.
+    fn reflect_x(&self, x: f64) -> f64 {
+        self.mirror_shift() - x
     }
 
     /// Returns the image rectangle after rotation but without scaling or translation.
@@ -405,8 +486,9 @@ impl Zoom {
     ///
     /// This function works by applying the inverse transformations to the viewport:
     /// 1. Reverse the translation (subtract offset)
-    /// 2. Reverse the scaling (divide by scale factor)
-    /// 3. Reverse the rotation (rotate by negative angle)
+    /// 2. Reverse the mirror (flip the on-screen x-coordinate, in rotated/scaled space)
+    /// 3. Reverse the scaling (divide by scale factor)
+    /// 4. Reverse the rotation (rotate by negative angle)
     ///
     /// The result shows which portion of the original, untransformed image
     /// is visible within the given viewport.
@@ -418,10 +500,18 @@ impl Zoom {
     /// The visible portion in original image coordinates (before any transformations).
     /// Useful for determining which image pixels need to be rendered.
     pub fn intersection_image_coord(&self, viewport: &RectD) -> RectD {
-        let transformed_viewport = viewport
-            .translate(self.offset.neg())
-            .scale(1.0 / self.scale)
-            .rotate(-self.rotation);
+        let local = viewport.translate(self.offset.neg());
+        let local = if self.mirror {
+            RectD::new(
+                self.reflect_x(local.x1),
+                local.y0,
+                self.reflect_x(local.x0),
+                local.y1,
+            )
+        } else {
+            local
+        };
+        let transformed_viewport = local.scale(1.0 / self.scale).rotate(-self.rotation);
         RectD::new_from_size(self.image_size).intersect(&transformed_viewport)
     }
 
@@ -449,8 +539,9 @@ impl Zoom {
     /// This function applies the inverse of all transformations to map a screen
     /// position back to the corresponding position in the original image:
     /// 1. Remove translation (subtract offset)
-    /// 2. Remove rotation (rotate by negative angle)
-    /// 3. Remove scaling (divide by scale factor)
+    /// 2. Remove mirroring (flip the on-screen x-coordinate, in rotated/scaled space)
+    /// 3. Remove rotation (rotate by negative angle)
+    /// 4. Remove scaling (divide by scale factor)
     ///
     /// **Use case**: Converting mouse click positions or UI coordinates to
     /// determine which pixel in the original image was clicked.
@@ -461,9 +552,13 @@ impl Zoom {
     /// # Returns
     /// The corresponding point in the original image coordinate system.
     pub fn screen_to_image(&self, screen: &VectorD) -> VectorD {
-        (*screen - self.offset)
-            .rotate(-self.rotation)
-            .unscale(self.scale)
+        let local = *screen - self.offset;
+        let local = if self.mirror {
+            VectorD::new(self.reflect_x(local.x()), local.y())
+        } else {
+            local
+        };
+        local.rotate(-self.rotation).unscale(self.scale)
     }
 
     /// Converts a point from image coordinates to screen coordinates.
@@ -472,7 +567,9 @@ impl Zoom {
     /// image to where it appears on screen:
     /// 1. Apply scaling (multiply by scale factor)
     /// 2. Apply rotation (rotate by angle)
-    /// 3. Apply translation (add offset)
+    /// 3. Apply mirroring (flip the on-screen x-coordinate, in rotated/scaled space,
+    ///    so it always mirrors left/right as displayed, regardless of rotation)
+    /// 4. Apply translation (add offset)
     ///
     /// **Use case**: Determining where a specific pixel or feature in the original
     /// image will appear on screen, useful for drawing overlays, annotations,
@@ -485,7 +582,13 @@ impl Zoom {
     /// The corresponding point in screen coordinate system where this image
     /// position will be displayed.
     pub fn image_to_screen(&self, image: &VectorD) -> VectorD {
-        image.clone().scale(self.scale).rotate(self.rotation) + self.offset
+        let local = image.clone().scale(self.scale).rotate(self.rotation);
+        let local = if self.mirror {
+            VectorD::new(self.reflect_x(local.x()), local.y())
+        } else {
+            local
+        };
+        local + self.offset
     }
 
     /// Applies the specified zoom mode to fit the image within the given viewport
@@ -1010,6 +1113,173 @@ mod tests {
     }
 
     #[test]
+    fn test_mirror_toggle_and_state() {
+        let mut zoom = Zoom::new();
+        assert!(!zoom.is_mirrored());
+
+        zoom.toggle_mirror();
+        assert!(zoom.is_mirrored());
+
+        zoom.toggle_mirror();
+        assert!(!zoom.is_mirrored());
+
+        zoom.set_mirror(true);
+        assert!(zoom.is_mirrored());
+
+        zoom.reset();
+        assert!(!zoom.is_mirrored());
+    }
+
+    #[test]
+    fn test_mirror_transformation_matrix() {
+        let mut zoom = Zoom::new();
+        zoom.scale = 2.0;
+        zoom.set_offset(10.0, 20.0);
+        zoom.set_image_size(SizeD::new(50.0, 30.0));
+        zoom.set_mirror(true);
+
+        // At rotation 0, mirroring negates the x-scale and shifts the
+        // translation by width * scale so the bounding box is preserved.
+        zoom.set_rotation(0);
+        let matrix = zoom.transform_matrix();
+        assert_eq!(matrix.xx(), -2.0);
+        assert_eq!(matrix.yx(), 0.0);
+        assert_eq!(matrix.xy(), 0.0);
+        assert_eq!(matrix.yy(), 2.0);
+        assert_eq!(matrix.x0(), 10.0 + 50.0 * 2.0);
+        assert_eq!(matrix.y0(), 20.0);
+
+        // Left edge (image x=0) should map to the right side of the bbox,
+        // right edge (image x=width) should map to the left side.
+        let left_edge = VectorD::new(0.0, 0.0);
+        let right_edge = VectorD::new(50.0, 0.0);
+        let screen_left_edge = zoom.image_to_screen(&left_edge);
+        let screen_right_edge = zoom.image_to_screen(&right_edge);
+        assert!(approx_eq(screen_left_edge.x(), 110.0, 1e-10));
+        assert!(approx_eq(screen_right_edge.x(), 10.0, 1e-10));
+    }
+
+    #[test]
+    fn test_mirror_always_flips_screen_left_right() {
+        // Mirroring must always swap left/right *as seen on screen*, even
+        // when the image is rotated 90/270 degrees (where the image's own
+        // "width" axis has become the screen's vertical axis).
+        let mut zoom = Zoom::new();
+        zoom.scale = 1.0;
+        zoom.set_offset(0.0, 0.0);
+        zoom.set_image_size(SizeD::new(40.0, 20.0));
+
+        let (w, h) = (40.0, 20.0);
+        let corners = [
+            VectorD::new(0.0, 0.0),
+            VectorD::new(w, 0.0),
+            VectorD::new(0.0, h),
+            VectorD::new(w, h),
+        ];
+
+        for rotation in [0, 90, 180, 270] {
+            zoom.set_mirror(false);
+            zoom.set_rotation(rotation);
+            let unmirrored: Vec<VectorD> =
+                corners.iter().map(|p| zoom.image_to_screen(p)).collect();
+
+            zoom.set_mirror(true);
+            let mirrored: Vec<VectorD> = corners.iter().map(|p| zoom.image_to_screen(p)).collect();
+
+            // Screen y (vertical position) of every corner must be
+            // unaffected by mirroring...
+            for (u, m) in unmirrored.iter().zip(mirrored.iter()) {
+                assert!(approx_eq(u.y(), m.y(), 1e-9));
+            }
+
+            // ...while the corner that is leftmost on screen without
+            // mirroring must become the rightmost on screen with mirroring
+            // (and vice versa), i.e. mirroring reflects the on-screen x-axis.
+            let min_x_unmirrored = unmirrored.iter().map(|p| p.x()).fold(f64::MAX, f64::min);
+            let max_x_unmirrored = unmirrored.iter().map(|p| p.x()).fold(f64::MIN, f64::max);
+            let min_x_mirrored = mirrored.iter().map(|p| p.x()).fold(f64::MAX, f64::min);
+            let max_x_mirrored = mirrored.iter().map(|p| p.x()).fold(f64::MIN, f64::max);
+
+            assert!(
+                min_x_unmirrored < max_x_unmirrored,
+                "test setup should have distinct screen x positions at rotation {rotation}"
+            );
+            assert!(approx_eq(min_x_mirrored, min_x_unmirrored, 1e-9));
+            assert!(approx_eq(max_x_mirrored, max_x_unmirrored, 1e-9));
+
+            let leftmost_unmirrored = unmirrored
+                .iter()
+                .position(|p| approx_eq(p.x(), min_x_unmirrored, 1e-9))
+                .unwrap();
+            let leftmost_mirrored = mirrored
+                .iter()
+                .position(|p| approx_eq(p.x(), min_x_mirrored, 1e-9))
+                .unwrap();
+            let rightmost_unmirrored = unmirrored
+                .iter()
+                .position(|p| approx_eq(p.x(), max_x_unmirrored, 1e-9))
+                .unwrap();
+
+            // The corner that was leftmost is now at the position that was
+            // rightmost, confirming a left/right screen flip.
+            assert_eq!(
+                corners[leftmost_mirrored], corners[rightmost_unmirrored],
+                "mirroring did not reverse left/right screen order at rotation {rotation}"
+            );
+            assert_ne!(
+                leftmost_unmirrored, leftmost_mirrored,
+                "mirroring did not change which corner is leftmost at rotation {rotation}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_mirror_bounding_box_unchanged() {
+        // Mirroring should not change the overall on-screen bounding box of
+        // the image, only flip its content horizontally.
+        let mut zoom_normal = Zoom::new();
+        zoom_normal.scale = 1.5;
+        zoom_normal.set_offset(5.0, 7.0);
+        zoom_normal.set_image_size(SizeD::new(80.0, 40.0));
+
+        let mut zoom_mirrored = zoom_normal.clone();
+        zoom_mirrored.set_mirror(true);
+
+        for rotation in [0, 90, 180, 270] {
+            zoom_normal.set_rotation(rotation);
+            zoom_mirrored.set_rotation(rotation);
+
+            let viewport = RectD::new(-1000.0, -1000.0, 1000.0, 1000.0);
+            let rect_normal = zoom_normal.intersection_screen_coord(&viewport);
+            let rect_mirrored = zoom_mirrored.intersection_screen_coord(&viewport);
+            assert_eq!(rect_normal, rect_mirrored);
+        }
+    }
+
+    #[test]
+    fn test_mirror_coordinate_round_trip() {
+        let mut zoom = Zoom::new();
+        zoom.scale = 1.7;
+        zoom.set_offset(3.0, -4.0);
+        zoom.set_image_size(SizeD::new(64.0, 48.0));
+        zoom.set_mirror(true);
+
+        for rotation in [0, 90, 180, 270] {
+            zoom.set_rotation(rotation);
+            for image_point in [
+                VectorD::new(0.0, 0.0),
+                VectorD::new(64.0, 0.0),
+                VectorD::new(0.0, 48.0),
+                VectorD::new(32.0, 24.0),
+            ] {
+                let screen = zoom.image_to_screen(&image_point);
+                let back = zoom.screen_to_image(&screen);
+                assert!(approx_eq_vector(&back, &image_point, 1e-9));
+            }
+        }
+    }
+
+    #[test]
     fn test_utility_methods() {
         let mut zoom = Zoom::new();
         zoom.scale = 2.5;
@@ -1040,6 +1310,7 @@ mod tests {
             image_size: SizeD::new(100.0, 50.0),
             scale: 2.0,
             rotation: 90,
+            mirror: false,
             offset: VectorD::new(10.0, 20.0),
         }
     }
@@ -1050,6 +1321,7 @@ mod tests {
             image_size: SizeD::new(100.0, 50.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1065,6 +1337,7 @@ mod tests {
             image_size: SizeD::new(100.0, 50.0),
             scale: 1.0,
             rotation: 90,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1119,6 +1392,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1135,6 +1409,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1163,6 +1438,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(10.0, 20.0),
         };
 
@@ -1179,6 +1455,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 2.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1195,6 +1472,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1.0,
             rotation: 90,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 
@@ -1236,6 +1514,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(200.0, 200.0), // Image far from viewport
         };
 
@@ -1252,6 +1531,7 @@ mod tests {
             image_size: SizeD::new(50.0, 30.0),
             scale: 1.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(25.0, 35.0), // Center small image in viewport
         };
 
@@ -1269,6 +1549,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 0.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(50.0, 50.0),
         };
 
@@ -1290,6 +1571,7 @@ mod tests {
             image_size: SizeD::new(100.0, 100.0),
             scale: 1000.0,
             rotation: 0,
+            mirror: false,
             offset: VectorD::new(0.0, 0.0),
         };
 

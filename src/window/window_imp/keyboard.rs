@@ -255,7 +255,11 @@ impl MViewWindowImp {
                 self.rotate_image(270);
             }
             Key::R => {
-                self.rotate_image(90);
+                if modifiers.contains(ModifierType::CONTROL_MASK) {
+                    self.mirror_image();
+                } else {
+                    self.rotate_image(90);
+                }
             }
             Key::Return | Key::KP_Enter => {
                 self.dir_enter();
@@ -412,6 +416,10 @@ impl MViewWindowImp {
                                 );
                                 w.info_view.update(&i2);
                                 w.image_view.set_content(i2);
+                                w.info_view.update_transform(
+                                    w.image_view.rotation(),
+                                    w.image_view.is_mirrored(),
+                                );
                             }
                         }
                     };

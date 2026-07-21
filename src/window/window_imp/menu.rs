@@ -45,6 +45,7 @@ impl MViewWindowImp {
         rotate_submenu.append(Some("90° Clockwise"), Some("win.rotate::270"));
         rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::90"));
         rotate_submenu.append(Some("Rotate 180°"), Some("win.rotate::180"));
+        rotate_submenu.append(Some("Mirror (flip left/right)"), Some("win.mirror"));
 
         let page_section = Menu::new();
         page_section.append(Some("Single"), Some("win.page::single"));
@@ -120,6 +121,7 @@ impl MViewWindowImp {
         self.add_action(&action_group, "quit", Self::quit);
         self.add_action_bool(&action_group, "fullscreen", false, Self::toggle_fullscreen);
         self.add_action_int(&action_group, "rotate", 0, Self::rotate_image);
+        self.add_action_bool(&action_group, "mirror", false, Self::mirror_image);
         self.add_action_string(&action_group, "zoom", "fill", Self::change_zoom);
         self.add_action_string(
             &action_group,

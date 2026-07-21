@@ -108,6 +108,11 @@ pub const COMMANDS: &[Command] = &[
         action: |w| w.rotate_image(180),
     },
     Command {
+        name: "Mirror (flip left/right)",
+        shortcut: Some("ctrl+shift+r"),
+        action: |w| w.mirror_image(),
+    },
+    Command {
         name: "Slideshow interval: 1 second",
         shortcut: None,
         action: |w| w.set_slideshow_interval(1),

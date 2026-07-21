@@ -188,6 +188,21 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if !backend.is_thumbnail() {
             w.image_view.rotate(angle);
+            w.info_view
+                .update_transform(w.image_view.rotation(), w.image_view.is_mirrored());
+        }
+    }
+
+    pub fn mirror_image(&self) {
+        let w = self.widgets();
+        let backend = self.backend.borrow();
+        if !backend.is_thumbnail() {
+            w.image_view.mirror();
+            let mirrored = w.image_view.is_mirrored();
+            w.info_view
+                .update_transform(w.image_view.rotation(), mirrored);
+            drop(backend);
+            w.set_action_bool("mirror", mirrored);
         }
     }
 
