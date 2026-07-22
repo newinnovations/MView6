@@ -34,9 +34,11 @@ mod resize;
 mod slideshow;
 mod sort;
 mod toast;
+mod widgets;
 
 pub use commands::{Command, COMMANDS};
 pub use palette::CommandPalette;
+pub use widgets::MViewWidgets;
 
 use crate::{
     backends::{
@@ -51,18 +53,13 @@ use crate::{
     image::{ImageView, SIGNAL_CANVAS_RESIZED, SIGNAL_NAVIGATE, SIGNAL_SHOWN},
     info_view::InfoView,
     rect::PointD,
-    render_thread::{
-        RenderCommand, RenderCommandMessage, RenderReply, RenderReplyMessage, RenderThread,
-        RenderThreadSender,
-    },
+    render_thread::{RenderCommandMessage, RenderReply, RenderReplyMessage, RenderThread},
     util::error_dialog,
     window::{
         window_imp::{dependencies::check_dependencies, panel::Panel, toast::ToastOverlay},
         MViewWindow,
     },
 };
-use async_channel::Sender;
-use gio::{SimpleAction, SimpleActionGroup};
 use glib::{clone, closure_local, idle_add_local, property::PropertySet, ControlFlow, SourceId};
 use gtk4::{
     gdk::{Clipboard, Display},
@@ -80,64 +77,6 @@ use std::{
     rc::Rc,
     time::{SystemTime, UNIX_EPOCH},
 };
-
-#[derive(Debug)]
-pub struct MViewWidgets {
-    hbox: gtk4::Box,
-    toast_overlay: ToastOverlay,
-    file_widget: ScrolledWindow,
-    file_view: FileView,
-    info_widget: ScrolledWindow,
-    info_view: InfoView,
-    image_view: ImageView,
-    pub tn_sender: Sender<Message>,
-    _render_thread: RenderThread,
-    pub rt_sender: RenderThreadSender,
-    actions: SimpleActionGroup,
-    forward_button_top: Button,
-    panel: Panel,
-}
-
-impl MViewWidgets {
-    pub fn set_action_string(&self, action_name: &str, state: &str) {
-        if let Some(action) = self.actions.lookup_action(action_name) {
-            if let Ok(action) = action.downcast::<SimpleAction>() {
-                action.set_state(&state.to_variant());
-            }
-        }
-    }
-
-    pub fn set_action_bool(&self, action_name: &str, state: bool) {
-        if let Some(action) = self.actions.lookup_action(action_name) {
-            if let Ok(action) = action.downcast::<SimpleAction>() {
-                action.set_state(&state.to_variant());
-            }
-        }
-    }
-
-    pub fn get_action_bool(&self, action_name: &str) -> bool {
-        self.actions
-            .lookup_action(action_name)
-            .and_then(|a| a.downcast::<SimpleAction>().ok())
-            .and_then(|a| a.state())
-            .and_then(|v| v.get::<bool>())
-            .unwrap_or_default()
-    }
-
-    pub fn get_action_i32(&self, action_name: &str) -> i32 {
-        self.actions
-            .lookup_action(action_name)
-            .and_then(|a| a.downcast::<SimpleAction>().ok())
-            .and_then(|a| a.state())
-            .and_then(|v| v.get::<String>())
-            .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or_default()
-    }
-
-    pub fn rb_send(&self, command: RenderCommand) {
-        self.rt_sender.send_blocking(command);
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TargetTime {

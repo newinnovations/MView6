@@ -86,9 +86,7 @@ impl MViewWindowImp {
                 } else {
                     w.image_view.set_content(content);
                 }
-                w.info_view
-                    .update_transform(w.image_view.rotation(), w.image_view.is_mirrored());
-
+                w.update_transform_info();
                 *self.current_selection.borrow_mut() = Some(file_row);
             }
         }
@@ -127,10 +125,7 @@ impl MViewWindowImp {
                             w.panel.enable_enter(false);
                             w.info_view.update(&content);
                             w.image_view.set_content(content);
-                            w.info_view.update_transform(
-                                w.image_view.rotation(),
-                                w.image_view.is_mirrored(),
-                            );
+                            w.update_transform_info();
                             *this.current_selection.borrow_mut() = None;
                         }
                         Ok(None) => {

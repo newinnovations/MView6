@@ -183,13 +183,21 @@ impl MViewWindowImp {
         }
     }
 
-    pub fn rotate_image(&self, angle: i32) {
+    pub fn rotate_image_add(&self, angle: i32) {
         let w = self.widgets();
         let backend = self.backend.borrow();
         if !backend.is_thumbnail() {
-            w.image_view.rotate(angle);
-            w.info_view
-                .update_transform(w.image_view.rotation(), w.image_view.is_mirrored());
+            w.image_view.add_rotation(angle);
+            w.update_transform_info();
+        }
+    }
+
+    pub fn rotate_image_set(&self, angle: i32) {
+        let w = self.widgets();
+        let backend = self.backend.borrow();
+        if !backend.is_thumbnail() {
+            w.image_view.set_rotation(angle);
+            w.update_transform_info();
         }
     }
 
@@ -198,11 +206,12 @@ impl MViewWindowImp {
         let backend = self.backend.borrow();
         if !backend.is_thumbnail() {
             w.image_view.mirror();
-            let mirrored = w.image_view.is_mirrored();
-            w.info_view
-                .update_transform(w.image_view.rotation(), mirrored);
-            drop(backend);
-            w.set_action_bool("mirror", mirrored);
+            w.update_transform_info();
+            // let mirrored = w.image_view.is_mirrored();
+            // w.info_view
+            //     .update_transform(w.image_view.rotation(), mirrored);
+            // drop(backend);
+            // w.set_action_bool("mirror", mirrored);
         }
     }
 

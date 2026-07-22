@@ -96,31 +96,43 @@ e.g. `-90`, normalize to `270`, never `-90`).
 
 ### 3.2 Direction convention
 
-Angles increase **counterclockwise** as displayed on screen. This falls out
-of `VectorPoint::rotate`:
+Angles increase **clockwise** as displayed on screen. Note that this is the
+*opposite* of the usual mathematical convention (where increasing angle is
+counterclockwise) — the flip happens because screen/Cairo coordinates have
+**y pointing down**, not up. `VectorPoint::rotate` implements the standard
+(y-up) CCW rotation formula:
 
 ```rust
 pub fn rotate(&self, rotation: i32) -> Self {
     match rotation {
-        -90 | 270 => Self::new(self.y, T::default() - self.x),
-        -180 | 180 => Self::new(T::default() - self.x, T::default() - self.y),
-        -270 | 90  => Self::new(T::default() - self.y, self.x),
+        -270 | 90  => Self::new(-self.y, self.x),
+        -180 | 180 => Self::new(-self.x, -self.y),
+        -90 | 270 => Self::new(self.y, -self.x),
         _ => Self::new(self.x, self.y),
     }
 }
 ```
 
+but because the `y` axis it operates on is screen-space (down-positive), the
+`90`/`-90` (`270`) cases end up looking **clockwise**/**counterclockwise** on
+screen respectively, not the other way around. Concretely, for a point to the
+right of the origin (`x=1, y=0`), `rotate(90)` yields `(0, 1)` — i.e. straight
+*down* on screen, which is a clockwise motion (3 o'clock → 6 o'clock).
+`rotate(270)` yields `(0, -1)` — straight *up*, a counterclockwise motion (3
+o'clock → 12 o'clock).
+
 Concretely, in the window layer (`src/window/window_imp/menu.rs`):
 
 ```rust
-rotate_submenu.append(Some("90° Clockwise"),        Some("win.rotate::270")); // add_rotation(270) == add_rotation(-90)
-rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::90"));  // add_rotation(90)
+rotate_submenu.append(Some("90° Clockwise"),        Some("win.rotate::90"));  // set_rotation(90)
+rotate_submenu.append(Some("90° Counterclockwise"), Some("win.rotate::270")); // set_rotation(270)
 ```
 
-So `add_rotation(90)` is counterclockwise, `add_rotation(270)` (equivalently
-`-90`) is clockwise. Keyboard shortcuts (`src/window/window_imp/keyboard.rs`)
-follow the same convention: `r` → `rotate_image(270)` (clockwise), `R`
-(Shift+r) → `rotate_image(90)` (counterclockwise), `Ctrl+R` → mirror (see §4).
+So `rotation == 90` is clockwise (relative to the unrotated `0` state), and
+`rotation == 270` (equivalently `-90`) is counterclockwise. Keyboard shortcuts
+(`src/window/window_imp/keyboard.rs`) follow the same convention: `r` →
+`rotate_image(90)` (clockwise), `R` (Shift+r) → `rotate_image(270)`
+(counterclockwise), `Ctrl+R` → mirror (see §4).
 
 ### 3.3 What rotation does to the image rectangle
 
@@ -287,13 +299,11 @@ covers the full image content at the current `image_size` (i.e. for the
 "whole image" case in `Zoom::transform_matrix`); see §6 for why the cropped
 `RenderedImage` case must *not* add it.
 
-### 4.5 Where mirror state resets
+### 4.5 Mirror state reset and initialization
 
-- `set_content_pre` (`view_obj.rs`) resets `mirror` to `false` whenever a new
-  piece of content is loaded, alongside setting rotation from EXIF/content
-  metadata. Mirroring is a per-view/session choice, not a persisted content
-  property (unlike rotation, which can come from EXIF).
-- `Zoom::reset()` also clears it (via `Default`).
+- `set_content_pre` (`view_obj.rs`): Initializes the `mirror` state and `rotation`
+  using EXIF or content metadata. Falls back to false / 0 if metadata is missing.
+- `Zoom::reset()`: Clears the mirror state by reverting it to its default value.
 
 ## 5. Zoom (scale) & positioning
 

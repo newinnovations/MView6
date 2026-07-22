@@ -234,7 +234,15 @@ impl ImageView {
         p.content.draw_pixbuf(pixbuf, dest_x, dest_y);
     }
 
-    pub fn rotate(&self, angle: i32) {
+    pub fn set_rotation(&self, angle: i32) {
+        let mut p = self.imp().data.borrow_mut();
+        p.zoom.set_rotation(angle);
+        p.apply_zoom();
+        p.zoom_overlay = None;
+        p.redraw(RedrawReason::RotationChanged);
+    }
+
+    pub fn add_rotation(&self, angle: i32) {
         let mut p = self.imp().data.borrow_mut();
         p.zoom.add_rotation(angle);
         p.apply_zoom();

@@ -252,13 +252,15 @@ impl MViewWindowImp {
                 self.delete_current_file(modifiers.contains(ModifierType::SHIFT_MASK));
             }
             Key::r => {
-                self.rotate_image(270);
+                // Rotate 90° clockwise (adds to current rotation)
+                self.rotate_image_add(90);
             }
             Key::R => {
                 if modifiers.contains(ModifierType::CONTROL_MASK) {
                     self.mirror_image();
                 } else {
-                    self.rotate_image(90);
+                    // Rotate 90° counterclockwise (adds to current rotation)
+                    self.rotate_image_add(270);
                 }
             }
             Key::Return | Key::KP_Enter => {
@@ -416,10 +418,7 @@ impl MViewWindowImp {
                                 );
                                 w.info_view.update(&i2);
                                 w.image_view.set_content(i2);
-                                w.info_view.update_transform(
-                                    w.image_view.rotation(),
-                                    w.image_view.is_mirrored(),
-                                );
+                                w.update_transform_info();
                             }
                         }
                     };

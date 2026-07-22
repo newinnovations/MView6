@@ -20,7 +20,7 @@ with open("commands.yaml") as stream:
     data = yaml.safe_load(stream)
 
 
-with open("../../src/window/imp/commands.rs", "w") as f:
+with open("../../src/window/window_imp/commands.rs", "w") as f:
     f.write(
         """// MView6 -- High-performance PDF and photo viewer built with Rust and GTK4
 //
@@ -41,7 +41,7 @@ with open("../../src/window/imp/commands.rs", "w") as f:
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-        use crate::window::imp::MViewWindowImp;
+use crate::window::MViewWindowImp;
 
 #[derive(Clone)]
 pub struct Command {
@@ -62,21 +62,17 @@ pub const COMMANDS: &[Command] = &[
         else:
             shortcut = "None"
         command = v["command"]
-        f.write(
-            f"""    Command {{
+        f.write(f"""    Command {{
         name: "{k}",
         shortcut: {shortcut},
         action: |w| w.{command},
     }},
-"""
-        )
+""")
 
         # print(k, ":", v)
 
-    f.write(
-        """];
-"""
-    )
+    f.write("""];
+""")
 # test = {
 #     "1": ["a", "b"],
 #     "2": ["a"],

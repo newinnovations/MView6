@@ -53,6 +53,11 @@ pub const COMMANDS: &[Command] = &[
         action: |w| w.measure_toggle(),
     },
     Command {
+        name: "Mirror (flip left/right)",
+        shortcut: Some("ctrl+shift+r"),
+        action: |w| w.mirror_image(),
+    },
+    Command {
         name: "Navigation: edit filter",
         shortcut: Some("Shift+F"),
         action: |w| w.filter_dialog(None),
@@ -93,24 +98,19 @@ pub const COMMANDS: &[Command] = &[
         action: |w| w.quit(),
     },
     Command {
-        name: "Rotate 90° Clockwise",
+        name: "Rotate: set to 90° Clockwise",
         shortcut: None,
-        action: |w| w.rotate_image(270),
+        action: |w| w.rotate_image_set(90),
     },
     Command {
-        name: "Rotate 90° Counterclockwise",
+        name: "Rotate: set to 90° Counterclockwise",
         shortcut: None,
-        action: |w| w.rotate_image(90),
+        action: |w| w.rotate_image_set(270),
     },
     Command {
-        name: "Rotate 180°",
+        name: "Rotate: set to 180°",
         shortcut: None,
-        action: |w| w.rotate_image(180),
-    },
-    Command {
-        name: "Mirror (flip left/right)",
-        shortcut: Some("ctrl+shift+r"),
-        action: |w| w.mirror_image(),
+        action: |w| w.rotate_image_set(180),
     },
     Command {
         name: "Slideshow interval: 1 second",

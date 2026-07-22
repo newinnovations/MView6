@@ -1,5 +1,5 @@
 "Open file":
-    command: open_file()
+    command: open_file_dialog()
 
 "Zoom: No scaling":
     command: change_zoom("nozoom")
@@ -17,12 +17,16 @@
 "Transparency background: Black":
     command: change_transparency("black")
 
-"Rotate 90° Clockwise":
-    command: rotate_image(270)
-"Rotate 90° Counterclockwise":
-    command: rotate_image(90)
-"Rotate 180°":
-    command: rotate_image(180)
+"Rotate: set to 90° Clockwise":
+    command: rotate_image_set(90)
+"Rotate: set to 90° Counterclockwise":
+    command: rotate_image_set(270)
+"Rotate: set to 180°":
+    command: rotate_image_set(180)
+
+"Mirror (flip left/right)":
+    key: ctrl+shift+r
+    command: mirror_image()
 
 "Page mode: Single":
     command: change_page_mode("single")
@@ -91,7 +95,7 @@
 
 "Navigation: edit filter":
     key: Shift+F
-    command: adjust_filter()
+    command: filter_dialog(None)
 
 "Measurements: toggle feature":
     key: f2

@@ -94,7 +94,12 @@ impl InfoView {
     /// time the user rotates or mirrors the image.
     pub fn update_transform(&self, rotation: i32, mirrored: bool) {
         if let Some(row) = self.imp().rotation_row.borrow().as_ref() {
-            row.set_value(format!("{}°", rotation));
+            match rotation {
+                0 => row.set_value("none"),
+                90 => row.set_value("90° clockwise"),
+                270 => row.set_value("90° counterclockwise"),
+                _ => row.set_value(format!("{}°", rotation).as_str()),
+            }
         }
         if let Some(row) = self.imp().mirror_row.borrow().as_ref() {
             row.set_value(if mirrored { "yes" } else { "no" });
