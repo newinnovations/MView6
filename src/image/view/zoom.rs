@@ -273,9 +273,9 @@ impl Zoom {
 
     /// Sets whether the image is mirrored (flipped left/right)
     ///
-    /// The mirror is applied in the image's own (unrotated) coordinate space,
-    /// before rotation, so that "left" and "right" always refer to what the
-    /// viewer currently sees regardless of rotation.
+    /// The mirror is applied in screen space, *after* rotation, so that
+    /// "left" and "right" always refer to what the viewer currently sees
+    /// regardless of rotation (see `ZOOM.md` §4).
     ///
     /// # Arguments
     /// * `mirror` - `true` to flip the image horizontally, `false` for normal orientation
