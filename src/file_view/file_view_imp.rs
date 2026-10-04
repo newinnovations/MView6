@@ -120,7 +120,6 @@ impl ObjectImpl for FileViewImp {
         column_view.add_css_class("file-view");
         column_view.set_vexpand(true);
         column_view.set_hexpand(false);
-        column_view.set_halign(gtk4::Align::Start);
 
         // Set up custom sorters for each column
         let sorter_type = gtk4::CustomSorter::new(|a, b| {

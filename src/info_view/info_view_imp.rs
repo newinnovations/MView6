@@ -107,7 +107,6 @@ impl ObjectImpl for InfoViewImp {
         column_view.add_css_class("info-view");
         column_view.set_vexpand(true);
         column_view.set_hexpand(false);
-        column_view.set_halign(gtk4::Align::Start);
 
         let factory_key = gtk4::SignalListItemFactory::new();
         factory_key.connect_setup(|_, list_item| {
