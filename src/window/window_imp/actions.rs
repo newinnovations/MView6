@@ -137,7 +137,7 @@ impl MViewWindowImp {
         self.widgets().set_action_string("page", page_mode);
         self.page_mode.set(page_mode.into());
         if self.backend.borrow().is_doc() {
-            self.on_selection_changed();
+            self.load_selection(true);
         }
     }
 
@@ -323,8 +323,7 @@ impl MViewWindowImp {
                             progress.close();
                             match result {
                                 Ok(()) => {
-                                    this.current_selection.replace(None);
-                                    this.on_selection_changed();
+                                    this.load_selection(true);
                                 }
                                 Err(error) => match error {
                                     MviewError::App(e) => {

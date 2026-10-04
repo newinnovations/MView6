@@ -38,14 +38,16 @@ use glib::{clone, subclass::types::ObjectSubclassExt};
 use gtk4::{gdk::Clipboard, prelude::WidgetExt};
 
 impl MViewWindowImp {
-    pub(super) fn on_selection_changed(&self) {
+    pub(super) fn load_selection(&self, force: bool) {
         let w = self.widgets();
         if !self.skip_loading.get() {
             if let Some((file_row, _)) = w.file_view.selected() {
-                if let Some(current_selection) = self.current_selection.borrow().as_ref() {
-                    if current_selection == &file_row {
-                        // same as current selection, skipping
-                        return;
+                if !force {
+                    if let Some(current_selection) = self.current_selection.borrow().as_ref() {
+                        if current_selection == &file_row {
+                            // same as current selection, skipping
+                            return;
+                        }
                     }
                 }
 

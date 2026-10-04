@@ -373,7 +373,7 @@ impl ObjectImpl for MViewWindowImp {
         file_view.connect_selection_changed(clone!(
             #[weak(rename_to = this)]
             self,
-            move || this.on_selection_changed()
+            move || this.load_selection(false)
         ));
 
         file_view.connect_activate(clone!(
