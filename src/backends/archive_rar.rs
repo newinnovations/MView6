@@ -114,7 +114,7 @@ fn extract_rar(rar_file: &Path, sel: &str) -> UnrarResult<Vec<u8>> {
                 let (bytes, _) = header.read()?;
                 duration.elapsed_suffix(
                     "extract (rar)",
-                    &format!("({})", &human_bytes(bytes.len() as f64)),
+                    &format!("({})", human_bytes(bytes.len() as f64)),
                 );
                 return Ok(bytes);
             } else {

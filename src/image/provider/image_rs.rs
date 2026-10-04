@@ -108,11 +108,6 @@ impl RsImageLoader {
 impl RsImageLoader {
     pub fn dynimg_to_pixbuf(image: DynamicImage) -> MviewResult<Pixbuf> {
         let (width, height) = image.dimensions();
-        let colorspace;
-        let has_alpha;
-        let bits_per_sample;
-        let rowstride;
-
         let image = match image.color() {
             image::ColorType::L8
             | image::ColorType::L16
@@ -127,24 +122,14 @@ impl RsImageLoader {
             _ => image,
         };
 
-        match image.color() {
-            image::ColorType::Rgb8 => {
-                colorspace = gdk_pixbuf::Colorspace::Rgb;
-                has_alpha = false;
-                bits_per_sample = 8;
-                rowstride = 3 * width;
-            }
-            image::ColorType::Rgba8 => {
-                colorspace = gdk_pixbuf::Colorspace::Rgb;
-                has_alpha = true;
-                bits_per_sample = 8;
-                rowstride = 4 * width;
-            }
+        let (colorspace, has_alpha, bits_per_sample, rowstride) = match image.color() {
+            image::ColorType::Rgb8 => (gdk_pixbuf::Colorspace::Rgb, false, 8, 3 * width),
+            image::ColorType::Rgba8 => (gdk_pixbuf::Colorspace::Rgb, true, 8, 4 * width),
             _ => {
                 return mview6_error!(format!("Unsupported color space {:?}", image.color()))
                     .into();
             }
-        }
+        };
         // println!(
         //     "Image.rs {:?} {width}x{height} alpha={has_alpha}",
         //     im.color()
@@ -204,7 +189,12 @@ impl RsImageLoader {
                 .chunks_exact(img_stride)
                 .zip(surface_data.chunks_exact_mut(surface_stride))
             {
-                for (src, dst) in src_row.chunks_exact(3).zip(dst_row.chunks_exact_mut(4)) {
+                for (src, dst) in src_row
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
+                    .zip(dst_row.as_chunks_mut::<4>().0.iter_mut())
+                {
                     dst[0] = src[2]; // B
                     dst[1] = src[1]; // G
                     dst[2] = src[0]; // R

@@ -92,7 +92,12 @@ impl GdkImageLoader {
                     .chunks_exact(pixbuf_stride)
                     .zip(surface_data.chunks_exact_mut(surface_stride))
                 {
-                    for (src, dst) in src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4)) {
+                    for (src, dst) in src_row
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .zip(dst_row.as_chunks_mut::<4>().0.iter_mut())
+                    {
                         convert_rgba_pixel(src, dst);
                     }
                 }
@@ -102,7 +107,12 @@ impl GdkImageLoader {
                     .chunks_exact(pixbuf_stride)
                     .zip(surface_data.chunks_exact_mut(surface_stride))
                 {
-                    for (src, dst) in src_row.chunks_exact(3).zip(dst_row.chunks_exact_mut(4)) {
+                    for (src, dst) in src_row
+                        .as_chunks::<3>()
+                        .0
+                        .iter()
+                        .zip(dst_row.as_chunks_mut::<4>().0.iter_mut())
+                    {
                         dst[0] = src[2];
                         dst[1] = src[1];
                         dst[2] = src[0];

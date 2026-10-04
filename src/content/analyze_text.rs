@@ -95,8 +95,10 @@ fn validate_utf16_le(data: &[u8]) -> bool {
 
     // Convert to u16 and validate
     let u16_data: Vec<u16> = data
-        .chunks_exact(2)
-        .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|chunk| u16::from_le_bytes(*chunk))
         .collect();
 
     // Try to decode as UTF-16
@@ -112,8 +114,10 @@ fn validate_utf16_be(data: &[u8]) -> bool {
     }
 
     let u16_data: Vec<u16> = data
-        .chunks_exact(2)
-        .map(|chunk| u16::from_be_bytes([chunk[0], chunk[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|chunk| u16::from_be_bytes(*chunk))
         .collect();
 
     match String::from_utf16(&u16_data) {

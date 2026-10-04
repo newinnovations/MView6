@@ -130,7 +130,7 @@ fn extract_zip(filename: &Path, index: usize) -> ZipResult<Vec<u8>> {
     let mut file = archive.by_index(index)?;
     let mut buf = Vec::<u8>::new();
     let size = file.read_to_end(&mut buf)?;
-    duration.elapsed_suffix("extract (zip)", &format!("({})", &human_bytes(size as f64)));
+    duration.elapsed_suffix("extract (zip)", &format!("({})", human_bytes(size as f64)));
     Ok(buf)
 }
 

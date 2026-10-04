@@ -201,7 +201,12 @@ pub fn text_thumb(message: TMessage) -> MviewResult<Pixbuf> {
             for y in 0..height as usize {
                 let row = &data[y * stride..y * stride + width as usize * 4];
                 let out_row = &mut rgba[y * width as usize * 4..(y + 1) * width as usize * 4];
-                for (src, dst) in row.chunks_exact(4).zip(out_row.chunks_exact_mut(4)) {
+                for (src, dst) in row
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(out_row.as_chunks_mut::<4>().0.iter_mut())
+                {
                     dst[0] = src[2];
                     dst[1] = src[1];
                     dst[2] = src[0];

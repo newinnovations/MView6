@@ -55,7 +55,7 @@ impl Bookmarks {
             let metadata = match fs::metadata(&entry.folder) {
                 Ok(m) => m,
                 Err(e) => {
-                    println!("{}: Err = {:?}", &entry.folder, e);
+                    println!("{}: Err = {:?}", entry.folder, e);
                     continue;
                 }
             };

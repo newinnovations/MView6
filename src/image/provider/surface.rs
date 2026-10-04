@@ -59,8 +59,11 @@ impl SurfaceData {
                 .chunks_exact(stride)
                 .zip(surface_data.chunks_exact_mut(stride))
             {
-                for (src_pixel, dst_pixel) in
-                    src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4))
+                for (src_pixel, dst_pixel) in src_row
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(dst_row.as_chunks_mut::<4>().0.iter_mut())
                 {
                     convert_rgba_pixel(src_pixel, dst_pixel);
                 }
@@ -83,8 +86,11 @@ impl SurfaceData {
                 .chunks_exact(stride)
                 .zip(surface_data.chunks_exact_mut(stride))
             {
-                for (src_pixel, dst_pixel) in
-                    src_row.chunks_exact(4).zip(dst_row.chunks_exact_mut(4))
+                for (src_pixel, dst_pixel) in src_row
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(dst_row.as_chunks_mut::<4>().0.iter_mut())
                 {
                     convert_bgra_pixel(src_pixel, dst_pixel);
                 }
@@ -160,18 +166,22 @@ impl SurfaceData {
 
                 // Process left image pixels
                 for (src_pixel, dst_pixel) in left_row
-                    .chunks_exact(4)
-                    .zip(surface_row.chunks_exact_mut(4))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .zip(surface_row.as_chunks_mut::<4>().0.iter_mut())
                 {
                     convert_bgra_pixel(src_pixel, dst_pixel);
                 }
 
                 // Process right image pixels
                 let right_start_offset = (left_width * 4) as usize;
-                for (src_pixel, dst_pixel) in right_row
-                    .chunks_exact(4)
-                    .zip(surface_row[right_start_offset..].chunks_exact_mut(4))
-                {
+                for (src_pixel, dst_pixel) in right_row.as_chunks::<4>().0.iter().zip(
+                    surface_row[right_start_offset..]
+                        .as_chunks_mut::<4>()
+                        .0
+                        .iter_mut(),
+                ) {
                     convert_bgra_pixel(src_pixel, dst_pixel);
                 }
             }
@@ -188,7 +198,9 @@ impl SurfaceData {
 
     pub fn from_rgb(width: u32, height: u32, rgb: &[u8]) -> SurfaceData {
         let cairo_data: Vec<u8> = rgb
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255])
             .collect();
         SurfaceData::new(
@@ -217,8 +229,15 @@ impl SurfaceData {
                 let row_end_right = row_start_right + (width_right * 3) as usize;
                 // Combine left row + right row
                 rgb_left[row_start_left..row_end_left]
-                    .chunks_exact(3)
-                    .chain(rgb_right[row_start_right..row_end_right].chunks_exact(3))
+                    .as_chunks::<3>()
+                    .0
+                    .iter()
+                    .chain(
+                        rgb_right[row_start_right..row_end_right]
+                            .as_chunks::<3>()
+                            .0
+                            .iter(),
+                    )
                     .flat_map(|chunk| [chunk[2], chunk[1], chunk[0], 255]) // RGB -> BGRA
             })
             .collect();
