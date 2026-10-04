@@ -88,7 +88,8 @@ pub fn mview_hash(path: &Path, extra: Option<&str>, extension: &str) -> PathBuf 
     if let Some(extra) = extra {
         hasher.update(extra.as_bytes());
     }
-    let sha256sum = format!("{:x}", hasher.finalize());
+    let hash_bytes = hasher.finalize();
+    let sha256sum: String = hash_bytes.iter().map(|b| format!("{:02x}", b)).collect();
     let thumb_filename = format!("{sha256sum}.{extension}");
     if let Some(parent) = path.parent() {
         parent.join(".mview").join(thumb_filename)
