@@ -22,6 +22,7 @@ use gtk4::glib::{
     self, clone, idle_add_local, object::Cast, subclass::types::ObjectSubclassIsExt, ControlFlow,
 };
 use gtk4::{gio, prelude::ListModelExt, SortType};
+use std::path::PathBuf;
 
 use crate::{
     classification::FileClassification,
@@ -50,6 +51,10 @@ impl FileView {
 
     pub fn set_model<P: gtk4::glib::prelude::IsA<gtk4::SelectionModel>>(&self, model: Option<&P>) {
         self.column_view().set_model(model.map(|m| m.as_ref()));
+    }
+
+    pub fn set_drag_directory(&self, directory: Option<PathBuf>) {
+        *self.imp().drag_directory.borrow_mut() = directory;
     }
 
     pub fn sorter(&self) -> Option<gtk4::Sorter> {

@@ -73,6 +73,8 @@ impl MViewWindowImp {
 
         w.set_action_bool("thumb.show", new_backend.is_thumbnail());
 
+        w.file_view
+            .set_drag_directory(new_backend.is_filesystem().then(|| new_backend.path()));
         drop(new_backend);
 
         self.update_layout();

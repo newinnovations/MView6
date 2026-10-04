@@ -18,6 +18,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::cell::{OnceCell, RefCell};
+use std::path::PathBuf;
 
 use crate::file_view;
 use chrono::{
@@ -29,7 +30,7 @@ use glib::subclass::{
     types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
 };
 use gtk4::{
-    glib,
+    gdk, gio, glib,
     prelude::*,
     subclass::{prelude::BoxImpl, widget::WidgetImpl},
     Box as GtkBox, ColumnView, ColumnViewColumn,
@@ -66,6 +67,30 @@ pub struct FileViewImp {
     pub(super) sorters: OnceCell<FileViewSorters>,
     pub(super) sort_model_sorter: OnceCell<gtk4::MultiSorter>,
     pub(super) column_view: OnceCell<ColumnView>,
+    pub(super) drag_directory: RefCell<Option<PathBuf>>,
+}
+
+fn add_file_drag_source(
+    view: &file_view::FileView,
+    list_item: &gtk4::ListItem,
+    child: &impl IsA<gtk4::Widget>,
+) {
+    let source = gtk4::DragSource::new();
+    source.set_actions(gdk::DragAction::COPY);
+    let view = view.downgrade();
+    let list_item = list_item.downgrade();
+    source.connect_prepare(move |_, _, _| {
+        let view = view.upgrade()?;
+        let row = list_item.upgrade()?.item()?.downcast::<FileRow>().ok()?;
+        let directory = view.imp().drag_directory.borrow().clone()?;
+        let path = directory.join(row.name());
+        if !path.exists() {
+            return None;
+        }
+        let files = gdk::FileList::from_array(&[gio::File::for_path(path)]);
+        Some(gdk::ContentProvider::for_value(&files.to_value()))
+    });
+    child.add_controller(source);
 }
 
 #[glib::object_subclass]
@@ -182,12 +207,16 @@ impl ObjectImpl for FileViewImp {
 
         // Column for category (FileType)
         let factory_category = gtk4::SignalListItemFactory::new();
-        factory_category.connect_setup(|_, list_item| {
+        let view = instance.downgrade();
+        factory_category.connect_setup(move |_, list_item| {
             let list_item = list_item.downcast_ref::<gtk4::ListItem>().unwrap();
             list_item.set_activatable(true);
             let image = gtk4::Image::builder()
                 .icon_size(gtk4::IconSize::Normal)
                 .build();
+            if let Some(view) = view.upgrade() {
+                add_file_drag_source(&view, list_item, &image);
+            }
             list_item.set_child(Some(&image));
         });
         factory_category.connect_bind(|_, list_item| {
@@ -224,7 +253,8 @@ impl ObjectImpl for FileViewImp {
 
         // Column for file/directory name
         let factory_name = gtk4::SignalListItemFactory::new();
-        factory_name.connect_setup(|_, list_item| {
+        let view = instance.downgrade();
+        factory_name.connect_setup(move |_, list_item| {
             let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
                 return;
             };
@@ -239,6 +269,9 @@ impl ObjectImpl for FileViewImp {
             let label = gtk4::Label::builder().halign(gtk4::Align::Start).build();
             box_widget.append(&image);
             box_widget.append(&label);
+            if let Some(view) = view.upgrade() {
+                add_file_drag_source(&view, list_item, &box_widget);
+            }
             list_item.set_child(Some(&box_widget));
         });
         factory_name.connect_bind(|_, list_item| {
@@ -308,12 +341,16 @@ impl ObjectImpl for FileViewImp {
 
         // Column for size
         let factory_size = gtk4::SignalListItemFactory::new();
-        factory_size.connect_setup(|_, list_item| {
+        let view = instance.downgrade();
+        factory_size.connect_setup(move |_, list_item| {
             let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
                 return;
             };
             list_item.set_activatable(true);
             let label = gtk4::Label::builder().halign(gtk4::Align::End).build();
+            if let Some(view) = view.upgrade() {
+                add_file_drag_source(&view, list_item, &label);
+            }
             list_item.set_child(Some(&label));
         });
         factory_size.connect_bind(|_, list_item| {
@@ -351,12 +388,16 @@ impl ObjectImpl for FileViewImp {
 
         // Column for modified date
         let factory_date = gtk4::SignalListItemFactory::new();
-        factory_date.connect_setup(|_, list_item| {
+        let view = instance.downgrade();
+        factory_date.connect_setup(move |_, list_item| {
             let Some(list_item) = list_item.downcast_ref::<gtk4::ListItem>() else {
                 return;
             };
             list_item.set_activatable(true);
             let label = gtk4::Label::builder().halign(gtk4::Align::Start).build();
+            if let Some(view) = view.upgrade() {
+                add_file_drag_source(&view, list_item, &label);
+            }
             list_item.set_child(Some(&label));
         });
         factory_date.connect_bind(|_, list_item| {

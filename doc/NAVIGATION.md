@@ -29,6 +29,8 @@ Press `h` to show help inside the app. Press `h` again to switch to the second h
 
 The Filter determines which files you can select using keyboard navigation. To temporarily bypass the filter, hold `Shift` while navigating. For advanced filter control, press `Shift + F`.
 
+Drag a file or folder from the file list onto another application to copy it there. Dragging is available for filesystem entries, not items inside archives, documents, thumbnails, or bookmarks.
+
 ### Modifier keys
 
 The move keys above (except `a`, `s`, `w`, `e`, `enter`, and `backspace`) can be combined with modifiers:
