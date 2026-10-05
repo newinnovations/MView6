@@ -43,9 +43,12 @@ use crate::{
 };
 use cairo::{Context, Extend, FillRule, ImageSurface, SurfacePattern};
 use gio::prelude::StaticType;
-use glib::{clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId};
+use glib::{
+    clone, object::ObjectExt, prelude::ToValue, subclass::Signal, ControlFlow, Propagation,
+    SourceId,
+};
 use gtk4::{
-    gdk::ModifierType,
+    gdk::{self, ModifierType},
     prelude::{DrawingAreaExtManual, EventControllerExt, GestureSingleExt, WidgetExt},
     subclass::prelude::*,
     EventControllerMotion, EventControllerScroll, EventControllerScrollFlags,
@@ -256,13 +259,18 @@ impl ImageViewImp {
         }
     }
 
-    fn button_press_event(&self, position: PointD, n_press: i32) {
+    fn button_press_event(&self, position: PointD, n_press: i32, modifier: ModifierType) {
         let mut p = self.data.borrow_mut();
         if n_press == 1 {
+            let drag_to_external = modifier.contains(ModifierType::CONTROL_MASK)
+                && p.content.path.as_ref().is_some_and(|path| path.exists());
             if self.measure_tool.is_tracking() {
                 self.measure_tool
                     .set_point(p.zoom.screen_to_image(&position));
                 p.redraw(RedrawReason::Measurement);
+            } else if drag_to_external {
+                // Let the DragSource controller handle a control-drag to an external application
+                // instead of starting an internal pan.
             } else if p.drag.is_none() && p.content.is_movable() {
                 p.drag = Some(position - p.zoom.origin());
                 self.obj().set_view_cursor(ViewCursor::Drag);
@@ -402,7 +410,10 @@ impl ObjectImpl for ImageViewImp {
         gesture_click.connect_pressed(clone!(
             #[weak(rename_to = this)]
             self,
-            move |_, n_press, x, y| this.button_press_event(PointD::new(x, y), n_press)
+            move |controller, n_press, x, y| {
+                let modifier = controller.current_event_state();
+                this.button_press_event(PointD::new(x, y), n_press, modifier)
+            }
         ));
         gesture_click.connect_released(clone!(
             #[weak(rename_to = this)]
@@ -410,9 +421,42 @@ impl ObjectImpl for ImageViewImp {
             move |_, _n_press, _x, _y| this.button_release_event()
         ));
 
+        let drag_source = gtk4::DragSource::new();
+        drag_source.set_actions(gdk::DragAction::COPY);
+        drag_source.connect_prepare(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[upgrade_or]
+            None,
+            move |source, _x, _y| {
+                if !source
+                    .current_event_state()
+                    .contains(ModifierType::CONTROL_MASK)
+                {
+                    return None;
+                }
+                let path = this.data.borrow().content.path.clone()?;
+                if !path.exists() {
+                    return None;
+                }
+                let files = gdk::FileList::from_array(&[gio::File::for_path(path)]);
+                Some(gdk::ContentProvider::for_value(&files.to_value()))
+            }
+        ));
+        drag_source.connect_drag_begin(clone!(
+            #[weak(rename_to = this)]
+            self,
+            move |_, _| {
+                let mut p = this.data.borrow_mut();
+                p.drag = None;
+                this.obj().set_view_cursor(ViewCursor::Normal);
+            }
+        ));
+
         view.add_controller(motion_controller);
         view.add_controller(scroll_controller);
         view.add_controller(gesture_click);
+        view.add_controller(drag_source);
     }
 }
 
