@@ -62,11 +62,12 @@ use crate::{
 };
 use glib::{clone, closure_local, idle_add_local, property::PropertySet, ControlFlow, SourceId};
 use gtk4::{
-    gdk::{Clipboard, Display},
+    gdk,
+    gdk::{Clipboard, Display, FileList},
     glib::Propagation,
     prelude::*,
     subclass::prelude::*,
-    Button, EventControllerKey, HeaderBar, MenuButton, ScrolledWindow,
+    Button, DropTarget, EventControllerKey, HeaderBar, MenuButton, ScrolledWindow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -317,6 +318,36 @@ impl ObjectImpl for MViewWindowImp {
             }
         ));
         self.obj().add_controller(key_controller);
+
+        // Accept files/folders dropped anywhere on the window and navigate to them
+        let drop_target = DropTarget::new(FileList::static_type(), gdk::DragAction::COPY);
+        drop_target.connect_drop(clone!(
+            #[weak(rename_to = this)]
+            self,
+            #[upgrade_or]
+            false,
+            move |_, value, _x, _y| {
+                if let Ok(file_list) = value.get::<FileList>() {
+                    if let Some(file) = file_list.files().into_iter().next() {
+                        if let Some(path) = file.path() {
+                            match fs::canonicalize(&path) {
+                                Ok(abs_path) => this.open_file(&abs_path),
+                                Err(e) => {
+                                    error_dialog(
+                                        &*this.obj(),
+                                        "Failed to open file",
+                                        &format!("Could not open: {}\n\n{e}", path.display()),
+                                    );
+                                }
+                            }
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+        ));
+        self.obj().add_controller(drop_target);
 
         let gesture_click = gtk4::GestureClick::new();
         gesture_click.set_button(1);
