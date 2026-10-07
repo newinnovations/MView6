@@ -44,8 +44,7 @@ use crate::{
 use cairo::{Context, Extend, FillRule, ImageSurface, SurfacePattern};
 use gio::prelude::StaticType;
 use glib::{
-    clone, object::ObjectExt, prelude::ToValue, subclass::Signal, ControlFlow, Propagation,
-    SourceId,
+    clone, object::ObjectExt, subclass::Signal, ControlFlow, Propagation, SourceId,
 };
 use gtk4::{
     gdk::{self, ModifierType},
@@ -439,8 +438,7 @@ impl ObjectImpl for ImageViewImp {
                 if !path.exists() {
                     return None;
                 }
-                let files = gdk::FileList::from_array(&[gio::File::for_path(path)]);
-                Some(gdk::ContentProvider::for_value(&files.to_value()))
+                Some(crate::util::file_drag_content_provider(&[path]))
             }
         ));
         drag_source.connect_drag_begin(clone!(

@@ -27,6 +27,7 @@ use glib::{
 };
 use gtk4::{
     gdk::{self, prelude::TextureExt},
+    gio,
     prelude::{BoxExt, ButtonExt, GtkWindowExt, WidgetExt},
     Orientation, Window,
 };
@@ -78,6 +79,67 @@ pub fn ellipsis_middle(s: &str, max_len: usize) -> String {
     let end: String = s.chars().skip(s.chars().count() - end_len).collect();
 
     format!("{}...{}", start, end)
+}
+
+/// Builds a drag-and-drop content provider offering the given file paths.
+///
+/// On Windows, GDK's Win32 backend does not implement the conversion from
+/// `text/uri-list` (the mime type behind [`gdk::FileList`]) to the native
+/// "Shell IDList Array" format. As a result, a plain `gdk::FileList`
+/// provider never reaches non-GTK drop targets such as Windows Explorer.
+///
+/// As a fallback, we additionally offer the raw Win32 `CF_HDROP` clipboard
+/// format: GDK passes through mime types named `application/x.windows.<FORMAT>`
+/// verbatim (see `gdk/win32/gdkdrag-win32.c`), so native applications receive
+/// an actual `CF_HDROP` they understand. On other platforms this fallback is
+/// a no-op and only the standard `gdk::FileList` provider is used.
+pub fn file_drag_content_provider(paths: &[PathBuf]) -> gdk::ContentProvider {
+    use glib::value::ToValue;
+
+    let files: Vec<_> = paths.iter().map(gio::File::for_path).collect();
+    let file_list = gdk::FileList::from_array(&files);
+    let file_list_provider = gdk::ContentProvider::for_value(&file_list.to_value());
+
+    #[cfg(windows)]
+    {
+        let hdrop_bytes = windows_hdrop_bytes(paths);
+        let hdrop_provider =
+            gdk::ContentProvider::for_bytes("application/x.windows.CF_HDROP", &hdrop_bytes);
+        gdk::ContentProvider::new_union(&[file_list_provider, hdrop_provider])
+    }
+
+    #[cfg(not(windows))]
+    {
+        file_list_provider
+    }
+}
+
+/// Encodes `paths` as a Win32 `CF_HDROP` clipboard payload: a `DROPFILES`
+/// header followed by the UTF-16, double-NUL-terminated list of file paths.
+/// This is the exact byte layout native Windows drop targets (e.g. Explorer)
+/// expect to find behind the `CF_HDROP` clipboard format.
+#[cfg(windows)]
+fn windows_hdrop_bytes(paths: &[PathBuf]) -> glib::Bytes {
+    use std::os::windows::ffi::OsStrExt;
+
+    const DROPFILES_SIZE: u32 = 20; // sizeof(DROPFILES) in the Win32 SDK
+
+    let mut buffer = Vec::<u8>::new();
+    buffer.extend_from_slice(&DROPFILES_SIZE.to_le_bytes()); // pFiles: offset to file list
+    buffer.extend_from_slice(&0i32.to_le_bytes()); // pt.x
+    buffer.extend_from_slice(&0i32.to_le_bytes()); // pt.y
+    buffer.extend_from_slice(&0i32.to_le_bytes()); // fNC
+    buffer.extend_from_slice(&1i32.to_le_bytes()); // fWide (TRUE): file names are UTF-16
+
+    for path in paths {
+        for unit in path.as_os_str().encode_wide() {
+            buffer.extend_from_slice(&unit.to_le_bytes());
+        }
+        buffer.extend_from_slice(&0u16.to_le_bytes()); // NUL-terminate this entry
+    }
+    buffer.extend_from_slice(&0u16.to_le_bytes()); // extra NUL terminates the whole list
+
+    glib::Bytes::from_owned(buffer)
 }
 
 pub fn mview_hash(path: &Path, extra: Option<&str>, extension: &str) -> PathBuf {

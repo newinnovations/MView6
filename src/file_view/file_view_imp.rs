@@ -30,7 +30,7 @@ use glib::subclass::{
     types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
 };
 use gtk4::{
-    gdk, gio, glib,
+    gdk, glib,
     prelude::*,
     subclass::{prelude::BoxImpl, widget::WidgetImpl},
     Box as GtkBox, ColumnView, ColumnViewColumn,
@@ -87,8 +87,7 @@ fn add_file_drag_source(
         if !path.exists() {
             return None;
         }
-        let files = gdk::FileList::from_array(&[gio::File::for_path(path)]);
-        Some(gdk::ContentProvider::for_value(&files.to_value()))
+        Some(crate::util::file_drag_content_provider(&[path]))
     });
     child.add_controller(source);
 }
